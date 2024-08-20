@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administration - Eduque moi</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            margin-top: 10px;
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px;
+            border: none;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #promptList {
+            margin-top: 20px;
+        }
+        .prompt-item {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+        .prompt-item button {
+            margin-right: 5px;
+            padding: 5px 10px;
+            font-size: 0.8em;
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Administration - Eduque moi</h1>
+        <form id="promptForm">
+            <label for="promptTitle">Titre du prompt :</label>
+            <input type="text" id="promptTitle" required>
+            
+            <label for="promptContent">Contenu du prompt :</label>
+            <textarea id="promptContent" rows="4" required></textarea>
+            
+            <label for="promptCategory">Catégorie :</label>
+            <input type="text" id="promptCategory" required>
+            
+            <button type="submit">Ajouter le prompt</button>
+        </form>
+        <div id="error" class="error"></div>
+        <div id="promptList"></div>
+    </div>
+
+    <script>
+        // Configuration Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyCvizcYorGDPN3GXqma0opp7wAiMkaCt64",
+            authDomain: "gemini-bb56e.firebaseapp.com",
+            databaseURL: "https://gemini-bb56e-default-rtdb.firebaseio.com",
+            projectId: "gemini-bb56e",
+            storageBucket: "gemini-bb56e.appspot.com",
+            messagingSenderId: "277143630015",
+            appId: "1:277143630015:web:78736f2cf52d29495d160a",
+            measurementId: "G-CSN292219J"
+        };
+
+        // Initialiser Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // Référence à la liste des prompts dans Firebase
+        const promptsRef = database.ref('prompts');
+
+        // Fonction pour ajouter un nouveau prompt
+        function addPrompt(event) {
+            event.preventDefault();
+            const title = document.getElementById('promptTitle').value;
+            const content = document.getElementById('promptContent').value;
+            const category = document.getElementById('promptCategory').value;
+
+            promptsRef.push({
+                title: title,
+                content: content,
+                category: category,
+                createdAt: firebase.database.ServerValue.TIMESTAMP
+            }).then(() => {
+                document.getElementById('promptForm').reset();
+                document.getElementById('error').textContent = '';
+            }).catch(error => {
+                document.getElementById('error').textContent = `Erreur : ${error.message}`;
+            });
+        }
+
+        // Fonction pour afficher les prompts
+        function displayPrompts(snapshots) {
+            const promptList = document.getElementById('promptList');
+            promptList.innerHTML = '';
+            snapshots.forEach(snapshot => {
+                const prompt = snapshot.val();
+                const promptDiv = document.createElement('div');
+                promptDiv.className = 'prompt-item';
+                promptDiv.innerHTML = `
+                    <h3>${prompt.title}</h3>
+                    <p><strong>Catégorie :</strong> ${prompt.category}</p>
+                    <p>${prompt.content}</p>
+                    <button onclick="editPrompt('${snapshot.key}')">Modifier</button>
+                    <button onclick="deletePrompt('${snapshot.key}')">Supprimer</button>
+                `;
+                promptList.appendChild(promptDiv);
+            });
+        }
+
+        // Fonction pour modifier un prompt
+        function editPrompt(key) {
+            promptsRef.child(key).once('value').then(snapshot => {
+                const prompt = snapshot.val();
+                document.getElementById('promptTitle').value = prompt.title;
+                document.getElementById('promptContent').value = prompt.content;
+                document.getElementById('promptCategory').value = prompt.category;
+                
+                const form = document.getElementById('promptForm');
+                form.onsubmit = (e) => {
+                    e.preventDefault();
+                    const updates = {
+                        title: document.getElementById('promptTitle').value,
+                        content: document.getElementById('promptContent').value,
+                        category: document.getElementById('promptCategory').value,
+                        updatedAt: firebase.database.ServerValue.TIMESTAMP
+                    };
+                    promptsRef.child(key).update(updates).then(() => {
+                        form.reset();
+                        form.onsubmit = addPrompt;
+                    });
+                };
+            });
+        }
+
+        // Fonction pour supprimer un prompt
+        function deletePrompt(key) {
+            if (confirm('Êtes-vous sûr de vouloir supprimer ce prompt ?')) {
+                promptsRef.child(key).remove();
+            }
+        }
+
+        // Écouter les changements dans la liste des prompts
+        promptsRef.on('value', displayPrompts);
+
+        // Ajouter un écouteur d'événement au formulaire
+        document.getElementById('promptForm').addEventListener('submit', addPrompt);
+    </script>
+</body>
+</html>

@@ -27,6 +27,15 @@ const db = firebase.database();
 let prompts = {};
 let pinnedPrompt = null;
 
+// Nouvelle fonction pour initialiser une discussion
+function initializeNewDiscussion() {
+    currentConversation = [];
+    const messageContainer = document.getElementById('messageContainer');
+    messageContainer.innerHTML = '';
+    addMessageToChat('ai', 'Bienvenue dans une nouvelle conversation ! Comment puis-je vous aider aujourd\'hui ?');
+    updateConversationHistory();
+}
+
 function showLoginModal() {
     document.getElementById('loginModal').style.display = 'block';
 }
@@ -892,6 +901,7 @@ function removePinnedPrompt() {
     updatePinnedPromptDisplay();
 }
 
+// Mise à jour de la fonction window.onload
 window.onload = async function() {
     await attemptAutoLogin();
     
@@ -909,6 +919,27 @@ window.onload = async function() {
     document.body.setAttribute('data-theme', savedTheme);
     updateThemeIcon(savedTheme);
 
+    // Configuration de l'interface utilisateur
+    setupUIEventListeners();
+
+    if (currentUser) {
+        loadConversationHistory();
+    }
+
+    initModals();
+
+    loadSelectedModel();
+    document.getElementById('modelSelect').addEventListener('change', saveSelectedModel);
+
+    restoreAppState();
+
+    // Initialiser une nouvelle discussion
+    initializeNewDiscussion();
+
+    document.body.classList.add('loaded');
+};
+// Fonction pour configurer les écouteurs d'événements de l'interface utilisateur
+function setupUIEventListeners() {
     const inputContainer = document.querySelector('.input-container');
     const userInput = document.getElementById('userInput');
     const fileLabel = document.querySelector('.file-label');
@@ -952,20 +983,7 @@ window.onload = async function() {
             }
         });
     }
-
-    if (currentUser) {
-        loadConversationHistory();
-    }
-
-    initModals();
-
-    loadSelectedModel();
-    document.getElementById('modelSelect').addEventListener('change', saveSelectedModel);
-
-    restoreAppState();
-
-    document.body.classList.add('loaded');
-};
+}
 
 function initModals() {
     const modals = document.querySelectorAll('.modal');
