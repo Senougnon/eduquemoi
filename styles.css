@@ -14,19 +14,41 @@
 }
 
 [data-theme="dark"] {
-    --primary-color: #6c5ce7;
-    --secondary-color: #00b894;
-    --background-color: #2d3436;
-    --text-color: #ecf0f1;
-    --input-background: #34495e;
-    --button-color: #6c5ce7;
-    --hover-color: #5b4cc4;
-    --sidebar-color: #2c3e50;
-    --sidebar-text: #ecf0f1;
-    --input-area-color: #3d4852;
-    --user-message-color: #3949ab;
-    --ai-message-color: #1b5e20;
+    --primary-color: #ffffff;
+    --secondary-color: #d3d3d3;
+    --background-color: #080808;
+    --text-color: #ffffff;
+    --input-background: #1d1d1d;
+    --button-color: #ffffff;
+    --hover-color: #f0f0f0;
+    --sidebar-color: #101010;
+    --sidebar-text: #ffffff;
+    --input-area-color: #1a1a1a;
+    --user-message-color: #282828;
+    --ai-message-color: #303030;
 }
+[data-theme="dark"] .header {
+    background-color: #ffffff;
+    color: #000000;
+    border-bottom: 2px solid #333333;
+}
+
+[data-theme="dark"] .header .logo {
+    color: #000000;
+}
+
+[data-theme="dark"] .header .auth-buttons button,
+[data-theme="dark"] .header .theme-toggle {
+    background-color: #000000;
+    color: #ffffff;
+}
+
+[data-theme="dark"] .header .auth-buttons button:hover,
+[data-theme="dark"] .header .theme-toggle:hover {
+    background-color: #333333;
+}
+
+
 
 body, html {
     font-family: 'Poppins', sans-serif;
@@ -63,7 +85,7 @@ body, html {
 .toggle-sidebar {
     background: none;
     border: none;
-    color: white;
+    color: rgb(0, 0, 0);
     font-size: 1.2em;
     cursor: pointer;
     margin-right: 10px;
@@ -354,7 +376,7 @@ button:hover {
     width: 100%;
     padding: 10px;
     background-color: var(--button-color);
-    color: white;
+    color: rgb(0, 0, 0);
     border: none;
     border-radius: 5px;
     cursor: pointer;
