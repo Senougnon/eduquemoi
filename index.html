@@ -95,20 +95,16 @@
             <div id="fileSupport" class="file-support hidden">
                 <div id="pinnedFile" class="pinned-file"></div>
                 <div id="fileContent" class="file-content"></div>
+                <div id="ocrResult" class="ocr-result hidden"></div>
             </div>
             <div class="input-container">
-                <div id="pinnedPrompt" class="pinned-prompt"></div>
+                <div id="pinnedPrompt" class="pinned-prompt">
+                </div>
                 <textarea id="userInput" placeholder="Tapez votre message ici..." rows="1"></textarea>
-                <label for="fileInput" class="file-label">
-                    <i class="fas fa-paperclip"></i>
-                </label>
-                <input type="file" id="fileInput" class="file-input" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.txt" onchange="handleFileUpload(event)">
-               <button id="promptListButton" onclick="togglePromptList()">
-                   <i class="fas fa-list"></i>
-                </button>
-                <button onclick="sendMessage()">
-                    <i class="fas fa-paper-plane"></i>
-                </button>
+                <input type="file" id="fileInput" class="file-input" accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileUpload(event)">
+                <label for="fileInput" class="file-label"><i class="fas fa-paperclip"></i></label>
+                <button id="promptListButton" onclick="togglePromptList()"><i class="fas fa-list"></i></button>
+                <button onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
             </div>
         </div>
     </div>

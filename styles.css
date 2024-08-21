@@ -799,3 +799,16 @@ button:hover {
         break-inside: avoid;
     }
 }
+.ocr-result {
+    background-color: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 10px;
+    margin-top: 10px;
+    font-size: 0.9em;
+    color: #666;
+}
+
+.ocr-result.hidden {
+    display: none;
+}

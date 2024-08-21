@@ -442,14 +442,30 @@ async function handleFileUpload(event) {
     const file = event.target.files[0];
     if (file) {
         let content = '';
+        const ocrResultElement = document.getElementById('ocrResult');
+        ocrResultElement.classList.add('hidden');
+
         if (file.type === 'application/pdf') {
-            content = await loadPDF(file);
+            try {
+                content = await loadPDF(file);
+                if (content.trim() === '') {
+                    content = await performOCR(file);
+                    ocrResultElement.textContent = "OCR utilisé pour extraire le texte du PDF.";
+                    ocrResultElement.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Erreur lors de la lecture du PDF:', error);
+                content = await performOCR(file);
+                ocrResultElement.textContent = "OCR utilisé pour extraire le texte du PDF.";
+                ocrResultElement.classList.remove('hidden');
+            }
+        } else if (file.type.startsWith('image/')) {
+            content = await performOCR(file);
+            ocrResultElement.textContent = "OCR utilisé pour extraire le texte de l'image.";
+            ocrResultElement.classList.remove('hidden');
         } else {
-            const reader = new FileReader();
-            content = await new Promise((resolve) => {
-                reader.onload = (e) => resolve(e.target.result);
-                reader.readAsText(file);
-            });
+            showNotification("Type de fichier non pris en charge.", 'error');
+            return;
         }
 
         pinnedFile = {
@@ -468,6 +484,36 @@ async function handleFileUpload(event) {
         fileContentElement.textContent = content.substring(0, 500) + (content.length > 500 ? '...' : '');
         
         fileSupport.classList.remove('hidden');
+    }
+}
+
+async function performOCR(file) {
+    const apiKey = 'K84184304788957'; // Remplacez par votre clé API réelle
+    const apiUrl = 'https://api.ocr.space/parse/image';
+
+    const formData = new FormData();
+    formData.append('apikey', apiKey);
+    formData.append('language', 'eng'); // Vous pouvez ajuster la langue si nécessaire
+    formData.append('isOverlayRequired', 'false');
+    formData.append('file', file);
+
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (data.ParsedResults && data.ParsedResults.length > 0) {
+            return data.ParsedResults[0].ParsedText;
+        } else {
+            throw new Error('Échec de l\'extraction du texte');
+        }
+    } catch (error) {
+        console.error('Erreur lors de l\'OCR:', error);
+        showNotification("Erreur lors de l'analyse OCR. Veuillez réessayer.", 'error');
+        return '';
     }
 }
 
@@ -825,7 +871,7 @@ function togglePromptList() {
     const modal = document.getElementById('promptListModal');
     modal.style.display = "block";
     loadPromptCategories();
-    showNotification('Liste des prompts affichée', 'success');
+
 }
 
 function loadPromptCategories() {
