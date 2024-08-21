@@ -8,6 +8,7 @@ const FREE_CREDITS_PER_DAY = 10;
 const FREE_MODEL_MAX_WORDS = 50;
 const FREE_MODEL_MAX_RESPONSE = 100;
 
+
 // Configuration Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyCvizcYorGDPN3GXqma0opp7wAiMkaCt64",
@@ -438,31 +439,116 @@ async function loadPDF(file) {
     return fullText;
 }
 
+async function reduceFileSize(file, maxSizeInMB) {
+    if (file.type.startsWith('image/')) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    let quality = 0.7;
+                    const maxSize = maxSizeInMB * 1024 * 1024;
+
+                    // Réduire progressivement la qualité et la taille jusqu'à ce que le fichier soit assez petit
+                    while (true) {
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        const dataUrl = canvas.toDataURL(file.type, quality);
+                        const blobBin = atob(dataUrl.split(',')[1]);
+                        const array = [];
+                        for (let i = 0; i < blobBin.length; i++) {
+                            array.push(blobBin.charCodeAt(i));
+                        }
+                        const newFile = new Blob([new Uint8Array(array)], {type: file.type});
+                        
+                        if (newFile.size <= maxSize) {
+                            resolve(newFile);
+                            break;
+                        }
+                        
+                        quality *= 0.9;
+                        width *= 0.9;
+                        height *= 0.9;
+                        
+                        if (quality < 0.1 || width < 100 || height < 100) {
+                            console.warn("Impossible de réduire suffisamment la taille de l'image");
+                            resolve(file);
+                            break;
+                        }
+                    }
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    } else if (file.type === 'application/pdf') {
+        // Pour les PDF, nous ne pouvons pas facilement réduire la taille
+        // Nous retournons simplement le fichier original
+        console.warn("La réduction de taille n'est pas prise en charge pour les PDF");
+        return file;
+    } else {
+        return file;
+    }
+}
+
 async function handleFileUpload(event) {
     const file = event.target.files[0];
     if (file) {
         let content = '';
         const ocrResultElement = document.getElementById('ocrResult');
-        ocrResultElement.classList.add('hidden');
+        
+        if (ocrResultElement) {
+            ocrResultElement.classList.add('hidden');
+            ocrResultElement.textContent = '';
+        }
 
-        if (file.type === 'application/pdf') {
+        // Vérifier la taille du fichier
+        const fileSizeInMB = file.size / (1024 * 1024);
+        let processedFile = file;
+        if (fileSizeInMB > 1) {
+            processedFile = await reduceFileSize(file, 1);
+        }
+
+        if (processedFile.type === 'application/pdf') {
             try {
-                content = await loadPDF(file);
-                if (content.trim() === '') {
-                    content = await performOCR(file);
-                    ocrResultElement.textContent = "OCR utilisé pour extraire le texte du PDF.";
-                    ocrResultElement.classList.remove('hidden');
+                const pdf = await pdfjsLib.getDocument(await processedFile.arrayBuffer()).promise;
+                const numPages = pdf.numPages;
+
+                if (numPages > 3) {
+                    content = await loadPDF(processedFile);
+                    if (ocrResultElement) {
+                        ocrResultElement.textContent = "Le PDF a plus de 3 pages. Utilisation du lecteur PDF standard.";
+                        ocrResultElement.classList.remove('hidden');
+                    }
+                } else {
+                    content = await loadPDF(processedFile);
+                    if (content.trim() === '') {
+                        content = await performOCR(processedFile);
+                        if (ocrResultElement) {
+                            ocrResultElement.textContent = "OCR utilisé pour extraire le texte du PDF.";
+                            ocrResultElement.classList.remove('hidden');
+                        }
+                    }
                 }
             } catch (error) {
                 console.error('Erreur lors de la lecture du PDF:', error);
-                content = await performOCR(file);
-                ocrResultElement.textContent = "OCR utilisé pour extraire le texte du PDF.";
+                content = await performOCR(processedFile);
+                if (ocrResultElement) {
+                    ocrResultElement.textContent = "OCR utilisé pour extraire le texte du PDF.";
+                    ocrResultElement.classList.remove('hidden');
+                }
+            }
+        } else if (processedFile.type.startsWith('image/')) {
+            content = await performOCR(processedFile);
+            if (ocrResultElement) {
+                ocrResultElement.textContent = "OCR utilisé pour extraire le texte de l'image.";
                 ocrResultElement.classList.remove('hidden');
             }
-        } else if (file.type.startsWith('image/')) {
-            content = await performOCR(file);
-            ocrResultElement.textContent = "OCR utilisé pour extraire le texte de l'image.";
-            ocrResultElement.classList.remove('hidden');
         } else {
             showNotification("Type de fichier non pris en charge.", 'error');
             return;
