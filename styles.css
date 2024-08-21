@@ -812,3 +812,166 @@ button:hover {
 .ocr-result.hidden {
     display: none;
 }
+
+/* Les variables root et data-theme restent inchangées */
+
+/* Ajout de styles pour la date d'expiration de l'abonnement */
+#subscriptionEndDate {
+    font-weight: bold;
+    color: var(--secondary-color);
+}
+
+/* Mise à jour des styles pour le pinned prompt */
+.pinned-prompt {
+    background-color: var(--input-background);
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.pinned-prompt span {
+    flex-grow: 1;
+    margin-right: 10px;
+    font-style: italic;
+}
+
+.pinned-prompt button {
+    background: none;
+    border: none;
+    color: var(--text-color);
+    cursor: pointer;
+    font-size: 1.2em;
+    padding: 5px;
+}
+
+.pinned-prompt button:hover {
+    color: var(--hover-color);
+}
+
+/* Styles pour la modal des prompts */
+#promptListModal .modal-content {
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+#promptCategories, #promptList {
+    margin-top: 20px;
+}
+
+.prompt-category, .prompt-item {
+    padding: 10px;
+    margin: 5px 0;
+    cursor: pointer;
+    background-color: var(--input-background);
+    border-radius: 5px;
+    transition: background-color 0.3s ease;
+}
+
+.prompt-category:hover, .prompt-item:hover {
+    background-color: var(--hover-color);
+}
+
+/* Styles pour le bouton de la liste des prompts */
+#promptListButton {
+    background: none;
+    border: none;
+    color: var(--button-color);
+    cursor: pointer;
+    font-size: 1.2em;
+    padding: 5px;
+    transition: color 0.3s ease;
+}
+
+#promptListButton:hover {
+    color: var(--hover-color);
+}
+
+/* Mise à jour des styles pour les notifications */
+.notification {
+    position: fixed;
+    top: 40px;
+    right: 20px;
+    padding: 10px 20px;
+    border-radius: 5px;
+    color: white;
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 1000;
+    max-width: 300px;
+    word-wrap: break-word;
+}
+
+.notification.show {
+    opacity: 1;
+}
+
+.notification.success {
+    background-color: var(--secondary-color);
+}
+
+.notification.error {
+    background-color: #e74c3c;
+}
+
+.notification.warning {
+    background-color: #f39c12;
+}
+
+.notification.info {
+    background-color: var(--primary-color);
+}
+
+/* Styles pour le bouton d'upgrade */
+.upgrade-button {
+    background-color: var(--secondary-color);
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: background-color 0.3s ease;
+}
+
+.upgrade-button:hover {
+    background-color: var(--hover-color);
+}
+
+/* Les autres styles restent inchangés */
+
+/* Ajustements pour l'impression */
+@media print {
+    .sidebar, .input-container, .auth-buttons, .theme-toggle, .pinned-prompt, #promptListButton {
+        display: none;
+    }
+
+    .chat-container {
+        margin-left: 0;
+    }
+
+    .message {
+        break-inside: avoid;
+    }
+
+    .user-info-card {
+        page-break-inside: avoid;
+    }
+}
+
+/* Styles pour l'accessibilité */
+.screen-reader-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}

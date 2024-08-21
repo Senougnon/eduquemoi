@@ -4,10 +4,11 @@ let currentUser = null;
 let pinnedFile = null;
 let currentConversation = [];
 let conversations = {};
+let tourStep = 0;
+let tourActive = false;
 const FREE_CREDITS_PER_DAY = 10;
 const FREE_MODEL_MAX_WORDS = 50;
 const FREE_MODEL_MAX_RESPONSE = 100;
-
 
 // Configuration Firebase
 const firebaseConfig = {
@@ -28,7 +29,7 @@ const db = firebase.database();
 let prompts = {};
 let pinnedPrompt = null;
 
-// Nouvelle fonction pour initialiser une discussion
+// Fonction pour initialiser une nouvelle discussion
 function initializeNewDiscussion() {
     currentConversation = [];
     const messageContainer = document.getElementById('messageContainer');
@@ -220,34 +221,28 @@ async function sendMessage() {
     let displayMessage = userInput;
     let fullMessage = userInput;
 
-    // Gestion du fichier épinglé
     if (pinnedFile) {
         fullMessage = `[Contenu du fichier joint: ${pinnedFile.content}]\n\n${fullMessage}`;
         displayMessage = `[Fichier joint: ${pinnedFile.name}]\n\n${displayMessage}`;
     }
 
-    // Gestion du prompt épinglé
     if (pinnedPrompt) {
         fullMessage = `${pinnedPrompt.content}\n\n${fullMessage}`;
         displayMessage = `[Prompt: ${pinnedPrompt.title}]\n\n${displayMessage}`;
     }
 
-    // Affichage du message de l'utilisateur dans le chat
     addMessageToChat('user', displayMessage);
     document.getElementById('userInput').value = '';
 
     try {
-        // Préparation du contexte de la conversation
         const conversationContext = currentConversation.map(msg => msg.content).join('\n');
         
-        // Envoi de la requête à l'API
         const response = await axios.post(`${API_BASE_URL}${model}:generateContent?key=${API_KEY}`, {
             contents: [{ parts: [{ text: conversationContext + '\n' + fullMessage }] }]
         });
 
         let aiResponse = response.data.candidates[0].content.parts[0].text;
 
-        // Traitement de la réponse en fonction du modèle
         let messageElement;
         if (model === 'gemini-1.0-pro') {
             const words = aiResponse.split(/\s+/);
@@ -263,7 +258,6 @@ async function sendMessage() {
             messageElement = addMessageToChat('ai', aiResponse);
         }
 
-        // Mise à jour des crédits et nettoyage
         await updateCredits(model);
         removePinnedFile();
         removePinnedPrompt();
@@ -452,7 +446,6 @@ async function reduceFileSize(file, maxSizeInMB) {
                     let quality = 0.7;
                     const maxSize = maxSizeInMB * 1024 * 1024;
 
-                    // Réduire progressivement la qualité et la taille jusqu'à ce que le fichier soit assez petit
                     while (true) {
                         canvas.width = width;
                         canvas.height = height;
@@ -487,8 +480,6 @@ async function reduceFileSize(file, maxSizeInMB) {
             reader.readAsDataURL(file);
         });
     } else if (file.type === 'application/pdf') {
-        // Pour les PDF, nous ne pouvons pas facilement réduire la taille
-        // Nous retournons simplement le fichier original
         console.warn("La réduction de taille n'est pas prise en charge pour les PDF");
         return file;
     } else {
@@ -507,7 +498,6 @@ async function handleFileUpload(event) {
             ocrResultElement.textContent = '';
         }
 
-        // Vérifier la taille du fichier
         const fileSizeInMB = file.size / (1024 * 1024);
         let processedFile = file;
         if (fileSizeInMB > 1) {
@@ -574,12 +564,12 @@ async function handleFileUpload(event) {
 }
 
 async function performOCR(file) {
-    const apiKey = 'K84184304788957'; // Remplacez par votre clé API réelle
+    const apiKey = 'K84184304788957';
     const apiUrl = 'https://api.ocr.space/parse/image';
 
     const formData = new FormData();
     formData.append('apikey', apiKey);
-    formData.append('language', 'eng'); // Vous pouvez ajuster la langue si nécessaire
+    formData.append('language', 'eng');
     formData.append('isOverlayRequired', 'false');
     formData.append('file', file);
 
@@ -619,6 +609,47 @@ function hasValidSubscription() {
     return new Date() < new Date(currentUser.subscriptionEndDate);
 }
 
+// Nouvelle fonction pour vérifier le statut de l'abonnement
+async function checkSubscriptionStatus() {
+    if (!currentUser || !currentUser.subscriptionEndDate) return;
+
+    const now = new Date();
+    const endDate = new Date(currentUser.subscriptionEndDate);
+
+    if (now > endDate) {
+        currentUser.subscription = null;
+        currentUser.subscriptionEndDate = null;
+        await syncUserData();
+        showNotification("Votre abonnement a expiré.", 'info');
+        updateUIForLoggedInUser();
+    } else if (now > new Date(endDate.getTime() - 3 * 24 * 60 * 60 * 1000)) {
+        // Notification 3 jours avant l'expiration
+        showNotification(`Votre abonnement expire dans ${Math.ceil((endDate - now) / (24 * 60 * 60 * 1000))} jours.`, 'warning');
+    }
+}
+
+// Nouvelle fonction pour générer une facture
+function generateInvoice(transaction) {
+    const invoiceContent = `
+        Facture pour ${currentUser.username}
+        Date: ${new Date().toLocaleDateString()}
+        Description: ${transaction.description}
+        Montant: ${transaction.amount} FCFA
+        Numéro de transaction: ${transaction.id}
+    `;
+
+    const blob = new Blob([invoiceContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `facture_${transaction.id}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// Modification de la fonction buySubscription pour générer une facture
 function buySubscription() {
     const subscriptionType = document.getElementById('subscriptionSelect').value;
     if (!subscriptionType) {
@@ -627,7 +658,7 @@ function buySubscription() {
     }
 
     const subscriptionPrices = {
-        '24h': 500, '3d': 1200, '7d': 2400, '30d': 8000, '3m': 20000
+        '24h': 1, '3d': 1200, '7d': 2400, '30d': 8000, '3m': 20000
     };
 
     const price = subscriptionPrices[subscriptionType];
@@ -644,7 +675,12 @@ function buySubscription() {
         onComplete: function(response) {
             if (response.reason === FedaPay.CHECKOUT_COMPLETED) {
                 activateSubscription(subscriptionType);
-                showNotification(`Forfait ${subscriptionType} activé avec succès !`, 'success');
+                generateInvoice({
+                    id: response.id,
+                    description: `Achat d'un forfait ${subscriptionType} pour Eduque moi`,
+                    amount: price
+                });
+                showNotification(`Forfait ${subscriptionType} activé avec succès ! La facture a été générée.`, 'success');
             } else {
                 showNotification('Le paiement a été annulé ou a échoué.', 'error');
             }
@@ -667,6 +703,7 @@ async function activateSubscription(subscriptionType) {
     document.getElementById('subscription').textContent = subscriptionType;
 }
 
+// Modification similaire pour la fonction buyCredits
 function buyCredits() {
     const creditAmount = document.getElementById('creditSelect').value;
     if (!creditAmount) {
@@ -692,7 +729,12 @@ function buyCredits() {
         onComplete: function(response) {
             if (response.reason === FedaPay.CHECKOUT_COMPLETED) {
                 addCreditsToUser(parseInt(creditAmount));
-                showNotification(`${creditAmount} crédits ont été ajoutés à votre compte.`, 'success');
+                generateInvoice({
+                    id: response.id,
+                    description: `Achat de ${creditAmount} crédits pour Eduque moi`,
+                    amount: price
+                });
+                showNotification(`${creditAmount} crédits ont été ajoutés à votre compte. La facture a été générée.`, 'success');
             } else {
                 showNotification('Le paiement a été annulé ou a échoué.', 'error');
             }
@@ -953,11 +995,186 @@ function animateResponse(element, text) {
     }, 1);
 }
 
+// Nouvelles fonctions pour la visite guidée
+function startGuidedTour() {
+    tourStep = 0;
+    tourActive = true;
+    showNextTourStep();
+}
+
+function showNextTourStep() {
+    const steps = [
+        { element: '.logo', message: "Bienvenue sur Eduque moi ! Commençons par le logo, qui vous ramène toujours à l'accueil." },
+        { element: '#modelSelect', message: "Ici, vous pouvez choisir le modèle d'IA à utiliser pour vos conversations." },
+        { element: '.input-container', message: "C'est ici que vous pouvez écrire vos messages et les envoyer à l'IA." },
+        { element: '.file-label', message: "Vous pouvez également joindre des fichiers pour les analyser." },
+        { element: '#promptListButton', message: "Ce bouton vous permet d'accéder à une liste de prompts prédéfinis." },
+        { element: '#subscriptionSelect', message: "Choisissez et achetez votre abonnement ici pour accéder à des fonctionnalités avancées." },
+        { element: '#creditSelect', message: "Vous pouvez aussi acheter des crédits individuels pour utiliser les modèles avancés." }
+    ];
+
+    if (tourStep < steps.length) {
+        const { element, message } = steps[tourStep];
+        highlightElement(element, message);
+        tourStep++;
+    } else {
+        endTour();
+    }
+}
+
+function highlightElement(selector, message) {
+    const element = document.querySelector(selector);
+    if (!element) return;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'tour-overlay';
+    document.body.appendChild(overlay);
+
+    const tooltip = document.createElement('div');
+    tooltip.className = 'tour-tooltip';
+    tooltip.textContent = message;
+    document.body.appendChild(tooltip);
+
+    const rect = element.getBoundingClientRect();
+    tooltip.style.top = `${rect.bottom + 10}px`;
+    tooltip.style.left = `${rect.left}px`;
+
+    element.classList.add('tour-highlight');
+
+    const nextButton = document.createElement('button');
+    nextButton.textContent = 'Suivant';
+    nextButton.onclick = () => {
+        overlay.remove();
+        tooltip.remove();
+        element.classList.remove('tour-highlight');
+        showNextTourStep();
+    };
+    tooltip.appendChild(nextButton);
+}
+
+function endTour() {
+    tourActive = false;
+    showNotification("Visite guidée terminée. Profitez de Eduque moi !", 'success');
+}
+
+// Mise à jour de la fonction window.onload
+window.onload = async function() {
+    await attemptAutoLogin();
+    
+    if (currentUser) {
+        if (currentUser.freeCredits === undefined) currentUser.freeCredits = 0;
+        if (currentUser.paidCredits === undefined) currentUser.paidCredits = 0;
+        if (currentUser.subscription === undefined) currentUser.subscription = null;
+        if (currentUser.subscriptionEndDate === undefined) currentUser.subscriptionEndDate = null;
+        if (currentUser.lastFreeCreditsReset === undefined) currentUser.lastFreeCreditsReset = new Date().toISOString();
+        
+        await syncUserData();
+        await checkSubscriptionStatus();
+    }
+
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.body.setAttribute('data-theme', savedTheme);
+    updateThemeIcon(savedTheme);
+
+    setupUIEventListeners();
+
+    if (currentUser) {
+        loadConversationHistory();
+    } else {
+        // Démarrer la visite guidée pour les nouveaux utilisateurs
+        startGuidedTour();
+    }
+
+    initModals();
+    loadSelectedModel();
+    document.getElementById('modelSelect').addEventListener('change', saveSelectedModel);
+    restoreAppState();
+    initializeNewDiscussion();
+    document.body.classList.add('loaded');
+
+    // Vérifier le statut de l'abonnement toutes les heures
+    setInterval(checkSubscriptionStatus, 3600000);
+};
+
+// Fonction pour mettre à jour régulièrement l'interface utilisateur
+function updateUI() {
+    if (currentUser) {
+        document.getElementById('freeCredits').textContent = currentUser.freeCredits;
+        document.getElementById('paidCredits').textContent = currentUser.paidCredits;
+        document.getElementById('subscription').textContent = currentUser.subscription || 'Aucun';
+    }
+}
+
+// Appel de updateUI toutes les 5 minutes
+setInterval(updateUI, 300000);
+
+// Événements pour la gestion du clavier
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+    }
+});
+
+document.getElementById('userInput').addEventListener('keydown', function(event) {
+    if (event.key === 'Enter' && event.shiftKey) {
+        event.preventDefault();
+        const start = this.selectionStart;
+        const end = this.selectionEnd;
+        const value = this.value;
+        this.value = value.substring(0, start) + '\n' + value.substring(end);
+        this.selectionStart = this.selectionEnd = start + 1;
+    }
+});
+
+// Fonction pour vérifier le statut de l'API
+function checkApiStatus() {
+    axios.get(`${API_BASE_URL}models?key=${API_KEY}`)
+        .then(response => {
+            console.log("Statut de l'API Gemini:", response.status);
+            console.log("Modèles disponibles:", response.data);
+        })
+        .catch(error => {
+            console.error("Erreur lors de la vérification du statut de l'API:", error);
+        });
+}
+
+function checkApiStatusRegularly() {
+    checkApiStatus();
+    setInterval(checkApiStatus, 60000);
+}
+
+// Gestion des événements en ligne/hors ligne
+window.addEventListener('offline', function() {
+    showNotification('Vous êtes hors ligne. Veuillez vérifier votre connexion internet.', 'error');
+});
+
+window.addEventListener('online', function() {
+    showNotification('Vous êtes de nouveau en ligne.', 'success');
+});
+
+// Sauvegarde de l'état de l'application avant de quitter
+window.addEventListener('beforeunload', function() {
+    if (currentUser) {
+        localStorage.setItem('lastConversation', JSON.stringify(currentConversation));
+    }
+});
+
+// Fonction pour restaurer l'état de l'application
+function restoreAppState() {
+    const lastConversation = localStorage.getItem('lastConversation');
+    if (lastConversation) {
+        currentConversation = JSON.parse(lastConversation);
+        currentConversation.forEach(message => {
+            addMessageToChat(message.sender, message.content);
+        });
+    }
+}
+
 function togglePromptList() {
     const modal = document.getElementById('promptListModal');
     modal.style.display = "block";
     loadPromptCategories();
-
 }
 
 function loadPromptCategories() {
@@ -986,7 +1203,7 @@ function loadPromptsForCategory(category) {
         if (prompt.category === category) {
             const promptElement = document.createElement('div');
             promptElement.className = 'prompt-item';
-            promptElement.textContent = prompt.title; // Affiche uniquement le titre
+            promptElement.textContent = prompt.title;
             promptElement.onclick = () => selectPrompt(id, prompt);
             promptListElement.appendChild(promptElement);
         }
@@ -1004,16 +1221,7 @@ function closePromptModal() {
     document.getElementById('promptListModal').style.display = 'none';
     showNotification('Liste des prompts masquée', 'info');
 }
-// N'oubliez pas d'ajouter un event listener pour le bouton de fermeture
-document.querySelector('.close').addEventListener('click', closePromptModal);
 
-// Fermez également la modal si l'utilisateur clique en dehors
-window.onclick = function(event) {
-    const modal = document.getElementById('promptListModal');
-    if (event.target == modal) {
-        modal.style.display = "none";
-    }
-}
 function updatePinnedPromptDisplay() {
     const pinnedPromptContainer = document.getElementById('pinnedPrompt');
     
@@ -1033,44 +1241,7 @@ function removePinnedPrompt() {
     updatePinnedPromptDisplay();
 }
 
-// Mise à jour de la fonction window.onload
-window.onload = async function() {
-    await attemptAutoLogin();
-    
-    if (currentUser) {
-        if (currentUser.freeCredits === undefined) currentUser.freeCredits = 0;
-        if (currentUser.paidCredits === undefined) currentUser.paidCredits = 0;
-        if (currentUser.subscription === undefined) currentUser.subscription = null;
-        if (currentUser.subscriptionEndDate === undefined) currentUser.subscriptionEndDate = null;
-        if (currentUser.lastFreeCreditsReset === undefined) currentUser.lastFreeCreditsReset = new Date().toISOString();
-        
-        await syncUserData();
-    }
-
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    document.body.setAttribute('data-theme', savedTheme);
-    updateThemeIcon(savedTheme);
-
-    // Configuration de l'interface utilisateur
-    setupUIEventListeners();
-
-    if (currentUser) {
-        loadConversationHistory();
-    }
-
-    initModals();
-
-    loadSelectedModel();
-    document.getElementById('modelSelect').addEventListener('change', saveSelectedModel);
-
-    restoreAppState();
-
-    // Initialiser une nouvelle discussion
-    initializeNewDiscussion();
-
-    document.body.classList.add('loaded');
-};
-// Fonction pour configurer les écouteurs d'événements de l'interface utilisateur
+// Configuration des écouteurs d'événements de l'interface utilisateur
 function setupUIEventListeners() {
     const inputContainer = document.querySelector('.input-container');
     const userInput = document.getElementById('userInput');
@@ -1136,62 +1307,18 @@ function initModals() {
     });
 }
 
-document.addEventListener('keydown', function(event) {
-    if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault();
-        sendMessage();
-    }
-});
+// Ajout d'un écouteur d'événement pour le bouton de fermeture de la modal des prompts
+document.querySelector('.close').addEventListener('click', closePromptModal);
 
-document.getElementById('userInput').addEventListener('keydown', function(event) {
-    if (event.key === 'Enter' && event.shiftKey) {
-        event.preventDefault();
-        const start = this.selectionStart;
-        const end = this.selectionEnd;
-        const value = this.value;
-        this.value = value.substring(0, start) + '\n' + value.substring(end);
-        this.selectionStart = this.selectionEnd = start + 1;
-    }
-});
-
-function checkApiStatus() {
-    axios.get(`${API_BASE_URL}models?key=${API_KEY}`)
-        .then(response => {
-            console.log("Statut de l'API Gemini:", response.status);
-            console.log("Modèles disponibles:", response.data);
-        })
-        .catch(error => {
-            console.error("Erreur lors de la vérification du statut de l'API:", error);
-        });
-}
-
-function checkApiStatusRegularly() {
-    checkApiStatus();
-    setInterval(checkApiStatus, 60000);
-}
-
-window.addEventListener('offline', function() {
-    showNotification('Vous êtes hors ligne. Veuillez vérifier votre connexion internet.', 'error');
-});
-
-window.addEventListener('online', function() {
-    showNotification('Vous êtes de nouveau en ligne.', 'success');
-});
-
-window.addEventListener('beforeunload', function() {
-    if (currentUser) {
-        localStorage.setItem('lastConversation', JSON.stringify(currentConversation));
-    }
-});
-
-function restoreAppState() {
-    const lastConversation = localStorage.getItem('lastConversation');
-    if (lastConversation) {
-        currentConversation = JSON.parse(lastConversation);
-        currentConversation.forEach(message => {
-            addMessageToChat(message.sender, message.content);
-        });
+// Fermeture de la modal si l'utilisateur clique en dehors
+window.onclick = function(event) {
+    const modal = document.getElementById('promptListModal');
+    if (event.target == modal) {
+        modal.style.display = "none";
     }
 }
 
+// Lancement de la vérification régulière du statut de l'API
 checkApiStatusRegularly();
+
+// Fin du script
