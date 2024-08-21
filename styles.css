@@ -4,6 +4,7 @@
         color-scheme: dark;
     }
 }
+
 :root {
     --primary-color: #4a90e2;
     --secondary-color: #50c878;
@@ -553,7 +554,8 @@ button:hover {
 }
 
 [data-theme="light"] .user-details #freeCredits,
-[data-theme="light"] .user-details #paidCredits {color: #006600;
+[data-theme="light"] .user-details #paidCredits {
+    color: #006600;
 }
 
 [data-theme="light"] .user-details #subscription {
@@ -869,23 +871,111 @@ button:hover {
     z-index: 1001;
 }
 
+/* Styles pour le système de parrainage */
+#referralModal .modal-content {
+    text-align: center;
+}
+
+#referralLink {
+    width: 80%;
+    margin: 10px auto;
+    padding: 10px;
+    font-size: 0.9em;
+    text-align: center;
+}
+
+#referralModal button {
+    margin-top: 10px;
+}
+
+#referralModal h3 {
+    margin-top: 20px;
+    color: var(--primary-color);
+}
+
+#totalReferrals, #activeReferrals {
+    font-weight: bold;
+    color: var(--secondary-color);
+}
+
+/* Styles pour les boutons de partage social */
+.share-buttons {
+    display: flex;
+    justify-content: center;
+    margin-top: 15px;
+}
+
+.share-buttons button {
+    margin: 0 5px;
+    padding: 10px;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.share-buttons button:hover {
+    opacity: 0.8;
+}
+
+.copy-share {
+    background-color: #6c757d;
+    color: white;
+}
+
+.fb-share {
+    background-color: #3b5998;
+    color: white;
+}
+
+.twitter-share {
+    background-color: #1da1f2;
+    color: white;
+}
+
+.linkedin-share {
+    background-color: #0077b5;
+    color: white;
+}
+
+.whatsapp-share {
+    background-color: #25d366;
+    color: white;
+}
+
 /* Ajustements pour le responsive design */
 @media (max-width: 600px) {
-    .invoice-modal {
+    .invoice-modal, #referralModal .modal-content {
         width: 95%;
         padding: 15px;
     }
 
-    .invoice-modal h2 {
+    .invoice-modal h2, #referralModal h2 {
         font-size: 1.2em;
     }
 
-    .invoice-modal p {
+    .invoice-modal p, #referralModal p {
         font-size: 0.9em;
     }
 
-    .invoice-modal button {
+    .invoice-modal button, #referralModal button {
         font-size: 0.9em;
         padding: 6px 12px;
+    }
+
+    #referralLink {
+        width: 90%;
+        font-size: 0.8em;
+    }
+
+    .share-buttons {
+        flex-wrap: wrap;
+    }
+    
+    .share-buttons button {
+        margin: 5px;
     }
 }

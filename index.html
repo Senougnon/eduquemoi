@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="fr">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta name="color-scheme" content="light dark">
-        <title>Eduque moi</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
     <title>Eduque moi</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js"></script>
     <script src="https://cdn.fedapay.com/checkout.js?v=1.1.7"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -81,6 +81,10 @@
             </select>
             <button onclick="buyCredits()">Acheter des crédits</button>
 
+            <button id="referralBtn" class="full-width-button" onclick="showReferralModal()">
+                <i class="fas fa-user-plus"></i> Parrainage
+            </button>
+
             <div id="conversationHistory">
                 <h3>Historique des conversations</h3>
                 <button id="newConversationBtn" class="full-width-button" onclick="createNewConversation()">
@@ -140,6 +144,26 @@
             <button onclick="register()">S'inscrire</button>
         </div>
     </div>
+
+<!-- Modification de la modal de parrainage -->
+<div id="referralModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('referralModal')">&times;</span>
+        <h2>Programme de Parrainage</h2>
+        <p>Partagez votre lien unique et gagnez des récompenses pour chaque nouvel utilisateur inscrit !</p>
+        <input type="text" id="referralLink" readonly>
+        <div class="share-buttons">
+            <button onclick="copyReferralLink()" class="copy-share" title="Copier le lien"><i class="fas fa-copy"></i></button>
+          <button onclick="shareOnFacebook()" class="fb-share"><i class="fab fa-facebook-f"></i></button>
+            <button onclick="shareOnTwitter()" class="twitter-share"><i class="fab fa-twitter"></i></button>
+            <button onclick="shareOnLinkedIn()" class="linkedin-share"><i class="fab fa-linkedin-in"></i></button>
+            <button onclick="shareOnWhatsApp()" class="whatsapp-share"><i class="fab fa-whatsapp"></i></button>
+        </div>
+        <h3>Vos statistiques</h3>
+        <p>Total de parrainages : <span id="totalReferrals">0</span></p>
+        <p>Parrainages actifs : <span id="activeReferrals">0</span></p>
+    </div>
+</div>
 
     <script src="script.js"></script>
 </body>

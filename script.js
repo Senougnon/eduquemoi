@@ -152,6 +152,7 @@ function clearLoginInfo() {
 async function register() {
     const username = document.getElementById('registerUsername').value;
     const password = document.getElementById('registerPassword').value;
+    const referralCode = new URLSearchParams(window.location.search).get('ref');
     
     if (!username || !password) {
         showNotification('Veuillez remplir tous les champs.', 'error');
@@ -167,23 +168,42 @@ async function register() {
         }
         
         const now = new Date();
-        await userRef.set({
+        const userData = {
             password: password,
-            freeCredits: FREE_CREDITS_PER_DAY,
+            freeCredits: FREE_CREDITS_PER_DAY + 5, // 5 crédits supplémentaires pour le filleul
             paidCredits: 0,
             subscription: null,
             subscriptionEndDate: null,
-            lastFreeCreditsReset: now.toISOString()
-        });
-        
-        currentUser = { 
-            username, 
-            freeCredits: FREE_CREDITS_PER_DAY, 
-            paidCredits: 0, 
-            subscription: null, 
-            subscriptionEndDate: null,
-            lastFreeCreditsReset: now.toISOString()
+            lastFreeCreditsReset: now.toISOString(),
+            referredBy: referralCode || null
         };
+        
+        await userRef.set(userData);
+        
+        if (referralCode) {
+            const referrerQuery = await db.ref('users').orderByChild('referralCode').equalTo(referralCode).once('value');
+            const referrer = referrerQuery.val();
+            if (referrer) {
+                const referrerUsername = Object.keys(referrer)[0];
+                await db.ref(`users/${referrerUsername}/referrals/${username}`).set({
+                    date: now.toISOString(),
+                    isActive: true
+                });
+                
+                // Attribuer 5 crédits au parrain
+                const referrerRef = db.ref(`users/${referrerUsername}`);
+                await referrerRef.transaction((user) => {
+                    if (user) {
+                        user.paidCredits = (user.paidCredits || 0) + 5;
+                    }
+                    return user;
+                });
+                
+                showNotification('Vous avez reçu 5 crédits grâce à votre parrain !', 'success');
+            }
+        }
+        
+        currentUser = { username, ...userData };
         updateUIForLoggedInUser();
         showNotification('Inscription réussie !', 'success');
         closeModal('registerModal');
@@ -693,16 +713,19 @@ function buySubscription() {
         customer: {
             email: 'client@example.com'
         },
-        onComplete: function(response) {
+        onComplete: async function(response) {
             if (response.reason === FedaPay.CHECKOUT_COMPLETED) {
                 const transaction = {
                     id: response.id,
                     description: `Achat d'un forfait ${subscriptionType} pour Eduque moi`,
                     amount: price
                 };
-                activateSubscription(subscriptionType);
+                await activateSubscription(subscriptionType);
                 showInvoiceDetails(transaction);
                 showNotification(`Forfait ${subscriptionType} activé avec succès !`, 'success');
+                
+                // Récompenser le parrain
+                await rewardReferrer(currentUser.username, price);
             } else {
                 showNotification('Le paiement a été annulé ou a échoué.', 'error');
             }
@@ -747,16 +770,19 @@ function buyCredits() {
         customer: {
             email: 'client@example.com'
         },
-        onComplete: function(response) {
+        onComplete: async function(response) {
             if (response.reason === FedaPay.CHECKOUT_COMPLETED) {
                 const transaction = {
                     id: response.id,
                     description: `Achat de ${creditAmount} crédits pour Eduque moi`,
                     amount: price
                 };
-                addCreditsToUser(parseInt(creditAmount));
+                await addCreditsToUser(parseInt(creditAmount));
                 showInvoiceDetails(transaction);
                 showNotification(`${creditAmount} crédits ont été ajoutés à votre compte.`, 'success');
+                
+                // Récompenser le parrain
+                await rewardReferrer(currentUser.username, price);
             } else {
                 showNotification('Le paiement a été annulé ou a échoué.', 'error');
             }
@@ -770,7 +796,33 @@ async function addCreditsToUser(amount) {
     await syncUserData();
     document.getElementById('paidCredits').textContent = currentUser.paidCredits;
 }
+// Fonction pour partager sur Facebook
+function shareOnFacebook() {
+    const url = encodeURIComponent(document.getElementById('referralLink').value);
+    const message = encodeURIComponent("Rejoignez-moi sur Eduque moi et apprenons ensemble ! Utilisez mon lien de parrainage pour obtenir des bonus :");
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${message}`, '_blank');
+}
 
+// Fonction pour partager sur Twitter
+function shareOnTwitter() {
+    const url = encodeURIComponent(document.getElementById('referralLink').value);
+    const message = encodeURIComponent("Découvrez Eduque moi avec moi ! Utilisez mon lien de parrainage pour commencer votre voyage d'apprentissage :");
+    window.open(`https://twitter.com/intent/tweet?url=${url}&text=${message}`, '_blank');
+}
+
+// Fonction pour partager sur LinkedIn
+function shareOnLinkedIn() {
+    const url = encodeURIComponent(document.getElementById('referralLink').value);
+    const message = encodeURIComponent("Je vous recommande Eduque moi pour améliorer vos connaissances. Utilisez mon lien de parrainage :");
+    window.open(`https://www.linkedin.com/shareArticle?mini=true&url=${url}&title=Rejoignez Eduque moi&summary=${message}`, '_blank');
+}
+
+// Fonction pour partager sur WhatsApp
+function shareOnWhatsApp() {
+    const url = encodeURIComponent(document.getElementById('referralLink').value);
+    const message = encodeURIComponent("Hé ! J'utilise Eduque moi pour apprendre. Rejoins-moi avec ce lien de parrainage : ");
+    window.open(`https://wa.me/?text=${message}${url}`, '_blank');
+}
 function showNotification(message, type) {
     const notification = document.createElement('div');
     notification.textContent = message;
@@ -1090,6 +1142,91 @@ function removePinnedPrompt() {
     updatePinnedPromptDisplay();
 }
 
+// Mettre à jour la fonction showReferralModal pour inclure le message d'invitation
+function showReferralModal() {
+    const modal = document.getElementById('referralModal');
+    modal.style.display = 'block';
+    
+    if (currentUser && currentUser.referralCode) {
+        const referralLink = `https://eduquemoi.netlify.app/?ref=${currentUser.referralCode}`;
+        document.getElementById('referralLink').value = referralLink;
+        
+        // Créer le message d'invitation
+        const inviteMessage = `Rejoignez-moi sur Eduque moi et commencez votre voyage d'apprentissage ! Utilisez mon lien de parrainage pour obtenir des bonus spéciaux : ${referralLink}`;
+        
+        // Vous pouvez stocker ce message dans un attribut data pour une utilisation facile
+        document.getElementById('referralLink').setAttribute('data-invite-message', inviteMessage);
+    } else {
+        generateReferralCode();
+    }
+    
+    updateReferralStats();
+}
+
+function generateReferralCode() {
+    if (!currentUser) return;
+    
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const userRef = db.ref('users/' + currentUser.username);
+    
+    userRef.update({ referralCode: code })
+        .then(() => {
+            currentUser.referralCode = code;
+            document.getElementById('referralLink').value = `https://eduquemoi.netlify.app/?ref=${code}`;
+        })
+        .catch(error => {
+            console.error("Erreur lors de la génération du code de parrainage:", error);
+            showNotification("Erreur lors de la génération du code. Veuillez réessayer.", 'error');
+        });
+}
+
+function copyReferralLink() {
+    const linkInput = document.getElementById('referralLink');
+    linkInput.select();
+    document.execCommand('copy');
+    showNotification('Lien de parrainage copié !', 'success');
+}
+
+function updateReferralStats() {
+    if (!currentUser) return;
+    
+    const userRef = db.ref('users/' + currentUser.username);
+    userRef.child('referrals').once('value', snapshot => {
+        const referrals = snapshot.val() || {};
+        const totalReferrals = Object.keys(referrals).length;
+        const activeReferrals = Object.values(referrals).filter(r => r.isActive).length;
+        
+        document.getElementById('totalReferrals').textContent = totalReferrals;
+        document.getElementById('activeReferrals').textContent = activeReferrals;
+        // Mettez à jour d'autres statistiques ici si nécessaire
+    });
+}
+
+async function rewardReferrer(username, amount) {
+    const userRef = db.ref(`users/${username}`);
+    const snapshot = await userRef.once('value');
+    const userData = snapshot.val();
+    
+    if (userData && userData.referredBy) {
+        const referrerQuery = await db.ref('users').orderByChild('referralCode').equalTo(userData.referredBy).once('value');
+        const referrer = referrerQuery.val();
+        
+        if (referrer) {
+            const referrerUsername = Object.keys(referrer)[0];
+            const referrerRef = db.ref(`users/${referrerUsername}`);
+            
+            await referrerRef.transaction((user) => {
+                if (user) {
+                    user.paidCredits = (user.paidCredits || 0) + 2;
+                }
+                return user;
+            });
+            
+            showNotification(`Votre parrain a reçu 2 crédits grâce à votre achat !`, 'success');
+        }
+    }
+}
+
 window.onload = async function() {
     await attemptAutoLogin();
     
@@ -1262,79 +1399,6 @@ function updateUI() {
 // Appel de updateUI toutes les 5 minutes
 setInterval(updateUI, 300000);
 
-// Fonction pour vérifier et mettre à jour le statut de l'abonnement
-async function checkSubscriptionStatus() {
-    if (!currentUser || !currentUser.subscriptionEndDate) return;
-
-    const now = new Date();
-    const endDate = new Date(currentUser.subscriptionEndDate);
-
-    if (now > endDate) {
-        currentUser.subscription = null;
-        currentUser.subscriptionEndDate = null;
-        await syncUserData();
-        showNotification("Votre abonnement a expiré.", 'info');
-        updateUIForLoggedInUser();
-    } else if (now > new Date(endDate.getTime() - 3 * 24 * 60 * 60 * 1000)) {
-        // Notification 3 jours avant l'expiration
-        const daysLeft = Math.ceil((endDate - now) / (24 * 60 * 60 * 1000));
-        showNotification(`Votre abonnement expire dans ${daysLeft} jour${daysLeft > 1 ? 's' : ''}.`, 'warning');
-    }
-}
-
-// Fonction pour générer une facture en PDF
-function generateInvoicePDF(transaction) {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    
-    doc.setFontSize(18);
-    doc.text("Facture Eduque moi", 105, 20, null, null, "center");
-    
-    doc.setFontSize(12);
-    doc.text(`Facture pour : ${currentUser.username}`, 20, 40);
-    doc.text(`Date : ${new Date().toLocaleDateString()}`, 20, 50);
-    doc.text(`Description : ${transaction.description}`, 20, 60);
-    doc.text(`Montant : ${transaction.amount} FCFA`, 20, 70);
-    doc.text(`Numéro de transaction : ${transaction.id}`, 20, 80);
-    
-    return doc;
-}
-
-// Fonction pour afficher la fenêtre flottante des détails de la facture
-function showInvoiceDetails(transaction) {
-    const modal = document.createElement('div');
-    modal.className = 'modal';
-    modal.innerHTML = `
-        <div class="modal-content">
-            <h2>Détails de la facture</h2>
-            <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
-            <p><strong>Description:</strong> ${transaction.description}</p>
-            <p><strong>Montant:</strong> ${transaction.amount} FCFA</p>
-            <p><strong>Numéro de transaction:</strong> ${transaction.id}</p>
-            <button id="downloadInvoice">Télécharger la facture en PDF</button>
-            <button id="closeModal">Fermer</button>
-        </div>
-    `;
-    document.body.appendChild(modal);
-
-    document.getElementById('downloadInvoice').addEventListener('click', () => {
-        const doc = generateInvoicePDF(transaction);
-        doc.save(`facture_${transaction.id}.pdf`);
-    });
-
-    document.getElementById('closeModal').addEventListener('click', () => {
-        document.body.removeChild(modal);
-    });
-}
-
-// Assurez-vous également d'appeler cette fonction au chargement de la page
-window.addEventListener('DOMContentLoaded', (event) => {
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    document.body.setAttribute('data-theme', savedTheme);
-    updateThemeIcon(savedTheme);
-    document.querySelector('meta[name="color-scheme"]').setAttribute('content', savedTheme);
-});
-
 // Initialisation
 checkApiStatusRegularly();
 
@@ -1352,3 +1416,10 @@ window.toggleSidebar = toggleSidebar;
 window.createNewConversation = createNewConversation;
 window.handleFileUpload = handleFileUpload;
 window.togglePromptList = togglePromptList;
+window.showReferralModal = showReferralModal;
+window.generateReferralCode = generateReferralCode;
+window.copyReferralLink = copyReferralLink;
+window.shareOnFacebook = shareOnFacebook;
+window.shareOnTwitter = shareOnTwitter;
+window.shareOnLinkedIn = shareOnLinkedIn;
+window.shareOnWhatsApp = shareOnWhatsApp;
