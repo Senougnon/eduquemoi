@@ -270,9 +270,13 @@ async function resetFreeCreditsIfNeeded() {
         currentUser.lastFreeCreditsReset = now.toISOString();
         await syncUserData();
         document.getElementById('freeCredits').textContent = currentUser.freeCredits;
-    }
+   // Notifier l'utilisateur
+   const newCredits = currentUser.freeCredits - previousCredits;
+   if (newCredits > 0) {
+       showNotification(`${newCredits} crédits gratuits ont été ajoutés à votre compte !`, 'success');
+   }
 }
-
+}
 function checkModelAccess() {
     const selectedModel = document.getElementById('modelSelect').value;
     if (selectedModel !== 'gemini-1.0-pro' && !hasValidSubscription() && currentUser.paidCredits <= 0) {
