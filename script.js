@@ -4,8 +4,6 @@ let currentUser = null;
 let pinnedFile = null;
 let currentConversation = [];
 let conversations = {};
-let tourStep = 0;
-let tourActive = false;
 const FREE_CREDITS_PER_DAY = 10;
 const FREE_MODEL_MAX_WORDS = 50;
 const FREE_MODEL_MAX_RESPONSE = 100;
@@ -29,7 +27,71 @@ const db = firebase.database();
 let prompts = {};
 let pinnedPrompt = null;
 
-// Fonction pour initialiser une nouvelle discussion
+// Fonction pour vérifier et mettre à jour le statut de l'abonnement
+async function checkSubscriptionStatus() {
+    if (!currentUser || !currentUser.subscriptionEndDate) return;
+
+    const now = new Date();
+    const endDate = new Date(currentUser.subscriptionEndDate);
+
+    if (now > endDate) {
+        currentUser.subscription = null;
+        currentUser.subscriptionEndDate = null;
+        await syncUserData();
+        showNotification("Votre abonnement a expiré.", 'info');
+        updateUIForLoggedInUser();
+    } else if (now > new Date(endDate.getTime() - 3 * 24 * 60 * 60 * 1000)) {
+        // Notification 3 jours avant l'expiration
+        const daysLeft = Math.ceil((endDate - now) / (24 * 60 * 60 * 1000));
+        showNotification(`Votre abonnement expire dans ${daysLeft} jour${daysLeft > 1 ? 's' : ''}.`, 'warning');
+    }
+}
+
+// Fonction pour générer une facture en PDF
+function generateInvoicePDF(transaction) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    doc.setFontSize(18);
+    doc.text("Facture Eduque moi", 105, 20, null, null, "center");
+    
+    doc.setFontSize(12);
+    doc.text(`Facture pour : ${currentUser.username}`, 20, 40);
+    doc.text(`Date : ${new Date().toLocaleDateString()}`, 20, 50);
+    doc.text(`Description : ${transaction.description}`, 20, 60);
+    doc.text(`Montant : ${transaction.amount} FCFA`, 20, 70);
+    doc.text(`Numéro de transaction : ${transaction.id}`, 20, 80);
+    
+    return doc;
+}
+
+// Fonction pour afficher la fenêtre flottante des détails de la facture
+function showInvoiceDetails(transaction) {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <h2>Détails de la facture</h2>
+            <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+            <p><strong>Description:</strong> ${transaction.description}</p>
+            <p><strong>Montant:</strong> ${transaction.amount} FCFA</p>
+            <p><strong>Numéro de transaction:</strong> ${transaction.id}</p>
+            <button id="downloadInvoice">Télécharger la facture en PDF</button>
+            <button id="closeModal">Fermer</button>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.getElementById('downloadInvoice').addEventListener('click', () => {
+        const doc = generateInvoicePDF(transaction);
+        doc.save(`facture_${transaction.id}.pdf`);
+    });
+
+    document.getElementById('closeModal').addEventListener('click', () => {
+        document.body.removeChild(modal);
+    });
+}
+
 function initializeNewDiscussion() {
     currentConversation = [];
     const messageContainer = document.getElementById('messageContainer');
@@ -609,47 +671,6 @@ function hasValidSubscription() {
     return new Date() < new Date(currentUser.subscriptionEndDate);
 }
 
-// Nouvelle fonction pour vérifier le statut de l'abonnement
-async function checkSubscriptionStatus() {
-    if (!currentUser || !currentUser.subscriptionEndDate) return;
-
-    const now = new Date();
-    const endDate = new Date(currentUser.subscriptionEndDate);
-
-    if (now > endDate) {
-        currentUser.subscription = null;
-        currentUser.subscriptionEndDate = null;
-        await syncUserData();
-        showNotification("Votre abonnement a expiré.", 'info');
-        updateUIForLoggedInUser();
-    } else if (now > new Date(endDate.getTime() - 3 * 24 * 60 * 60 * 1000)) {
-        // Notification 3 jours avant l'expiration
-        showNotification(`Votre abonnement expire dans ${Math.ceil((endDate - now) / (24 * 60 * 60 * 1000))} jours.`, 'warning');
-    }
-}
-
-// Nouvelle fonction pour générer une facture
-function generateInvoice(transaction) {
-    const invoiceContent = `
-        Facture pour ${currentUser.username}
-        Date: ${new Date().toLocaleDateString()}
-        Description: ${transaction.description}
-        Montant: ${transaction.amount} FCFA
-        Numéro de transaction: ${transaction.id}
-    `;
-
-    const blob = new Blob([invoiceContent], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `facture_${transaction.id}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-}
-
-// Modification de la fonction buySubscription pour générer une facture
 function buySubscription() {
     const subscriptionType = document.getElementById('subscriptionSelect').value;
     if (!subscriptionType) {
@@ -658,7 +679,7 @@ function buySubscription() {
     }
 
     const subscriptionPrices = {
-        '24h': 1, '3d': 1200, '7d': 2400, '30d': 8000, '3m': 20000
+        '24h': 500, '3d': 1200, '7d': 2400, '30d': 8000, '3m': 20000
     };
 
     const price = subscriptionPrices[subscriptionType];
@@ -674,13 +695,14 @@ function buySubscription() {
         },
         onComplete: function(response) {
             if (response.reason === FedaPay.CHECKOUT_COMPLETED) {
-                activateSubscription(subscriptionType);
-                generateInvoice({
+                const transaction = {
                     id: response.id,
                     description: `Achat d'un forfait ${subscriptionType} pour Eduque moi`,
                     amount: price
-                });
-                showNotification(`Forfait ${subscriptionType} activé avec succès ! La facture a été générée.`, 'success');
+                };
+                activateSubscription(subscriptionType);
+                showInvoiceDetails(transaction);
+                showNotification(`Forfait ${subscriptionType} activé avec succès !`, 'success');
             } else {
                 showNotification('Le paiement a été annulé ou a échoué.', 'error');
             }
@@ -703,7 +725,6 @@ async function activateSubscription(subscriptionType) {
     document.getElementById('subscription').textContent = subscriptionType;
 }
 
-// Modification similaire pour la fonction buyCredits
 function buyCredits() {
     const creditAmount = document.getElementById('creditSelect').value;
     if (!creditAmount) {
@@ -728,13 +749,14 @@ function buyCredits() {
         },
         onComplete: function(response) {
             if (response.reason === FedaPay.CHECKOUT_COMPLETED) {
-                addCreditsToUser(parseInt(creditAmount));
-                generateInvoice({
+                const transaction = {
                     id: response.id,
                     description: `Achat de ${creditAmount} crédits pour Eduque moi`,
                     amount: price
-                });
-                showNotification(`${creditAmount} crédits ont été ajoutés à votre compte. La facture a été générée.`, 'success');
+                };
+                addCreditsToUser(parseInt(creditAmount));
+                showInvoiceDetails(transaction);
+                showNotification(`${creditAmount} crédits ont été ajoutés à votre compte.`, 'success');
             } else {
                 showNotification('Le paiement a été annulé ou a échoué.', 'error');
             }
@@ -794,6 +816,9 @@ function toggleTheme() {
     body.setAttribute('data-theme', newTheme);
     localStorage.setItem('theme', newTheme);
     updateThemeIcon(newTheme);
+    
+    // Mise à jour de la métadonnée color-scheme
+    document.querySelector('meta[name="color-scheme"]').setAttribute('content', newTheme);
 }
 
 function updateThemeIcon(theme) {
@@ -995,182 +1020,6 @@ function animateResponse(element, text) {
     }, 1);
 }
 
-// Nouvelles fonctions pour la visite guidée
-function startGuidedTour() {
-    tourStep = 0;
-    tourActive = true;
-    showNextTourStep();
-}
-
-function showNextTourStep() {
-    const steps = [
-        { element: '.logo', message: "Bienvenue sur Eduque moi ! Commençons par le logo, qui vous ramène toujours à l'accueil." },
-        { element: '#modelSelect', message: "Ici, vous pouvez choisir le modèle d'IA à utiliser pour vos conversations." },
-        { element: '.input-container', message: "C'est ici que vous pouvez écrire vos messages et les envoyer à l'IA." },
-        { element: '.file-label', message: "Vous pouvez également joindre des fichiers pour les analyser." },
-        { element: '#promptListButton', message: "Ce bouton vous permet d'accéder à une liste de prompts prédéfinis." },
-        { element: '#subscriptionSelect', message: "Choisissez et achetez votre abonnement ici pour accéder à des fonctionnalités avancées." },
-        { element: '#creditSelect', message: "Vous pouvez aussi acheter des crédits individuels pour utiliser les modèles avancés." }
-    ];
-
-    if (tourStep < steps.length) {
-        const { element, message } = steps[tourStep];
-        highlightElement(element, message);
-        tourStep++;
-    } else {
-        endTour();
-    }
-}
-
-function highlightElement(selector, message) {
-    const element = document.querySelector(selector);
-    if (!element) return;
-
-    const overlay = document.createElement('div');
-    overlay.className = 'tour-overlay';
-    document.body.appendChild(overlay);
-
-    const tooltip = document.createElement('div');
-    tooltip.className = 'tour-tooltip';
-    tooltip.textContent = message;
-    document.body.appendChild(tooltip);
-
-    const rect = element.getBoundingClientRect();
-    tooltip.style.top = `${rect.bottom + 10}px`;
-    tooltip.style.left = `${rect.left}px`;
-
-    element.classList.add('tour-highlight');
-
-    const nextButton = document.createElement('button');
-    nextButton.textContent = 'Suivant';
-    nextButton.onclick = () => {
-        overlay.remove();
-        tooltip.remove();
-        element.classList.remove('tour-highlight');
-        showNextTourStep();
-    };
-    tooltip.appendChild(nextButton);
-}
-
-function endTour() {
-    tourActive = false;
-    showNotification("Visite guidée terminée. Profitez de Eduque moi !", 'success');
-}
-
-// Mise à jour de la fonction window.onload
-window.onload = async function() {
-    await attemptAutoLogin();
-    
-    if (currentUser) {
-        if (currentUser.freeCredits === undefined) currentUser.freeCredits = 0;
-        if (currentUser.paidCredits === undefined) currentUser.paidCredits = 0;
-        if (currentUser.subscription === undefined) currentUser.subscription = null;
-        if (currentUser.subscriptionEndDate === undefined) currentUser.subscriptionEndDate = null;
-        if (currentUser.lastFreeCreditsReset === undefined) currentUser.lastFreeCreditsReset = new Date().toISOString();
-        
-        await syncUserData();
-        await checkSubscriptionStatus();
-    }
-
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    document.body.setAttribute('data-theme', savedTheme);
-    updateThemeIcon(savedTheme);
-
-    setupUIEventListeners();
-
-    if (currentUser) {
-        loadConversationHistory();
-    } else {
-        // Démarrer la visite guidée pour les nouveaux utilisateurs
-        startGuidedTour();
-    }
-
-    initModals();
-    loadSelectedModel();
-    document.getElementById('modelSelect').addEventListener('change', saveSelectedModel);
-    restoreAppState();
-    initializeNewDiscussion();
-    document.body.classList.add('loaded');
-
-    // Vérifier le statut de l'abonnement toutes les heures
-    setInterval(checkSubscriptionStatus, 3600000);
-};
-
-// Fonction pour mettre à jour régulièrement l'interface utilisateur
-function updateUI() {
-    if (currentUser) {
-        document.getElementById('freeCredits').textContent = currentUser.freeCredits;
-        document.getElementById('paidCredits').textContent = currentUser.paidCredits;
-        document.getElementById('subscription').textContent = currentUser.subscription || 'Aucun';
-    }
-}
-
-// Appel de updateUI toutes les 5 minutes
-setInterval(updateUI, 300000);
-
-// Événements pour la gestion du clavier
-document.addEventListener('keydown', function(event) {
-    if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault();
-        sendMessage();
-    }
-});
-
-document.getElementById('userInput').addEventListener('keydown', function(event) {
-    if (event.key === 'Enter' && event.shiftKey) {
-        event.preventDefault();
-        const start = this.selectionStart;
-        const end = this.selectionEnd;
-        const value = this.value;
-        this.value = value.substring(0, start) + '\n' + value.substring(end);
-        this.selectionStart = this.selectionEnd = start + 1;
-    }
-});
-
-// Fonction pour vérifier le statut de l'API
-function checkApiStatus() {
-    axios.get(`${API_BASE_URL}models?key=${API_KEY}`)
-        .then(response => {
-            console.log("Statut de l'API Gemini:", response.status);
-            console.log("Modèles disponibles:", response.data);
-        })
-        .catch(error => {
-            console.error("Erreur lors de la vérification du statut de l'API:", error);
-        });
-}
-
-function checkApiStatusRegularly() {
-    checkApiStatus();
-    setInterval(checkApiStatus, 60000);
-}
-
-// Gestion des événements en ligne/hors ligne
-window.addEventListener('offline', function() {
-    showNotification('Vous êtes hors ligne. Veuillez vérifier votre connexion internet.', 'error');
-});
-
-window.addEventListener('online', function() {
-    showNotification('Vous êtes de nouveau en ligne.', 'success');
-});
-
-// Sauvegarde de l'état de l'application avant de quitter
-window.addEventListener('beforeunload', function() {
-    if (currentUser) {
-        localStorage.setItem('lastConversation', JSON.stringify(currentConversation));
-    }
-});
-
-// Fonction pour restaurer l'état de l'application
-function restoreAppState() {
-    const lastConversation = localStorage.getItem('lastConversation');
-    if (lastConversation) {
-        currentConversation = JSON.parse(lastConversation);
-        currentConversation.forEach(message => {
-            addMessageToChat(message.sender, message.content);
-        });
-    }
-}
-
 function togglePromptList() {
     const modal = document.getElementById('promptListModal');
     modal.style.display = "block";
@@ -1241,7 +1090,43 @@ function removePinnedPrompt() {
     updatePinnedPromptDisplay();
 }
 
-// Configuration des écouteurs d'événements de l'interface utilisateur
+window.onload = async function() {
+    await attemptAutoLogin();
+    
+    if (currentUser) {
+        if (currentUser.freeCredits === undefined) currentUser.freeCredits = 0;
+        if (currentUser.paidCredits === undefined) currentUser.paidCredits = 0;
+        if (currentUser.subscription === undefined) currentUser.subscription = null;
+        if (currentUser.subscriptionEndDate === undefined) currentUser.subscriptionEndDate = null;
+        if (currentUser.lastFreeCreditsReset === undefined) currentUser.lastFreeCreditsReset = new Date().toISOString();
+        
+        await syncUserData();
+    }
+
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.body.setAttribute('data-theme', savedTheme);
+    updateThemeIcon(savedTheme);
+
+    setupUIEventListeners();
+
+    if (currentUser) {
+        loadConversationHistory();
+    }
+
+    initModals();
+
+    loadSelectedModel();
+    document.getElementById('modelSelect').addEventListener('change', saveSelectedModel);
+
+    restoreAppState();
+
+    initializeNewDiscussion();
+
+    document.body.classList.add('loaded');
+
+    setInterval(checkSubscriptionStatus, 3600000);
+};
+
 function setupUIEventListeners() {
     const inputContainer = document.querySelector('.input-container');
     const userInput = document.getElementById('userInput');
@@ -1307,18 +1192,163 @@ function initModals() {
     });
 }
 
-// Ajout d'un écouteur d'événement pour le bouton de fermeture de la modal des prompts
-document.querySelector('.close').addEventListener('click', closePromptModal);
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+    }
+});
 
-// Fermeture de la modal si l'utilisateur clique en dehors
-window.onclick = function(event) {
-    const modal = document.getElementById('promptListModal');
-    if (event.target == modal) {
-        modal.style.display = "none";
+document.getElementById('userInput').addEventListener('keydown', function(event) {
+    if (event.key === 'Enter' && event.shiftKey) {
+        event.preventDefault();
+        const start = this.selectionStart;
+        const end = this.selectionEnd;
+        const value = this.value;
+        this.value = value.substring(0, start) + '\n' + value.substring(end);
+        this.selectionStart = this.selectionEnd = start + 1;
+    }
+});
+
+function checkApiStatus() {
+    axios.get(`${API_BASE_URL}models?key=${API_KEY}`)
+        .then(response => {
+            console.log("Statut de l'API Gemini:", response.status);
+            console.log("Modèles disponibles:", response.data);
+        })
+        .catch(error => {
+            console.error("Erreur lors de la vérification du statut de l'API:", error);
+        });
+}
+
+function checkApiStatusRegularly() {
+    checkApiStatus();
+    setInterval(checkApiStatus, 60000);
+}
+
+window.addEventListener('offline', function() {
+    showNotification('Vous êtes hors ligne. Veuillez vérifier votre connexion internet.', 'error');
+});
+
+window.addEventListener('online', function() {
+    showNotification('Vous êtes de nouveau en ligne.', 'success');
+});
+
+window.addEventListener('beforeunload', function() {
+    if (currentUser) {
+        localStorage.setItem('lastConversation', JSON.stringify(currentConversation));
+    }
+});
+
+function restoreAppState() {
+    const lastConversation = localStorage.getItem('lastConversation');
+    if (lastConversation) {
+        currentConversation = JSON.parse(lastConversation);
+        currentConversation.forEach(message => {
+            addMessageToChat(message.sender, message.content);
+        });
     }
 }
 
-// Lancement de la vérification régulière du statut de l'API
+// Fonction pour mettre à jour régulièrement l'interface utilisateur
+function updateUI() {
+    if (currentUser) {
+        document.getElementById('freeCredits').textContent = currentUser.freeCredits;
+        document.getElementById('paidCredits').textContent = currentUser.paidCredits;
+        document.getElementById('subscription').textContent = currentUser.subscription || 'Aucun';
+    }
+}
+
+// Appel de updateUI toutes les 5 minutes
+setInterval(updateUI, 300000);
+
+// Fonction pour vérifier et mettre à jour le statut de l'abonnement
+async function checkSubscriptionStatus() {
+    if (!currentUser || !currentUser.subscriptionEndDate) return;
+
+    const now = new Date();
+    const endDate = new Date(currentUser.subscriptionEndDate);
+
+    if (now > endDate) {
+        currentUser.subscription = null;
+        currentUser.subscriptionEndDate = null;
+        await syncUserData();
+        showNotification("Votre abonnement a expiré.", 'info');
+        updateUIForLoggedInUser();
+    } else if (now > new Date(endDate.getTime() - 3 * 24 * 60 * 60 * 1000)) {
+        // Notification 3 jours avant l'expiration
+        const daysLeft = Math.ceil((endDate - now) / (24 * 60 * 60 * 1000));
+        showNotification(`Votre abonnement expire dans ${daysLeft} jour${daysLeft > 1 ? 's' : ''}.`, 'warning');
+    }
+}
+
+// Fonction pour générer une facture en PDF
+function generateInvoicePDF(transaction) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    doc.setFontSize(18);
+    doc.text("Facture Eduque moi", 105, 20, null, null, "center");
+    
+    doc.setFontSize(12);
+    doc.text(`Facture pour : ${currentUser.username}`, 20, 40);
+    doc.text(`Date : ${new Date().toLocaleDateString()}`, 20, 50);
+    doc.text(`Description : ${transaction.description}`, 20, 60);
+    doc.text(`Montant : ${transaction.amount} FCFA`, 20, 70);
+    doc.text(`Numéro de transaction : ${transaction.id}`, 20, 80);
+    
+    return doc;
+}
+
+// Fonction pour afficher la fenêtre flottante des détails de la facture
+function showInvoiceDetails(transaction) {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <h2>Détails de la facture</h2>
+            <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+            <p><strong>Description:</strong> ${transaction.description}</p>
+            <p><strong>Montant:</strong> ${transaction.amount} FCFA</p>
+            <p><strong>Numéro de transaction:</strong> ${transaction.id}</p>
+            <button id="downloadInvoice">Télécharger la facture en PDF</button>
+            <button id="closeModal">Fermer</button>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.getElementById('downloadInvoice').addEventListener('click', () => {
+        const doc = generateInvoicePDF(transaction);
+        doc.save(`facture_${transaction.id}.pdf`);
+    });
+
+    document.getElementById('closeModal').addEventListener('click', () => {
+        document.body.removeChild(modal);
+    });
+}
+
+// Assurez-vous également d'appeler cette fonction au chargement de la page
+window.addEventListener('DOMContentLoaded', (event) => {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.body.setAttribute('data-theme', savedTheme);
+    updateThemeIcon(savedTheme);
+    document.querySelector('meta[name="color-scheme"]').setAttribute('content', savedTheme);
+});
+
+// Initialisation
 checkApiStatusRegularly();
 
-// Fin du script
+// Exportation des fonctions et variables nécessaires
+window.showLoginModal = showLoginModal;
+window.showRegisterModal = showRegisterModal;
+window.login = login;
+window.register = register;
+window.logout = logout;
+window.sendMessage = sendMessage;
+window.buySubscription = buySubscription;
+window.buyCredits = buyCredits;
+window.toggleTheme = toggleTheme;
+window.toggleSidebar = toggleSidebar;
+window.createNewConversation = createNewConversation;
+window.handleFileUpload = handleFileUpload;
+window.togglePromptList = togglePromptList;

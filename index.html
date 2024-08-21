@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="color-scheme" content="light dark">
+        <title>Eduque moi</title>
     <title>Eduque moi</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
@@ -38,14 +40,13 @@
 
     <div class="main-container">
         <div class="sidebar">
-            <div id="userInfo" class="user-info-card hidden">
+            <div id="userInfo" class="user-info-card">
                 <h3>Informations utilisateur</h3>
                 <div class="user-details">
                     <p><i class="fas fa-user"></i> <span id="username">Utilisateur</span></p>
                     <p><i class="fas fa-coins"></i> Crédits offerts: <span id="freeCredits">0</span></p>
                     <p><i class="fas fa-dollar-sign"></i> Crédits payants: <span id="paidCredits">0</span></p>
                     <p><i class="fas fa-calendar-alt"></i> Forfait: <span id="subscription">Aucun</span></p>
-                    <p><i class="fas fa-clock"></i> Expiration: <span id="subscriptionEndDate">-</span></p>
                 </div>
             </div>
 
@@ -100,7 +101,6 @@
             </div>
             <div class="input-container">
                 <div id="pinnedPrompt" class="pinned-prompt">
-                    <!-- Le prompt épinglé sera affiché ici -->
                 </div>
                 <textarea id="userInput" placeholder="Tapez votre message ici..." rows="1"></textarea>
                 <input type="file" id="fileInput" class="file-input" accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileUpload(event)">
@@ -138,15 +138,6 @@
             <input type="text" id="registerUsername" placeholder="Nom d'utilisateur">
             <input type="password" id="registerPassword" placeholder="Mot de passe">
             <button onclick="register()">S'inscrire</button>
-        </div>
-    </div>
-
-    <!-- Nouvel élément pour la visite guidée -->
-    <div id="guidedTourOverlay" class="guided-tour-overlay hidden">
-        <div id="guidedTourTooltip" class="guided-tour-tooltip">
-            <p id="guidedTourMessage"></p>
-            <button onclick="showNextTourStep()">Suivant</button>
-            <button onclick="endTour()">Terminer la visite</button>
         </div>
     </div>
 

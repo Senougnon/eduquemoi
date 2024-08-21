@@ -1,3 +1,9 @@
+/* Ajoutez ceci au début de votre fichier CSS */
+@media (prefers-color-scheme: dark) {
+    :root {
+        color-scheme: dark;
+    }
+}
 :root {
     --primary-color: #4a90e2;
     --secondary-color: #50c878;
@@ -13,7 +19,8 @@
     --ai-message-color: #e8f5e9;
 }
 
-[data-theme="dark"] {
+/* Modifiez votre sélecteur de thème sombre comme suit */
+:root[data-theme="dark"], [data-theme="dark"] {
     --primary-color: #ffffff;
     --secondary-color: #d3d3d3;
     --background-color: #080808;
@@ -27,6 +34,7 @@
     --user-message-color: #282828;
     --ai-message-color: #303030;
 }
+
 [data-theme="dark"] .header {
     background-color: #ffffff;
     color: #000000;
@@ -47,8 +55,6 @@
 [data-theme="dark"] .header .theme-toggle:hover {
     background-color: #333333;
 }
-
-
 
 body, html {
     font-family: 'Poppins', sans-serif;
@@ -547,8 +553,7 @@ button:hover {
 }
 
 [data-theme="light"] .user-details #freeCredits,
-[data-theme="light"] .user-details #paidCredits {
-    color: #006600;
+[data-theme="light"] .user-details #paidCredits {color: #006600;
 }
 
 [data-theme="light"] .user-details #subscription {
@@ -799,6 +804,7 @@ button:hover {
         break-inside: avoid;
     }
 }
+
 .ocr-result {
     background-color: #f0f0f0;
     border: 1px solid #ddd;
@@ -813,165 +819,73 @@ button:hover {
     display: none;
 }
 
-/* Les variables root et data-theme restent inchangées */
-
-/* Ajout de styles pour la date d'expiration de l'abonnement */
-#subscriptionEndDate {
-    font-weight: bold;
-    color: var(--secondary-color);
-}
-
-/* Mise à jour des styles pour le pinned prompt */
-.pinned-prompt {
-    background-color: var(--input-background);
-    padding: 10px;
-    border-radius: 5px;
-    margin-bottom: 10px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-
-.pinned-prompt span {
-    flex-grow: 1;
-    margin-right: 10px;
-    font-style: italic;
-}
-
-.pinned-prompt button {
-    background: none;
-    border: none;
-    color: var(--text-color);
-    cursor: pointer;
-    font-size: 1.2em;
-    padding: 5px;
-}
-
-.pinned-prompt button:hover {
-    color: var(--hover-color);
-}
-
-/* Styles pour la modal des prompts */
-#promptListModal .modal-content {
-    max-height: 80vh;
-    overflow-y: auto;
-}
-
-#promptCategories, #promptList {
-    margin-top: 20px;
-}
-
-.prompt-category, .prompt-item {
-    padding: 10px;
-    margin: 5px 0;
-    cursor: pointer;
-    background-color: var(--input-background);
-    border-radius: 5px;
-    transition: background-color 0.3s ease;
-}
-
-.prompt-category:hover, .prompt-item:hover {
-    background-color: var(--hover-color);
-}
-
-/* Styles pour le bouton de la liste des prompts */
-#promptListButton {
-    background: none;
-    border: none;
-    color: var(--button-color);
-    cursor: pointer;
-    font-size: 1.2em;
-    padding: 5px;
-    transition: color 0.3s ease;
-}
-
-#promptListButton:hover {
-    color: var(--hover-color);
-}
-
-/* Mise à jour des styles pour les notifications */
-.notification {
+/* Styles pour la fenêtre flottante de facture */
+.invoice-modal {
     position: fixed;
-    top: 40px;
-    right: 20px;
-    padding: 10px 20px;
-    border-radius: 5px;
-    color: white;
-    font-weight: 600;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    z-index: 1000;
-    max-width: 300px;
-    word-wrap: break-word;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: var(--background-color);
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    z-index: 1002;
+    max-width: 500px;
+    width: 90%;
 }
 
-.notification.show {
-    opacity: 1;
+.invoice-modal h2 {
+    color: var(--primary-color);
+    margin-bottom: 15px;
 }
 
-.notification.success {
-    background-color: var(--secondary-color);
+.invoice-modal p {
+    margin-bottom: 10px;
 }
 
-.notification.error {
-    background-color: #e74c3c;
-}
-
-.notification.warning {
-    background-color: #f39c12;
-}
-
-.notification.info {
-    background-color: var(--primary-color);
-}
-
-/* Styles pour le bouton d'upgrade */
-.upgrade-button {
-    background-color: var(--secondary-color);
+.invoice-modal button {
+    margin-top: 15px;
+    padding: 8px 15px;
+    background-color: var(--button-color);
     color: white;
     border: none;
-    padding: 5px 10px;
     border-radius: 5px;
     cursor: pointer;
-    margin-top: 10px;
     transition: background-color 0.3s ease;
 }
 
-.upgrade-button:hover {
+.invoice-modal button:hover {
     background-color: var(--hover-color);
 }
 
-/* Les autres styles restent inchangés */
-
-/* Ajustements pour l'impression */
-@media print {
-    .sidebar, .input-container, .auth-buttons, .theme-toggle, .pinned-prompt, #promptListButton {
-        display: none;
-    }
-
-    .chat-container {
-        margin-left: 0;
-    }
-
-    .message {
-        break-inside: avoid;
-    }
-
-    .user-info-card {
-        page-break-inside: avoid;
-    }
+/* Styles pour l'overlay de la fenêtre flottante */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1001;
 }
 
-/* Styles pour l'accessibilité */
-.screen-reader-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
+/* Ajustements pour le responsive design */
+@media (max-width: 600px) {
+    .invoice-modal {
+        width: 95%;
+        padding: 15px;
+    }
+
+    .invoice-modal h2 {
+        font-size: 1.2em;
+    }
+
+    .invoice-modal p {
+        font-size: 0.9em;
+    }
+
+    .invoice-modal button {
+        font-size: 0.9em;
+        padding: 6px 12px;
+    }
 }
