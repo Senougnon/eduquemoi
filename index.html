@@ -103,16 +103,19 @@
                 <div id="fileContent" class="file-content"></div>
                 <div id="ocrResult" class="ocr-result hidden"></div>
             </div>
-            <div class="input-container">
-                <div id="pinnedPrompt" class="pinned-prompt">
+            <div class="input-area">
+                <div id="pinnedItems" class="pinned-items"></div>
+                <div class="input-container">
+                    <textarea id="userInput" placeholder="Tapez votre message ici..." rows="1"></textarea>
+                    <div class="input-actions">
+                        <input type="file" id="fileInput" class="file-input" accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileUpload(event)">
+                        <label for="fileInput" class="file-label"><i class="fas fa-paperclip"></i></label>
+                        <button id="promptListButton" onclick="togglePromptList()"><i class="fas fa-list"></i></button>
+                        <button onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+                    </div>
                 </div>
-                <textarea id="userInput" placeholder="Tapez votre message ici..." rows="1"></textarea>
-                <input type="file" id="fileInput" class="file-input" accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileUpload(event)">
-                <label for="fileInput" class="file-label"><i class="fas fa-paperclip"></i></label>
-                <button id="promptListButton" onclick="togglePromptList()"><i class="fas fa-list"></i></button>
-                <button onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
             </div>
-        </div>
+        </div>    
     </div>
 
     <!-- Modal pour la liste des prompts -->
@@ -145,25 +148,24 @@
         </div>
     </div>
 
-<!-- Modification de la modal de parrainage -->
-<div id="referralModal" class="modal">
-    <div class="modal-content">
-        <span class="close" onclick="closeModal('referralModal')">&times;</span>
-        <h2>Programme de Parrainage</h2>
-        <p>Partagez votre lien unique et gagnez des récompenses pour chaque nouvel utilisateur inscrit !</p>
-        <input type="text" id="referralLink" readonly>
-        <div class="share-buttons">
-            <button onclick="copyReferralLink()" class="copy-share" title="Copier le lien"><i class="fas fa-copy"></i></button>
-          <button onclick="shareOnFacebook()" class="fb-share"><i class="fab fa-facebook-f"></i></button>
-            <button onclick="shareOnTwitter()" class="twitter-share"><i class="fab fa-twitter"></i></button>
-            <button onclick="shareOnLinkedIn()" class="linkedin-share"><i class="fab fa-linkedin-in"></i></button>
-            <button onclick="shareOnWhatsApp()" class="whatsapp-share"><i class="fab fa-whatsapp"></i></button>
+    <div id="referralModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('referralModal')">&times;</span>
+            <h2>Programme de Parrainage</h2>
+            <p>Partagez votre lien unique et gagnez des récompenses pour chaque nouvel utilisateur inscrit !</p>
+            <input type="text" id="referralLink" readonly>
+            <div class="share-buttons">
+                <button onclick="copyReferralLink()" class="copy-share" title="Copier le lien"><i class="fas fa-copy"></i></button>
+                <button onclick="shareOnFacebook()" class="fb-share"><i class="fab fa-facebook-f"></i></button>
+                <button onclick="shareOnTwitter()" class="twitter-share"><i class="fab fa-twitter"></i></button>
+                <button onclick="shareOnLinkedIn()" class="linkedin-share"><i class="fab fa-linkedin-in"></i></button>
+                <button onclick="shareOnWhatsApp()" class="whatsapp-share"><i class="fab fa-whatsapp"></i></button>
+            </div>
+            <h3>Vos statistiques</h3>
+            <p>Total de parrainages : <span id="totalReferrals">0</span></p>
+            <p>Parrainages actifs : <span id="activeReferrals">0</span></p>
         </div>
-        <h3>Vos statistiques</h3>
-        <p>Total de parrainages : <span id="totalReferrals">0</span></p>
-        <p>Parrainages actifs : <span id="activeReferrals">0</span></p>
     </div>
-</div>
 
     <script src="script.js"></script>
 </body>

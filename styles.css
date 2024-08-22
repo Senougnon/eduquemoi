@@ -160,13 +160,11 @@ body, html {
 
 .input-container {
     display: flex;
-    padding: 15px;
     align-items: center;
     background-color: var(--input-area-color);
     border-radius: 10px;
-    margin-top: 20px;
-    position: sticky;
-    bottom: 0;
+    padding: 10px;
+    margin-top: 10px;
 }
 
 #userInput {
@@ -180,6 +178,31 @@ body, html {
     resize: vertical;
     min-height: 20px;
     max-height: 150px;
+    margin-right: 10px;
+}
+
+.input-actions {
+    display: flex;
+    align-items: center;
+}
+
+.input-actions button, .input-actions label {
+    background: none;
+    border: none;
+    color: var(--button-color);
+    cursor: pointer;
+    font-size: 1.2em;
+    padding: 5px;
+    margin: 0 5px;
+    transition: color 0.3s ease;
+}
+
+.input-actions button:hover, .input-actions label:hover {
+    color: var(--hover-color);
+}
+
+.file-input {
+    display: none;
 }
 
 input, select, button, textarea {
@@ -262,16 +285,6 @@ button:hover {
     background-color: #e74c3c;
 }
 
-.file-input {
-    display: none;
-}
-
-.file-label {
-    cursor: pointer;
-    margin-left: 10px;
-    color: var(--button-color);
-}
-
 .message-actions {
     margin-top: 5px;
 }
@@ -285,15 +298,40 @@ button:hover {
     font-size: 0.9em;
 }
 
-.pinned-file {
-    background-color: var(--input-background);
-    padding: 10px;
-    border-radius: 5px;
-    margin-bottom: 10px;
+.pinned-items {
     display: flex;
-    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 5px;
+}
+
+.pinned-item {
+    background-color: var(--input-background);
+    border: 1px solid var(--button-color);
+    border-radius: 3px;
+    padding: 2px 5px;
+    font-size: 0.8em;
+    display: flex;
     align-items: center;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    max-width: 150px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.pinned-item .icon {
+    margin-right: 5px;
+}
+
+.pinned-item .remove {
+    margin-left: 5px;
+    cursor: pointer;
+    color: var(--text-color);
+    opacity: 0.7;
+}
+
+.pinned-item .remove:hover {
+    opacity: 1;
 }
 
 #conversationHistory {
@@ -449,15 +487,6 @@ button:hover {
     font-size: 0.9em;
 }
 
-.input-container button {
-    background: none;
-    border: none;
-    color: var(--button-color);
-    cursor: pointer;
-    font-size: 1.2em;
-    padding: 5px;
-}
-
 #promptListModal {
     display: none;
     position: fixed;
@@ -506,476 +535,531 @@ button:hover {
     align-items: center;
 }
 
-#pinnedPrompt button {
-    background: none;
-    border: none;
-    color: var(--text-color);
-    cursor: pointer;
-}
-
-@media (max-width: 768px) {
-    .sidebar {
-        transform: translateX(-100%);
+    #pinnedPrompt button {
+        background: none;
+        border: none;
+        color: var(--text-color);
+        cursor: pointer;
     }
-
-    .sidebar.visible {
-        transform: translateX(0);
+    
+    @media (max-width: 768px) {
+        .sidebar {
+            transform: translateX(-100%);
+        }
+    
+        .sidebar.visible {
+            transform: translateX(0);
+        }
+    
+        .chat-container {
+            margin-left: 0;
+        }
+    
+        .chat-container.sidebar-visible {
+            margin-left: 0;
+        }
+    
+        .header {
+            padding: 5px;
+        }
+    
+        .logo {
+            font-size: 1em;
+        }
+    
+        .auth-buttons button, .theme-toggle {
+            padding: 3px 6px;
+            font-size: 0.7em;
+        }
     }
-
-    .chat-container {
-        margin-left: 0;
+    
+    [data-theme="light"] .user-info-card {
+        color: #333;
     }
-
-    .chat-container.sidebar-visible {
-        margin-left: 0;
+    
+    [data-theme="light"] .user-details #username {
+        color: #0066cc;
+        font-weight: bold;
     }
-
-    .header {
-        padding: 5px;
+    
+    [data-theme="light"] .user-details #freeCredits,
+    [data-theme="light"] .user-details #paidCredits {
+        color: #006600;
     }
-
-    .logo {
-        font-size: 1em;
+    
+    [data-theme="light"] .user-details #subscription {
+        color: #cc6600;
     }
-
-    .auth-buttons button, .theme-toggle {
-        padding: 3px 6px;
-        font-size: 0.7em;
+    
+    [data-theme="dark"] .user-info-card {
+        color: #e0e0e0;
     }
-}
-
-[data-theme="light"] .user-info-card {
-    color: #333;
-}
-
-[data-theme="light"] .user-details #username {
-    color: #0066cc;
-    font-weight: bold;
-}
-
-[data-theme="light"] .user-details #freeCredits,
-[data-theme="light"] .user-details #paidCredits {
-    color: #006600;
-}
-
-[data-theme="light"] .user-details #subscription {
-    color: #cc6600;
-}
-
-[data-theme="dark"] .user-info-card {
-    color: #e0e0e0;
-}
-
-[data-theme="dark"] .user-details #username {
-    color: #4da6ff;
-    font-weight: bold;
-}
-
-[data-theme="dark"] .user-details #freeCredits,
-[data-theme="dark"] .user-details #paidCredits {
-    color: #66ff66;
-}
-
-[data-theme="dark"] .user-details #subscription {
-    color: #ffa64d;
-}
-
-.upgrade-button {
-    background-color: var(--secondary-color);
-    color: white;
-    border: none;
-    padding: 5px 10px;
-    border-radius: 5px;
-    cursor: pointer;
-    margin-top: 10px;
-    transition: background-color 0.3s ease;
-}
-
-.upgrade-button:hover {
-    background-color: var(--hover-color);
-}
-
-#promptListButton {
-    background: none;
-    border: none;
-    color: var(--button-color);
-    cursor: pointer;
-    font-size: 1.2em;
-    padding: 5px;
-}
-
-#promptListButton:hover {
-    color: var(--hover-color);
-}
-
-.pinned-prompt {
-    background-color: var(--input-background);
-    padding: 10px;
-    border-radius: 5px;
-    margin-bottom: 10px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-
-.pinned-prompt button {
-    background: none;
-    border: none;
-    color: var(--text-color);
-    cursor: pointer;
-    font-size: 1.2em;
-}
-
-.pinned-prompt button:hover {
-    color: var(--hover-color);
-}
-
-/* Styles pour l'animation de chargement */
-.loading {
-    display: inline-block;
-    width: 20px;
-    height: 20px;
-    border: 3px solid rgba(255,255,255,.3);
-    border-radius: 50%;
-    border-top-color: var(--primary-color);
-    animation: spin 1s ease-in-out infinite;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
-
-/* Styles pour les tooltips */
-.tooltip {
-    position: relative;
-    display: inline-block;
-}
-
-.tooltip .tooltiptext {
-    visibility: hidden;
-    width: 120px;
-    background-color: var(--sidebar-color);
-    color: var(--sidebar-text);
-    text-align: center;
-    border-radius: 6px;
-    padding: 5px 0;
-    position: absolute;
-    z-index: 1;
-    bottom: 125%;
-    left: 50%;
-    margin-left: -60px;
-    opacity: 0;
-    transition: opacity 0.3s;
-}
-
-.tooltip:hover .tooltiptext {
-    visibility: visible;
-    opacity: 1;
-}
-
-/* Styles pour la pagination */
-.pagination {
-    display: flex;
-    justify-content: center;
-    margin-top: 20px;
-}
-
-.pagination button {
-    background-color: var(--button-color);
-    color: white;
-    border: none;
-    padding: 5px 10px;
-    margin: 0 5px;
-    border-radius: 5px;
-    cursor: pointer;
-}
-
-.pagination button:disabled {
-    background-color: #cccccc;
-    cursor: not-allowed;
-}
-
-/* Styles pour les onglets */
-.tabs {
-    display: flex;
-    border-bottom: 1px solid var(--button-color);
-    margin-bottom: 20px;
-}
-
-.tab {
-    padding: 10px 20px;
-    cursor: pointer;
-    border: 1px solid transparent;
-    border-bottom: none;
-    margin-bottom: -1px;
-}
-
-.tab.active {
-    background-color: var(--background-color);
-    border-color: var(--button-color);
-    border-bottom-color: var(--background-color);
-}
-
-/* Styles pour le mode focus */
-.focus-mode {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: var(--background-color);
-    z-index: 1000;
-    display: flex;
-    flex-direction: column;
-    padding: 20px;
-}
-
-.focus-mode .message-container {
-    flex-grow: 1;
-    overflow-y: auto;
-}
-
-.focus-mode .input-container {
-    margin-top: 20px;
-}
-
-.exit-focus-mode {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: none;
-    border: none;
-    color: var(--text-color);
-    font-size: 1.5em;
-    cursor: pointer;
-}
-
-/* Styles pour les animations de transition */
-.fade-in {
-    animation: fadeIn 0.5s;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-.slide-in {
-    animation: slideIn 0.5s;
-}
-
-@keyframes slideIn {
-    from { transform: translateY(-20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-}
-
-/* Ajustements pour l'accessibilité */
-@media (prefers-reduced-motion: reduce) {
-    * {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-        scroll-behavior: auto !important;
+    
+    [data-theme="dark"] .user-details #username {
+        color: #4da6ff;
+        font-weight: bold;
     }
-}
-
-.screen-reader-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-}
-
-/* Styles pour l'impression */
-@media print {
-    .sidebar, .input-container, .auth-buttons, .theme-toggle {
+    
+    [data-theme="dark"] .user-details #freeCredits,
+    [data-theme="dark"] .user-details #paidCredits {
+        color: #66ff66;
+    }
+    
+    [data-theme="dark"] .user-details #subscription {
+        color: #ffa64d;
+    }
+    
+    .upgrade-button {
+        background-color: var(--secondary-color);
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 5px;
+        cursor: pointer;
+        margin-top: 10px;
+        transition: background-color 0.3s ease;
+    }
+    
+    .upgrade-button:hover {
+        background-color: var(--hover-color);
+    }
+    
+    /* Styles pour l'animation de chargement */
+    .loading {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255,255,255,.3);
+        border-radius: 50%;
+        border-top-color: var(--primary-color);
+        animation: spin 1s ease-in-out infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    /* Styles pour les tooltips */
+    .tooltip {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .tooltip .tooltiptext {
+        visibility: hidden;
+        width: 120px;
+        background-color: var(--sidebar-color);
+        color: var(--sidebar-text);
+        text-align: center;
+        border-radius: 6px;
+        padding: 5px 0;
+        position: absolute;
+        z-index: 1;
+        bottom: 125%;
+        left: 50%;
+        margin-left: -60px;
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+    
+    .tooltip:hover .tooltiptext {
+        visibility: visible;
+        opacity: 1;
+    }
+    
+    /* Styles pour la pagination */
+    .pagination {
+        display: flex;
+        justify-content: center;
+        margin-top: 20px;
+    }
+    
+    .pagination button {
+        background-color: var(--button-color);
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        margin: 0 5px;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+    
+    .pagination button:disabled {
+        background-color: #cccccc;
+        cursor: not-allowed;
+    }
+    
+    /* Styles pour les onglets */
+    .tabs {
+        display: flex;
+        border-bottom: 1px solid var(--button-color);
+        margin-bottom: 20px;
+    }
+    
+    .tab {
+        padding: 10px 20px;
+        cursor: pointer;
+        border: 1px solid transparent;
+        border-bottom: none;
+        margin-bottom: -1px;
+    }
+    
+    .tab.active {
+        background-color: var(--background-color);
+        border-color: var(--button-color);
+        border-bottom-color: var(--background-color);
+    }
+    
+    /* Styles pour le mode focus */
+    .focus-mode {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: var(--background-color);
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        padding: 20px;
+    }
+    
+    .focus-mode .message-container {
+        flex-grow: 1;
+        overflow-y: auto;
+    }
+    
+    .focus-mode .input-container {
+        margin-top: 20px;
+    }
+    
+    .exit-focus-mode {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: none;
+        border: none;
+        color: var(--text-color);
+        font-size: 1.5em;
+        cursor: pointer;
+    }
+    
+    /* Styles pour les animations de transition */
+    .fade-in {
+        animation: fadeIn 0.5s;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    .slide-in {
+        animation: slideIn 0.5s;
+    }
+    
+    @keyframes slideIn {
+        from { transform: translateY(-20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    
+    /* Ajustements pour l'accessibilité */
+    @media (prefers-reduced-motion: reduce) {
+        * {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+        }
+    }
+    
+    .screen-reader-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+    
+    /* Styles pour l'impression */
+    @media print {
+        .sidebar, .input-container, .auth-buttons, .theme-toggle {
+            display: none;
+        }
+    
+        .chat-container {
+            margin-left: 0;
+        }
+    
+        .message {
+            break-inside: avoid;
+        }
+    }
+    
+    .ocr-result {
+        background-color: #f0f0f0;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 10px;
+        margin-top: 10px;
+        font-size: 0.9em;
+        color: #666;
+    }
+    
+    .ocr-result.hidden {
         display: none;
     }
-
-    .chat-container {
-        margin-left: 0;
-    }
-
-    .message {
-        break-inside: avoid;
-    }
-}
-
-.ocr-result {
-    background-color: #f0f0f0;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    padding: 10px;
-    margin-top: 10px;
-    font-size: 0.9em;
-    color: #666;
-}
-
-.ocr-result.hidden {
-    display: none;
-}
-
-/* Styles pour la fenêtre flottante de facture */
-.invoice-modal {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background-color: var(--background-color);
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    z-index: 1002;
-    max-width: 500px;
-    width: 90%;
-}
-
-.invoice-modal h2 {
-    color: var(--primary-color);
-    margin-bottom: 15px;
-}
-
-.invoice-modal p {
-    margin-bottom: 10px;
-}
-
-.invoice-modal button {
-    margin-top: 15px;
-    padding: 8px 15px;
-    background-color: var(--button-color);
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-}
-
-.invoice-modal button:hover {
-    background-color: var(--hover-color);
-}
-
-/* Styles pour l'overlay de la fenêtre flottante */
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
-    z-index: 1001;
-}
-
-/* Styles pour le système de parrainage */
-#referralModal .modal-content {
-    text-align: center;
-}
-
-#referralLink {
-    width: 80%;
-    margin: 10px auto;
-    padding: 10px;
-    font-size: 0.9em;
-    text-align: center;
-}
-
-#referralModal button {
-    margin-top: 10px;
-}
-
-#referralModal h3 {
-    margin-top: 20px;
-    color: var(--primary-color);
-}
-
-#totalReferrals, #activeReferrals {
-    font-weight: bold;
-    color: var(--secondary-color);
-}
-
-/* Styles pour les boutons de partage social */
-.share-buttons {
-    display: flex;
-    justify-content: center;
-    margin-top: 15px;
-}
-
-.share-buttons button {
-    margin: 0 5px;
-    padding: 10px;
-    border: none;
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    font-size: 18px;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-}
-
-.share-buttons button:hover {
-    opacity: 0.8;
-}
-
-.copy-share {
-    background-color: #6c757d;
-    color: white;
-}
-
-.fb-share {
-    background-color: #3b5998;
-    color: white;
-}
-
-.twitter-share {
-    background-color: #1da1f2;
-    color: white;
-}
-
-.linkedin-share {
-    background-color: #0077b5;
-    color: white;
-}
-
-.whatsapp-share {
-    background-color: #25d366;
-    color: white;
-}
-
-/* Ajustements pour le responsive design */
-@media (max-width: 600px) {
-    .invoice-modal, #referralModal .modal-content {
-        width: 95%;
-        padding: 15px;
-    }
-
-    .invoice-modal h2, #referralModal h2 {
-        font-size: 1.2em;
-    }
-
-    .invoice-modal p, #referralModal p {
-        font-size: 0.9em;
-    }
-
-    .invoice-modal button, #referralModal button {
-        font-size: 0.9em;
-        padding: 6px 12px;
-    }
-
-    #referralLink {
+    
+    /* Styles pour la fenêtre flottante de facture */
+    .invoice-modal {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: var(--background-color);
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        z-index: 1002;
+        max-width: 500px;
         width: 90%;
-        font-size: 0.8em;
     }
-
+    
+    .invoice-modal h2 {
+        color: var(--primary-color);
+        margin-bottom: 15px;
+    }
+    
+    .invoice-modal p {
+        margin-bottom: 10px;
+    }
+    
+    .invoice-modal button {
+        margin-top: 15px;
+        padding: 8px 15px;
+        background-color: var(--button-color);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+    
+    .invoice-modal button:hover {
+        background-color: var(--hover-color);
+    }
+    
+    /* Styles pour l'overlay de la fenêtre flottante */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1001;
+    }
+    
+    /* Styles pour le système de parrainage */
+    #referralModal .modal-content {
+        text-align: center;
+    }
+    
+    #referralLink {
+        width: 80%;
+        margin: 10px auto;
+        padding: 10px;
+        font-size: 0.9em;
+        text-align: center;
+    }
+    
+    #referralModal button {
+        margin-top: 10px;
+    }
+    
+    #referralModal h3 {
+        margin-top: 20px;
+        color: var(--primary-color);
+    }
+    
+    #totalReferrals, #activeReferrals {
+        font-weight: bold;
+        color: var(--secondary-color);
+    }
+    
+    /* Styles pour les boutons de partage social */
     .share-buttons {
-        flex-wrap: wrap;
+        display: flex;
+        justify-content: center;
+        margin-top: 15px;
     }
     
     .share-buttons button {
-        margin: 5px;
+        margin: 0 5px;
+        padding: 10px;
+        border: none;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
     }
-}
+    
+    .share-buttons button:hover {
+        opacity: 0.8;
+    }
+    
+    .copy-share {
+        background-color: #6c757d;
+        color: white;
+    }
+    
+    .fb-share {
+        background-color: #3b5998;
+        color: white;
+    }
+    
+    .twitter-share {
+        background-color: #1da1f2;
+        color: white;
+    }
+    
+    .linkedin-share {
+        background-color: #0077b5;
+        color: white;
+    }
+    
+    .whatsapp-share {
+        background-color: #25d366;
+        color: white;
+    }
+    
+    /* Ajustements pour le responsive design */
+    @media (max-width: 600px) {
+        .invoice-modal, #referralModal .modal-content {
+            width: 95%;
+            padding: 15px;
+        }
+    
+        .invoice-modal h2, #referralModal h2 {
+            font-size: 1.2em;
+        }
+    
+        .invoice-modal p, #referralModal p {
+            font-size: 0.9em;
+        }
+    
+        .invoice-modal button, #referralModal button {
+            font-size: 0.9em;
+            padding: 6px 12px;
+        }
+    
+        #referralLink {
+            width: 90%;
+            font-size: 0.8em;
+        }
+    
+        .share-buttons {
+            flex-wrap: wrap;
+        }
+        
+        .share-buttons button {
+            margin: 5px;
+        }
+    }
+
+    .input-area {
+        display: flex;
+        flex-direction: column;
+        margin-top: 10px;
+    }
+    
+    .pinned-items {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-bottom: 5px;
+    }
+    
+    .pinned-item {
+        background-color: var(--input-background);
+        border: 1px solid var(--button-color);
+        border-radius: 3px;
+        padding: 2px 5px;
+        font-size: 0.8em;
+        display: inline-flex;
+        align-items: center;
+        max-width: 100%;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+    
+    .pinned-item .icon {
+        margin-right: 5px;
+        flex-shrink: 0;
+    }
+    
+    .pinned-item .name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .pinned-item .remove {
+        margin-left: 5px;
+        cursor: pointer;
+        color: var(--text-color);
+        opacity: 0.7;
+        flex-shrink: 0;
+    }
+    
+    .pinned-item .remove:hover {
+        opacity: 1;
+    }
+    
+    .input-container {
+        display: flex;
+        align-items: center;
+        background-color: var(--input-area-color);
+        border-radius: 10px;
+        padding: 10px;
+    }
+    
+    #userInput {
+        flex-grow: 1;
+        border: none;
+        background-color: transparent;
+        color: var(--text-color);
+        font-size: 1em;
+        padding: 10px;
+        outline: none;
+        resize: vertical;
+        min-height: 20px;
+        max-height: 150px;
+        margin-right: 10px;
+    }
+    
+    .input-actions {
+        display: flex;
+        align-items: center;
+    }
+    
+    .input-actions button, .input-actions label {
+        background: none;
+        border: none;
+        color: var(--button-color);
+        cursor: pointer;
+        font-size: 1.2em;
+        padding: 5px;
+        margin: 0 5px;
+        transition: color 0.3s ease;
+    }
+    
+    .input-actions button:hover, .input-actions label:hover {
+        color: var(--hover-color);
+    }

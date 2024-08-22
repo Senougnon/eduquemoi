@@ -266,29 +266,25 @@ async function resetFreeCreditsIfNeeded() {
     const now = new Date();
     const lastReset = new Date(currentUser.lastFreeCreditsReset);
     if (now.getTime() - lastReset.getTime() >= 24 * 60 * 60 * 1000) {
+        const previousCredits = currentUser.freeCredits;
         currentUser.freeCredits = FREE_CREDITS_PER_DAY;
         currentUser.lastFreeCreditsReset = now.toISOString();
         await syncUserData();
         document.getElementById('freeCredits').textContent = currentUser.freeCredits;
-   // Notifier l'utilisateur
-   const newCredits = currentUser.freeCredits - previousCredits;
-   if (newCredits > 0) {
-       showNotification(`${newCredits} crédits gratuits ont été ajoutés à votre compte !`, 'success');
-   }
+        // Notifier l'utilisateur
+        const newCredits = currentUser.freeCredits - previousCredits;
+        if (newCredits > 0) {
+            showNotification(`${newCredits} crédits gratuits ont été ajoutés à votre compte !`, 'success');
+        }
+    }
 }
-}
+
 function checkModelAccess() {
     const selectedModel = document.getElementById('modelSelect').value;
     if (selectedModel !== 'gemini-1.0-pro' && !hasValidSubscription() && currentUser.paidCredits <= 0) {
         showPaymentNotification('Ce modèle nécessite un abonnement ou des crédits payants.');
         document.getElementById('modelSelect').value = 'gemini-1.0-pro';
     }
-}
-
-function resetTextareaHeight() {
-    const textarea = document.getElementById('userInput');
-    textarea.style.height = 'auto'; // Réinitialise à la hauteur par défaut
-    textarea.style.height = textarea.scrollHeight + 'px'; // Ajuste à la hauteur du contenu
 }
 
 async function sendMessage() {
@@ -306,7 +302,7 @@ async function sendMessage() {
     }
 
     if (!hasEnoughCredits(model)) {
-        showPaymentNotification('Vous n\'avez plus de crédits. Veuillez acheter des crédits ou un forfait pour continuer.');
+        showPaymentNotification('Vous n\'avez plus de crédits pour les models no limite. Veuillez acheter des crédits ou un forfait pour continuer. Vous pouvez aussi continuer avec le modèl limité');
         return;
     }
 
@@ -349,10 +345,6 @@ async function sendMessage() {
         } else {
             messageElement = addMessageToChat('ai', aiResponse);
         }
-
-        userInput.value = ''; // Vide le champ de saisie
-        resetTextareaHeight(); // Réinitialise la hauteur du champ de saisie
-
 
         await updateCredits(model);
         removePinnedFile();
@@ -645,18 +637,32 @@ async function handleFileUpload(event) {
             content: content
         };
 
-        const fileSupport = document.getElementById('fileSupport');
-        const pinnedFileElement = document.getElementById('pinnedFile');
-        const fileContentElement = document.getElementById('fileContent');
-
-        pinnedFileElement.innerHTML = `
-            <span>${file.name}</span>
-            <button onclick="removePinnedFile()"><i class="fas fa-times"></i></button>
-        `;
-        fileContentElement.textContent = content.substring(0, 500) + (content.length > 500 ? '...' : '');
-        
-        fileSupport.classList.remove('hidden');
+        updatePinnedFile(pinnedFile);
     }
+}
+
+function updatePinnedFile(file) {
+    const pinnedItems = document.getElementById('pinnedItems');
+    const existingFile = pinnedItems.querySelector('.pinned-item[data-type="file"]');
+    if (existingFile) {
+        existingFile.remove();
+    }
+    if (file) {
+        const item = document.createElement('div');
+        item.className = 'pinned-item';
+        item.setAttribute('data-type', 'file');
+        item.innerHTML = `
+            <span class="icon">📎</span>
+            <span class="name" title="${file.name}">${file.name}</span>
+            <span class="remove" onclick="removePinnedFile()">❌</span>
+        `;
+        pinnedItems.appendChild(item);
+    }
+}
+
+function removePinnedFile() {
+    pinnedFile = null;
+    updatePinnedFile(null);
 }
 
 async function performOCR(file) {
@@ -687,17 +693,6 @@ async function performOCR(file) {
         showNotification("Erreur lors de l'analyse OCR. Veuillez réessayer.", 'error');
         return '';
     }
-}
-
-function removePinnedFile() {
-    pinnedFile = null;
-    const fileSupport = document.getElementById('fileSupport');
-    const pinnedFileElement = document.getElementById('pinnedFile');
-    const fileContentElement = document.getElementById('fileContent');
-
-    pinnedFileElement.innerHTML = '';
-    fileContentElement.textContent = '';
-    fileSupport.classList.add('hidden');
 }
 
 function hasValidSubscription() {
@@ -744,8 +739,7 @@ function buySubscription() {
                 showNotification('Le paiement a été annulé ou a échoué.', 'error');
             }
         }
-    });
-    fedaPayInstance.open();
+    });fedaPayInstance.open();
 }
 
 async function activateSubscription(subscriptionType) {
@@ -810,33 +804,31 @@ async function addCreditsToUser(amount) {
     await syncUserData();
     document.getElementById('paidCredits').textContent = currentUser.paidCredits;
 }
-// Fonction pour partager sur Facebook
+
 function shareOnFacebook() {
     const url = encodeURIComponent(document.getElementById('referralLink').value);
     const message = encodeURIComponent("Rejoignez-moi sur Eduque moi et apprenons ensemble ! Utilisez mon lien de parrainage pour obtenir des bonus :");
     window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${message}`, '_blank');
 }
 
-// Fonction pour partager sur Twitter
 function shareOnTwitter() {
     const url = encodeURIComponent(document.getElementById('referralLink').value);
     const message = encodeURIComponent("Découvrez Eduque moi avec moi ! Utilisez mon lien de parrainage pour commencer votre voyage d'apprentissage :");
     window.open(`https://twitter.com/intent/tweet?url=${url}&text=${message}`, '_blank');
 }
 
-// Fonction pour partager sur LinkedIn
 function shareOnLinkedIn() {
     const url = encodeURIComponent(document.getElementById('referralLink').value);
     const message = encodeURIComponent("Je vous recommande Eduque moi pour améliorer vos connaissances. Utilisez mon lien de parrainage :");
     window.open(`https://www.linkedin.com/shareArticle?mini=true&url=${url}&title=Rejoignez Eduque moi&summary=${message}`, '_blank');
 }
 
-// Fonction pour partager sur WhatsApp
 function shareOnWhatsApp() {
     const url = encodeURIComponent(document.getElementById('referralLink').value);
     const message = encodeURIComponent("Hé ! J'utilise Eduque moi pour apprendre. Rejoins-moi avec ce lien de parrainage : ");
     window.open(`https://wa.me/?text=${message}${url}`, '_blank');
 }
+
 function showNotification(message, type) {
     const notification = document.createElement('div');
     notification.textContent = message;
@@ -1020,6 +1012,11 @@ function adjustTextareaHeight() {
     textarea.style.height = textarea.scrollHeight + 'px';
 }
 
+function resetTextareaHeight() {
+    const textarea = document.getElementById('userInput');
+    textarea.style.height = 'auto';
+}
+
 async function attemptAutoLogin() {
     const storedInfo = getStoredLoginInfo();
     if (storedInfo.username && storedInfo.password) {
@@ -1128,7 +1125,7 @@ function loadPromptsForCategory(category) {
 function selectPrompt(id, prompt) {
     pinnedPrompt = { id, ...prompt };
     document.getElementById('promptListModal').style.display = 'none';
-    updatePinnedPromptDisplay();
+    updatePinnedPrompt();
     showNotification('Prompt sélectionné', 'success');
 }
 
@@ -1137,26 +1134,30 @@ function closePromptModal() {
     showNotification('Liste des prompts masquée', 'info');
 }
 
-function updatePinnedPromptDisplay() {
-    const pinnedPromptContainer = document.getElementById('pinnedPrompt');
-    
+function updatePinnedPrompt() {
+    const pinnedItems = document.getElementById('pinnedItems');
+    const existingPrompt = pinnedItems.querySelector('.pinned-item[data-type="prompt"]');
+    if (existingPrompt) {
+        existingPrompt.remove();
+    }
     if (pinnedPrompt) {
-        pinnedPromptContainer.innerHTML = `
-            <span>${pinnedPrompt.title}</span>
-            <button onclick="removePinnedPrompt()"><i class="fas fa-times"></i></button>
+        const item = document.createElement('div');
+        item.className = 'pinned-item';
+        item.setAttribute('data-type', 'prompt');
+        item.innerHTML =`
+            <span class="icon">💬</span>
+            <span class="name" title="${pinnedPrompt.title}">${pinnedPrompt.title}</span>
+            <span class="remove" onclick="removePinnedPrompt()">❌</span>
         `;
-        pinnedPromptContainer.style.display = 'flex';
-    } else {
-        pinnedPromptContainer.style.display = 'none';
+        pinnedItems.appendChild(item);
     }
 }
 
 function removePinnedPrompt() {
     pinnedPrompt = null;
-    updatePinnedPromptDisplay();
+    updatePinnedPrompt();
 }
 
-// Mettre à jour la fonction showReferralModal pour inclure le message d'invitation
 function showReferralModal() {
     const modal = document.getElementById('referralModal');
     modal.style.display = 'block';
@@ -1212,7 +1213,6 @@ function updateReferralStats() {
         
         document.getElementById('totalReferrals').textContent = totalReferrals;
         document.getElementById('activeReferrals').textContent = activeReferrals;
-        // Mettez à jour d'autres statistiques ici si nécessaire
     });
 }
 
