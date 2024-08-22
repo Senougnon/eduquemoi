@@ -294,7 +294,7 @@ async function sendMessage() {
     }
 
     const userInput = document.getElementById('userInput').value.trim();
-    const model = document.getElementById('modelSelect').value;
+    let model = document.getElementById('modelSelect').value;
 
     if (!userInput && !pinnedFile && !pinnedPrompt) {
         showNotification('Veuillez entrer un message, joindre un fichier ou sélectionner un prompt.', 'error');
@@ -302,10 +302,27 @@ async function sendMessage() {
     }
 
     if (!hasEnoughCredits(model)) {
-        showPaymentNotification('Vous n\'avez plus de crédits pour les models no limite. Veuillez acheter des crédits ou un forfait pour continuer. Vous pouvez aussi continuer avec le modèl limité');
-        return;
+        const choice = await showPaymentNotificationWithFreeOption('Vous n\'avez plus de crédits pour ce modèle.');
+        if (choice === 'free') {
+            if (currentUser.freeCredits > 0) {
+                model = 'gemini-1.0-pro'; // Basculer vers le modèle gratuit
+                switchToFreeModel();
+            } else {
+                showNotification('Vous n\'avez plus de crédits gratuits. Veuillez acheter des crédits ou un abonnement.', 'error');
+                return;
+            }
+        } else if (choice === 'subscription') {
+            buySubscription();
+            return;
+        } else if (choice === 'credits') {
+            buyCredits();
+            return;
+        } else {
+            return; // L'utilisateur a choisi d'annuler
+        }
     }
 
+    // Le reste de la fonction sendMessage reste inchangé
     let displayMessage = userInput;
     let fullMessage = userInput;
 
@@ -321,6 +338,7 @@ async function sendMessage() {
 
     addMessageToChat('user', displayMessage);
     document.getElementById('userInput').value = '';
+    resetTextareaHeight();
 
     try {
         const conversationContext = currentConversation.map(msg => msg.content).join('\n');
@@ -356,6 +374,43 @@ async function sendMessage() {
     }
 }
 
+function hasEnoughCredits(model) {
+    if (hasValidSubscription()) return true;
+    if (model === 'gemini-1.0-pro') {
+        return currentUser.freeCredits > 0 || currentUser.paidCredits > 0;
+    }
+    return currentUser.paidCredits > 0;
+}
+
+async function showPaymentNotificationWithFreeOption(message) {
+    return new Promise((resolve) => {
+        const notification = document.createElement('div');
+        notification.className = 'notification error';
+        notification.innerHTML = `
+            ${message}<br>
+            <button onclick="resolveNotification('free')">Utiliser le modèle gratuit</button>
+            <button onclick="resolveNotification('subscription')">Acheter un abonnement</button>
+            <button onclick="resolveNotification('credits')">Acheter des crédits</button>
+            <button onclick="resolveNotification('cancel')">Annuler</button>
+        `;
+        document.body.appendChild(notification);
+
+        window.resolveNotification = function(choice) {
+            notification.remove();
+            resolve(choice);
+        };
+
+        setTimeout(() => {
+            notification.classList.add('show');
+        }, 100);
+    });
+}
+
+function switchToFreeModel() {
+    const modelSelect = document.getElementById('modelSelect');
+    modelSelect.value = 'gemini-1.0-pro';
+    showNotification('Basculé vers le modèle gratuit Gemini 1.0 Pro', 'info');
+}
 function hasEnoughCredits(model) {
     if (hasValidSubscription()) return true;
     if (model === 'gemini-1.0-pro') {

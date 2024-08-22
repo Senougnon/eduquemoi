@@ -272,6 +272,24 @@ button:hover {
     transition: opacity 0.3s ease;
     z-index: 1000;
 }
+.notification button {
+    margin-right: 5px;
+    margin-top: 5px;
+    padding: 5px 10px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.notification button:first-of-type {
+    background-color: var(--secondary-color);
+    color: white;
+}
+
+.notification button:first-of-type:hover {
+    background-color: var(--hover-color);
+}
 
 .notification.show {
     opacity: 1;
