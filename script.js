@@ -1138,55 +1138,65 @@ function animateResponse(element, text) {
     }, 1);
 }
 
-function togglePromptList() {
-    const modal = document.getElementById('promptListModal');
-    modal.style.display = "block";
-    loadPromptCategories();
-}
-
 function loadPromptCategories() {
-    const categoriesContainer = document.getElementById('promptCategories');
-    categoriesContainer.innerHTML = '';
+    const categoriesList = document.getElementById('promptCategories');
+    categoriesList.innerHTML = '';
     
     db.ref('prompts').once('value', (snapshot) => {
         prompts = snapshot.val() || {};
         const categories = [...new Set(Object.values(prompts).map(prompt => prompt.category))];
         
         categories.forEach(category => {
-            const categoryElement = document.createElement('div');
-            categoryElement.className = 'prompt-category';
-            categoryElement.textContent = category;
-            categoryElement.onclick = () => loadPromptsForCategory(category);
-            categoriesContainer.appendChild(categoryElement);
+            const li = document.createElement('li');
+            li.textContent = category;
+            li.onclick = () => {
+                document.querySelectorAll('#promptCategories li').forEach(el => el.classList.remove('active'));
+                li.classList.add('active');
+                loadPromptsForCategory(category);
+            };
+            categoriesList.appendChild(li);
         });
+
+        if (categories.length > 0) {
+            loadPromptsForCategory(categories[0]);
+            categoriesList.firstChild.classList.add('active');
+        }
     });
 }
 
 function loadPromptsForCategory(category) {
-    const promptListElement = document.getElementById('promptList');
-    promptListElement.innerHTML = '';
+    const promptList = document.getElementById('promptList');
+    promptList.innerHTML = '';
     
     Object.entries(prompts).forEach(([id, prompt]) => {
         if (prompt.category === category) {
-            const promptElement = document.createElement('div');
-            promptElement.className = 'prompt-item';
-            promptElement.textContent = prompt.title;
-            promptElement.onclick = () => selectPrompt(id, prompt);
-            promptListElement.appendChild(promptElement);
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <div class="prompt-item" onclick="selectPrompt('${id}', ${JSON.stringify(prompt).replace(/"/g, '&quot;')})">
+                    <span class="prompt-title">${prompt.title}</span>
+                    <span class="prompt-select-icon"><i class="fas fa-plus-circle"></i></span>
+                </div>
+            `;
+            promptList.appendChild(li);
         }
     });
 }
 
 function selectPrompt(id, prompt) {
     pinnedPrompt = { id, ...prompt };
-    document.getElementById('promptListModal').style.display = 'none';
     updatePinnedPrompt();
+    closePromptModal();
     showNotification('Prompt sélectionné', 'success');
 }
 
 function closePromptModal() {
     document.getElementById('promptListModal').style.display = 'none';
-    showNotification('Liste des prompts masquée', 'info');
+}
+
+function togglePromptList() {
+    const modal = document.getElementById('promptListModal');
+    modal.style.display = "block";
+    loadPromptCategories();
 }
 
 function updatePinnedPrompt() {
