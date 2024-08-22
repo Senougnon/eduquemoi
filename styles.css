@@ -1081,3 +1081,78 @@ button:hover {
     .input-actions button:hover, .input-actions label:hover {
         color: var(--hover-color);
     }
+    .prompt-modal {
+        max-width: 800px;
+        width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+    
+    .prompt-container {
+        display: flex;
+        gap: 20px;
+    }
+    
+    .prompt-categories, .prompt-list {
+        flex: 1;
+    }
+    
+    .prompt-categories ul, .prompt-list ul {
+        list-style-type: none;
+        padding: 0;
+        margin: 0;
+        max-height: 50vh;
+        overflow-y: auto;
+    }
+    
+    .prompt-categories li, .prompt-list li {
+        padding: 10px;
+        margin: 5px 0;
+        background-color: var(--input-background);
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+    
+    .prompt-categories li:hover, .prompt-list li:hover {
+        background-color: var(--hover-color);
+    }
+    
+    .prompt-categories li.active {
+        background-color: var(--primary-color);
+        color: rgb(10, 2, 129);
+    }
+    
+    .prompt-list li {
+        padding: 0;
+        margin: 5px 0;
+    }
+    
+    .prompt-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+        background-color: var(--input-background);
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+    
+    .prompt-item:hover {
+        background-color: var(--hover-color);
+    }
+    
+    .prompt-title {
+        flex-grow: 1;
+        margin-right: 10px;
+    }
+    
+    .prompt-select-icon {
+        color: var(--primary-color);
+        font-size: 1.2em;
+    }
+    
+    .prompt-item:hover .prompt-select-icon {
+        color: var(--hover-color);
+    }
