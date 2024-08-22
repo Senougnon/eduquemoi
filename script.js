@@ -1223,12 +1223,14 @@ function removePinnedPrompt() {
     updatePinnedPrompt();
 }
 
-function showReferralModal() {
+// Fonction pour afficher la modal de parrainage
+async function showReferralModal() {
     const modal = document.getElementById('referralModal');
     modal.style.display = 'block';
     
-    if (currentUser && currentUser.referralCode) {
-        const referralLink = `https://eduquemoi.netlify.app/?ref=${currentUser.referralCode}`;
+    const referralCode = await getOrCreateReferralCode();
+    if (referralCode) {
+        const referralLink = `https://eduquemoi.netlify.app/?ref=${referralCode}`;
         document.getElementById('referralLink').value = referralLink;
         
         // Créer le message d'invitation
@@ -1237,27 +1239,31 @@ function showReferralModal() {
         // Vous pouvez stocker ce message dans un attribut data pour une utilisation facile
         document.getElementById('referralLink').setAttribute('data-invite-message', inviteMessage);
     } else {
-        generateReferralCode();
+        document.getElementById('referralLink').value = "Erreur lors de la récupération du code de parrainage.";
     }
     
     updateReferralStats();
 }
 
+// Fonction pour générer un code de parrainage unique
 function generateReferralCode() {
-    if (!currentUser) return;
-    
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+// Fonction pour obtenir ou créer un code de parrainage pour l'utilisateur actuel
+async function getOrCreateReferralCode() {
+    if (!currentUser) return null;
+
     const userRef = db.ref('users/' + currentUser.username);
-    
-    userRef.update({ referralCode: code })
-        .then(() => {
-            currentUser.referralCode = code;
-            document.getElementById('referralLink').value = `https://eduquemoi.netlify.app/?ref=${code}`;
-        })
-        .catch(error => {
-            console.error("Erreur lors de la génération du code de parrainage:", error);
-            showNotification("Erreur lors de la génération du code. Veuillez réessayer.", 'error');
-        });
+    const snapshot = await userRef.once('value');
+    const userData = snapshot.val();
+
+    if (userData && userData.referralCode) {
+        return userData.referralCode;
+    } else {
+        const newCode = generateReferralCode();
+        await userRef.update({ referralCode: newCode });
+        return newCode;
+    }
 }
 
 function copyReferralLink() {
@@ -1267,18 +1273,25 @@ function copyReferralLink() {
     showNotification('Lien de parrainage copié !', 'success');
 }
 
-function updateReferralStats() {
+// Fonction pour mettre à jour les statistiques de parrainage
+async function updateReferralStats() {
     if (!currentUser) return;
     
     const userRef = db.ref('users/' + currentUser.username);
-    userRef.child('referrals').once('value', snapshot => {
-        const referrals = snapshot.val() || {};
+    const snapshot = await userRef.once('value');
+    const userData = snapshot.val();
+    
+    if (userData && userData.referrals) {
+        const referrals = userData.referrals;
         const totalReferrals = Object.keys(referrals).length;
         const activeReferrals = Object.values(referrals).filter(r => r.isActive).length;
         
         document.getElementById('totalReferrals').textContent = totalReferrals;
         document.getElementById('activeReferrals').textContent = activeReferrals;
-    });
+    } else {
+        document.getElementById('totalReferrals').textContent = '0';
+        document.getElementById('activeReferrals').textContent = '0';
+    }
 }
 
 async function rewardReferrer(username, amount) {
