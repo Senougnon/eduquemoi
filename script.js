@@ -285,6 +285,12 @@ function checkModelAccess() {
     }
 }
 
+function resetTextareaHeight() {
+    const textarea = document.getElementById('userInput');
+    textarea.style.height = 'auto'; // Réinitialise à la hauteur par défaut
+    textarea.style.height = textarea.scrollHeight + 'px'; // Ajuste à la hauteur du contenu
+}
+
 async function sendMessage() {
     if (!currentUser) {
         showNotification('Veuillez vous connecter pour envoyer des messages.', 'error');
@@ -343,6 +349,10 @@ async function sendMessage() {
         } else {
             messageElement = addMessageToChat('ai', aiResponse);
         }
+
+        userInput.value = ''; // Vide le champ de saisie
+        resetTextareaHeight(); // Réinitialise la hauteur du champ de saisie
+
 
         await updateCredits(model);
         removePinnedFile();
