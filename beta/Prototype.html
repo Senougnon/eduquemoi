@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bibliothèque Eduque moi</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/assets/owl.carousel.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/assets/owl.theme.default.min.css">
+  <style>
+    .container {
+      width: 80%;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0,0,0,0.4);
+    }
+
+    .modal-content {
+      background-color: #fefefe;
+      margin: 15% auto;
+      padding: 20px;
+      border: 1px solid #888;
+      width: 80%;
+    }
+
+    .close {
+      color: #aaa;
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .close:hover,
+    .close:focus {
+      color: black;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .document-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      grid-gap: 20px;
+    }
+
+    .document-card {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .document-card img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      margin-bottom: 10px;
+    }
+
+    #documentPreview {
+      width: 100%;
+      height: 400px;
+      margin-bottom: 20px;
+    }
+
+    .owl-carousel .owl-nav button.owl-prev, 
+    .owl-carousel .owl-nav button.owl-next {
+      font-size: 20px;
+      color: #4a90e2;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Bibliothèque</h1>
+
+    <input type="file" id="imageUpload" multiple accept="image/*">
+    <button onclick="uploadImages()">Importer des images</button>
+
+    <div id="documentModal" class="modal">
+      <div class="modal-content">
+        <span class="close" onclick="closeModal('documentModal')">×</span>
+        <h2 id="modalTitle"></h2>
+        <div id="documentPreview">
+          <div class="owl-carousel owl-theme"></div> 
+        </div>
+        <button onclick="closeModal('documentModal')">Fermer</button>
+      </div>
+    </div>
+
+    <div class="document-grid">
+      <!-- Documents seront ajoutés ici par JavaScript -->
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/owl.carousel.min.js"></script>
+  <script>
+    // Configuration Firebase (remplacez par vos informations)
+    const firebaseConfig = {
+        apiKey: "AIzaSyCvizcYorGDPN3GXqma0opp7wAiMkaCt64",
+        authDomain: "gemini-bb56e.firebaseapp.com",
+        databaseURL: "https://gemini-bb56e-default-rtdb.firebaseio.com",
+        projectId: "gemini-bb56e",
+        storageBucket: "gemini-bb56e.appspot.com",
+        messagingSenderId: "277143630015",
+        appId: "1:277143630015:web:78736f2cf52d29495d160a",
+        measurementId: "G-CSN292219J"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const storage = firebase.storage();
+
+    const documents = []; 
+
+    // Fonction pour télécharger les images vers Firebase Storage
+    function uploadImages() {
+      const imageUpload = document.getElementById('imageUpload');
+      const files = imageUpload.files;
+
+      if (files.length === 0) {
+        alert("Veuillez sélectionner au moins une image.");
+        return;
+      }
+
+      const documentId = prompt("Entrez un ID pour le document (par exemple, document1):");
+      if (!documentId) return;
+
+      const uploadPromises = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileName = `page${i + 1}.jpg`; // Nom de fichier pour chaque page
+        const storageRef = storage.ref(`documents/${documentId}/${fileName}`);
+        uploadPromises.push(storageRef.put(file));
+      }
+
+      Promise.all(uploadPromises)
+        .then((snapshots) => {
+          alert("Images téléchargées avec succès !");
+          // Récupérer les URLs des images téléchargées
+          const imagePaths = snapshots.map(snapshot => snapshot.ref.getDownloadURL());
+          Promise.all(imagePaths)
+            .then(urls => {
+              // Ajouter le nouveau document à la liste des documents
+              documents.push({
+                id: documentId,
+                title: documentId, // Vous pouvez demander un titre plus explicite à l'utilisateur
+                coverUrl: urls[0], // La première image sera la couverture
+                numPages: urls.length,
+                imagePaths: urls
+              });
+              // Créer les cartes de documents après l'import
+              createDocumentCards(); 
+            });
+        })
+        .catch((error) => {
+          console.error("Erreur lors du téléchargement des images :", error);
+          alert("Erreur lors du téléchargement des images.");
+        });
+    }
+
+    // Fonction pour créer les cartes des documents
+    function createDocumentCards() {
+      const grid = document.querySelector(".document-grid");
+      grid.innerHTML = ''; // Vider la grille avant de la remplir
+      documents.forEach(doc => {
+        const card = document.createElement("div");
+        card.className = "document-card";
+        card.innerHTML = `
+          <img src="${doc.coverUrl}" alt="${doc.title}">
+          <h3>${doc.title}</h3>
+        `;
+        card.onclick = () => openDocumentModal(doc);
+        grid.appendChild(card);
+      });
+    }
+
+    // Fonction pour ouvrir la modal d'un document
+    function openDocumentModal(doc) {
+      const modal = document.getElementById("documentModal");
+      const title = document.getElementById("modalTitle");
+      const carousel = $(".owl-carousel");
+
+      title.textContent = doc.title;
+
+      //  Vider et ajouter les images au carrousel
+      carousel.empty();
+      doc.imagePaths.forEach(imagePath => {
+        carousel.append(`<div class="item"><img src="${imagePath}" alt="${doc.title}"></div>`);
+      });
+
+      // Initialiser Owl Carousel
+      carousel.owlCarousel({
+        items: 1,
+        loop: false,
+        nav: true,
+        dots: true
+      });
+
+      modal.style.display = "block";
+    }
+
+    // Fonction pour fermer la modal
+    function closeModal(modalId) {
+      document.getElementById(modalId).style.display = "none";
+    }
+
+    // Initialisation
+  </script>
+</body>
+</html>

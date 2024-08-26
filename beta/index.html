@@ -4,12 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="light dark">
-    <title>Bibliothèque Eduque moi</title>
+    <title>Eduque moi</title>
+    <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/assets/owl.carousel.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/assets/owl.theme.default.min.css">
-    <link rel="stylesheet" href="b.css"> 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js"></script>
+    <script src="https://cdn.fedapay.com/checkout.js?v=1.1.7"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.worker.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.29.0/docxtemplater.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PizZip/3.0.6/pizzip.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 </head>
 <body>
     <div class="header">
@@ -17,10 +26,11 @@
             <button class="toggle-sidebar" onclick="toggleSidebar()">
                 <i class="fas fa-bars"></i>
             </button>
-            <div class="logo">Bibliothèque Eduque moi</div>
+            <div class="logo">Eduque moi</div>
         </div>
         <div class="auth-buttons">
-            <button id="backToMainBtn" onclick="backToMain()">Retour à l'accueil</button>
+            <button id="loginBtn" onclick="showLoginModal()">Se connecter</button>
+            <button id="registerBtn" onclick="showRegisterModal()">S'inscrire</button>
             <button id="logoutBtn" onclick="logout()" class="hidden">Se déconnecter</button>
             <button class="theme-toggle" onclick="toggleTheme()">
                 <i class="fas fa-moon"></i>
@@ -34,85 +44,142 @@
                 <h3>Informations utilisateur</h3>
                 <div class="user-details">
                     <p><i class="fas fa-user"></i> <span id="username">Utilisateur</span></p>
-                    <p><i class="fas fa-coins"></i> Crédits disponibles: <span id="availableCredits">0</span></p>
+                    <p><i class="fas fa-coins"></i> Crédits offerts: <span id="freeCredits">0</span></p>
+                    <p><i class="fas fa-dollar-sign"></i> Crédits payants: <span id="paidCredits">0</span></p>
+                    <p><i class="fas fa-calendar-alt"></i> Forfait: <span id="subscription">Aucun</span></p>
                 </div>
             </div>
 
-            <h3>Mes Documents</h3>
-            <ul class="user-docs-list">
-                <li onclick="showMyLibrary()"><i class="fas fa-book"></i> Ma bibliothèque</li>
-                <li onclick="showMyFavorites()"><i class="fas fa-star"></i> Mes favoris</li>
-                <li onclick="showOfflineDocs()"><i class="fas fa-download"></i> Mes doc hors ligne</li>
-            </ul>
+            <h3>Modèles</h3>
+            <select id="modelSelect" onchange="checkModelAccess()">
+                <optgroup label="Modèle gratuit">
+                    <option value="gemini-1.0-pro" selected>Gemini 1.0 Pro</option>
+                </optgroup>
+                <optgroup label="Modèles avancés">
+                    <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                    <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro Latest</option>
+                    <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                </optgroup>
+            </select>
 
-            <h3>Catégories</h3>
-            <ul id="categoryList" class="category-list">
-                <!-- Les catégories seront ajoutées dynamiquement ici -->
-            </ul>
+            <h3>Forfaits illimités</h3>
+            <select id="subscriptionSelect">
+                <option value="24h" selected>24 heures</option>
+                <option value="3d">3 jours</option>
+                <option value="7d">7 jours</option>
+                <option value="30d">30 jours</option>
+                <option value="3m">3 mois</option>
+            </select>
+            <button onclick="buySubscription()">Acheter le forfait</button>
+        
+            <h3>Acheter des crédits</h3>
+            <select id="creditSelect">
+                <option value="10" selected>10 crédits</option>
+                <option value="100">100 crédits</option>
+                <option value="500">500 crédits</option>
+                <option value="1000">1000 crédits</option>
+            </select>
+            <button onclick="buyCredits()">Acheter des crédits</button>
 
-            <h3>Historique</h3>
-            <ul id="historyList" class="history-list">
-                <!-- L'historique sera ajouté dynamiquement ici -->
-            </ul>
+    <!-- Ajout du bouton Bibliothèque -->
+    <button id="libraryBtn" class="full-width-button" onclick="openLibrary()">
+        <i class="fas fa-book"></i> Bibliothèque
+    </button>
+
+    <button id="referralBtn" class="full-width-button" onclick="showReferralModal()">
+        <i class="fas fa-user-plus"></i> Parrainage
+    </button>
+
+
+            <div id="conversationHistory">
+                <h3>Historique des conversations</h3>
+                <button id="newConversationBtn" class="full-width-button" onclick="createNewConversation()">
+                    <i class="fas fa-plus"></i> Nouvelle discussion
+                </button>
+                <div id="historyList">
+                    <!-- Les conversations seront ajoutées ici dynamiquement -->
+                </div>
+            </div>
         </div>
 
-        <div class="content-container">
-            <div class="search-bar">
-                <input type="text" id="searchInput" placeholder="Rechercher un document...">
-                <button onclick="searchDocuments()"><i class="fas fa-search"></i></button>
+        <div class="chat-container">
+            <div id="messageContainer" class="message-container"></div>
+            <div id="fileSupport" class="file-support hidden">
+                <div id="pinnedFile" class="pinned-file"></div>
+                <div id="fileContent" class="file-content"></div>
+                <div id="ocrResult" class="ocr-result hidden"></div>
             </div>
-
-            <div id="documentContainer" class="document-container">
-                <!-- Les documents seront ajoutés dynamiquement ici -->
+            <div class="input-area">
+                <div id="pinnedItems" class="pinned-items"></div>
+                <div class="input-container">
+                    <textarea id="userInput" placeholder="Tapez votre message ici..." rows="1"></textarea>
+                    <div class="input-actions">
+                        <input type="file" id="fileInput" class="file-input" accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileUpload(event)">
+                        <label for="fileInput" class="file-label"><i class="fas fa-paperclip"></i></label>
+                        <button id="promptListButton" onclick="togglePromptList()"><i class="fas fa-list"></i></button>
+                        <button onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+                    </div>
+                </div>
             </div>
+        </div>    
+    </div>
 
-            <div class="pagination">
-                <button id="prevPage" onclick="changePage(-1)" disabled>Précédent</button>
-                <span id="currentPage">Page 1</span>
-                <button id="nextPage" onclick="changePage(1)">Suivant</button>
+    <div id="promptListModal" class="modal">
+        <div class="modal-content prompt-modal">
+            <span class="close" onclick="closePromptModal()">&times;</span>
+            <h2>Sélectionnez un Prompt</h2>
+            <div class="prompt-container">
+                <div class="prompt-categories">
+                    <h3>Catégories</h3>
+                    <ul id="promptCategories"></ul>
+                </div>
+                <div class="prompt-list">
+                    <h3>Prompts</h3>
+                    <ul id="promptList"></ul>
+                </div>
             </div>
         </div>
     </div>
 
-    <div id="documentModal" class="modal">
+    <div id="loginModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeModal('documentModal')">×</span>
-            <h2 id="modalTitle"></h2>
-            <p id="modalDescription"></p>
-            <span id="modalCredits"></span>
-            <div id="documentPreview">
-                <div class="owl-carousel owl-theme"></div>
-            </div>
-            <div class="document-actions">
-                <button id="purchaseBtn" onclick="purchaseDocument()">Acheter</button>
-                <button id="previewBtn" onclick="previewDocument()">Prévisualiser</button>
-                <button id="shareBtn" onclick="shareDocument()">Partager</button>
-                <div class="rating">
-                    <span>Note : </span>
-                    <i class="far fa-star" data-rating="1"></i>
-                    <i class="far fa-star" data-rating="2"></i>
-                    <i class="far fa-star" data-rating="3"></i>
-                    <i class="far fa-star" data-rating="4"></i>
-                    <i class="far fa-star" data-rating="5"></i>
-                </div>
-            </div>
-            <div class="comments-section">
-                <h3>Commentaires</h3>
-                <textarea id="commentInput" placeholder="Ajoutez votre commentaire..."></textarea>
-                <button onclick="addComment()">Envoyer</button>
-                <div id="commentsContainer">
-                    <!-- Les commentaires seront ajoutés dynamiquement ici -->
-                </div>
-            </div>
+            <span class="close" onclick="closeModal('loginModal')">&times;</span>
+            <h2>Connexion</h2>
+            <input type="text" id="loginUsername" placeholder="Nom d'utilisateur">
+            <input type="password" id="loginPassword" placeholder="Mot de passe">
+            <button onclick="login()">Se connecter</button>
         </div>
     </div>
 
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/owl.carousel.min.js"></script>
+    <div id="registerModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('registerModal')">&times;</span>
+            <h2>Inscription</h2>
+            <input type="text" id="registerUsername" placeholder="Nom d'utilisateur">
+            <input type="password" id="registerPassword" placeholder="Mot de passe">
+            <button onclick="register()">S'inscrire</button>
+        </div>
+    </div>
 
-    <script src="b.js"></script>
+    <div id="referralModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('referralModal')">&times;</span>
+            <h2>Programme de Parrainage</h2>
+            <p>Partagez votre lien unique et gagnez des récompenses pour chaque nouvel utilisateur inscrit !</p>
+            <input type="text" id="referralLink" readonly>
+            <div class="share-buttons">
+                <button onclick="copyReferralLink()" class="copy-share" title="Copier le lien"><i class="fas fa-copy"></i></button>
+                <button onclick="shareOnFacebook()" class="fb-share"><i class="fab fa-facebook-f"></i></button>
+                <button onclick="shareOnTwitter()" class="twitter-share"><i class="fab fa-twitter"></i></button>
+                <button onclick="shareOnLinkedIn()" class="linkedin-share"><i class="fab fa-linkedin-in"></i></button>
+                <button onclick="shareOnWhatsApp()" class="whatsapp-share"><i class="fab fa-whatsapp"></i></button>
+            </div>
+            <h3>Vos statistiques</h3>
+            <p>Total de parrainages : <span id="totalReferrals">0</span></p>
+            <p>Parrainages actifs : <span id="activeReferrals">0</span></p>
+        </div>
+    </div>
 
+    <script src="script.js"></script>
 </body>
 </html>
