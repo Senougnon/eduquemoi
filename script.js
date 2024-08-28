@@ -1,7 +1,7 @@
 const API_KEY = 'AIzaSyB3umTE3n2d5gwKzOmJz4ss1pFZMR8_vOE';
 const API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models/';
 let currentUser = null;
-let pinnedFile = null;
+let pinnedFiles = [];
 let currentConversation = [];
 let conversations = {};
 const FREE_CREDITS_PER_DAY = 10;
@@ -26,6 +26,47 @@ const db = firebase.database();
 
 let prompts = {};
 let pinnedPrompt = null;
+
+// Configuration de l'API Gemini
+let genAI;
+const API_KEY_LIST_REF = db.ref('API');
+let apiKeyList = [];
+
+// Fonction pour charger la liste des clés API au chargement de la page
+async function loadApiKeyList() {
+    try {
+        const snapshot = await API_KEY_LIST_REF.once('value');
+        const data = snapshot.val();
+        if (data) {
+            apiKeyList = Object.values(data); // Convertir l'objet en tableau
+        } else {
+            console.warn("Aucune clé API trouvée dans la base de données.");
+        }
+    } catch (error) {
+        console.error("Erreur lors du chargement de la liste des clés API:", error);
+    }
+}
+
+// Fonction pour obtenir une clé API aléatoire
+function getRandomApiKey() {
+    if (apiKeyList.length === 0) {
+        console.error("La liste des clés API est vide.");
+        return null; // Ou gérer l'erreur différemment
+    }
+    const randomIndex = Math.floor(Math.random() * apiKeyList.length);
+    return apiKeyList[randomIndex];
+}
+
+// Fonction pour initialiser l'API Gemini (modifiée)
+function initializeGeminiAPI() {
+    const apiKey = getRandomApiKey(); // Obtenir une clé aléatoire
+    if (apiKey) {
+        genAI = new GoogleGenerativeAI(apiKey);
+    } else {
+        // Gérer le cas où aucune clé API n'est disponible
+        showNotification("Erreur : Impossible d'initialiser l'API. Aucune clé API disponible.", 'error');
+    }
+}
 
 // Fonction pour vérifier et mettre à jour le statut de l'abonnement
 async function checkSubscriptionStatus() {
@@ -281,10 +322,44 @@ async function resetFreeCreditsIfNeeded() {
 
 function checkModelAccess() {
     const selectedModel = document.getElementById('modelSelect').value;
-    if (selectedModel !== 'gemini-1.0-pro' && !hasValidSubscription() && currentUser.paidCredits <= 0) {
+    if (!['gemini-1.5-flash', 'gemini-1.0-pro'].includes(selectedModel) && !hasValidSubscription() && currentUser.paidCredits <= 0) {
         showPaymentNotification('Ce modèle nécessite un abonnement ou des crédits payants.');
-        document.getElementById('modelSelect').value = 'gemini-1.0-pro';
+        document.getElementById('modelSelect').value = 'gemini-1.5-flash';
     }
+}
+
+// Fonction pour gérer l'ajout de fichiers
+function handleFileUpload(event) {
+    const files = event.target.files;
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.type.startsWith('image/') || file.type === 'application/pdf') {
+            pinnedFiles.push(file);
+            updatePinnedFiles();
+        }
+    }
+}
+
+// Fonction pour mettre à jour l'affichage des fichiers épinglés
+function updatePinnedFiles() {
+    const pinnedItems = document.getElementById('pinnedItems');
+    pinnedItems.innerHTML = '';
+    pinnedFiles.forEach((file, index) => {
+        const item = document.createElement('div');
+        item.className = 'pinned-item';
+        item.innerHTML = `
+            <span class="icon">${file.type.startsWith('image/') ? '🖼️' : '📄'}</span>
+            <span class="name" title="${file.name}">${file.name}</span>
+            <span class="remove" onclick="removePinnedFile(${index})">❌</span>
+        `;
+        pinnedItems.appendChild(item);
+    });
+}
+
+// Fonction pour supprimer un fichier épinglé
+function removePinnedFile(index) {
+    pinnedFiles.splice(index, 1);
+    updatePinnedFiles();
 }
 
 async function sendMessage() {
@@ -294,18 +369,19 @@ async function sendMessage() {
     }
 
     const userInput = document.getElementById('userInput').value.trim();
-    let model = document.getElementById('modelSelect').value;
+    let model = document.getElementById('modelSelect').value || 'gemini-1.5-flash';
+    const modelSelect = document.getElementById('modelSelect'); // Récupérer l'élément select
 
-    if (!userInput && !pinnedFile && !pinnedPrompt) {
+    if (!userInput && pinnedFiles.length === 0 && !pinnedPrompt) {
         showNotification('Veuillez entrer un message, joindre un fichier ou sélectionner un prompt.', 'error');
         return;
     }
 
-    if (!hasEnoughCredits(model)) {
-        const choice = await showPaymentNotificationWithFreeOption('Vous n\'avez plus de crédits pour ce modèle.');
+    if (!hasEnoughCredits(model, pinnedFiles.length)) {
+        const choice = await showPaymentNotificationWithFreeOption('Vous n\'avez pas assez de crédits pour ce message.');
         if (choice === 'free') {
             if (currentUser.freeCredits > 0) {
-                model = 'gemini-1.0-pro'; // Basculer vers le modèle gratuit
+                model = 'gemini-1.5-flash';
                 switchToFreeModel();
             } else {
                 showNotification('Vous n\'avez plus de crédits gratuits. Veuillez acheter des crédits ou un abonnement.', 'error');
@@ -318,39 +394,46 @@ async function sendMessage() {
             buyCredits();
             return;
         } else {
-            return; // L'utilisateur a choisi d'annuler
+            return; 
         }
     }
 
-    // Le reste de la fonction sendMessage reste inchangé
     let displayMessage = userInput;
     let fullMessage = userInput;
-
-    if (pinnedFile) {
-        fullMessage = `[Contenu du fichier joint: ${pinnedFile.content}]\n\n${fullMessage}`;
-        displayMessage = `[Fichier joint: ${pinnedFile.name}]\n\n${displayMessage}`;
-    }
-
-    if (pinnedPrompt) {
-        fullMessage = `${pinnedPrompt.content}\n\n${fullMessage}`;
-        displayMessage = `[Prompt: ${pinnedPrompt.title}]\n\n${displayMessage}`;
-    }
 
     addMessageToChat('user', displayMessage);
     document.getElementById('userInput').value = '';
     resetTextareaHeight();
 
     try {
-        const conversationContext = currentConversation.map(msg => msg.content).join('\n');
-        
-        const response = await axios.post(`${API_BASE_URL}${model}:generateContent?key=${API_KEY}`, {
-            contents: [{ parts: [{ text: conversationContext + '\n' + fullMessage }] }]
-        });
+        const parts = [];
 
-        let aiResponse = response.data.candidates[0].content.parts[0].text;
+        if (fullMessage) {
+            parts.push({ text: fullMessage });
+        }
+
+        for (const file of pinnedFiles) {
+            const fileData = await readFileAsBase64(file);
+            parts.push({
+                inlineData: {
+                    data: fileData,
+                    mimeType: file.type
+                }
+            });
+        }
+
+        if (pinnedPrompt) {
+            parts.unshift({ text: pinnedPrompt.content });
+        }
+
+        const generativeModel = genAI.getGenerativeModel({ model: model });
+        const result = await generativeModel.generateContent(parts);
+        const response = await result.response;
+        let aiResponse = response.text();
 
         let messageElement;
-        if (model === 'gemini-1.0-pro') {
+        // Vérification si le modèle est dans le groupe "Modèles gratuits"
+        if (modelSelect.options[modelSelect.selectedIndex].parentElement.label === "Modèles gratuits") { 
             const words = aiResponse.split(/\s+/);
             if (words.length > FREE_MODEL_MAX_RESPONSE) {
                 aiResponse = words.slice(0, FREE_MODEL_MAX_RESPONSE).join(' ') + '...(Utilisez un modèle avancé pour avoir la suite de ma réponse)';
@@ -364,8 +447,9 @@ async function sendMessage() {
             messageElement = addMessageToChat('ai', aiResponse);
         }
 
-        await updateCredits(model);
-        removePinnedFile();
+        await updateCredits(model, pinnedFiles.length);
+        pinnedFiles = [];
+        updatePinnedFiles();
         removePinnedPrompt();
         saveConversation();
     } catch (error) {
@@ -374,66 +458,46 @@ async function sendMessage() {
     }
 }
 
-function hasEnoughCredits(model) {
-    if (hasValidSubscription()) return true;
-    if (model === 'gemini-1.0-pro') {
-        return currentUser.freeCredits > 0 || currentUser.paidCredits > 0;
-    }
-    return currentUser.paidCredits > 0;
-}
-
-async function showPaymentNotificationWithFreeOption(message) {
-    return new Promise((resolve) => {
-        const notification = document.createElement('div');
-        notification.className = 'notification error';
-        notification.innerHTML = `
-            ${message}<br>
-            <button onclick="resolveNotification('free')">Utiliser le modèle gratuit</button>
-            <button onclick="resolveNotification('subscription')">Acheter un abonnement</button>
-            <button onclick="resolveNotification('credits')">Acheter des crédits</button>
-            <button onclick="resolveNotification('cancel')">Annuler</button>
-        `;
-        document.body.appendChild(notification);
-
-        window.resolveNotification = function(choice) {
-            notification.remove();
-            resolve(choice);
-        };
-
-        setTimeout(() => {
-            notification.classList.add('show');
-        }, 100);
+// Fonction pour lire un fichier en base64
+function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
     });
 }
 
-function switchToFreeModel() {
-    const modelSelect = document.getElementById('modelSelect');
-    modelSelect.value = 'gemini-1.0-pro';
-    showNotification('Basculé vers le modèle gratuit Gemini 1.0 Pro', 'info');
-}
-function hasEnoughCredits(model) {
+// Fonction modifiée pour vérifier les crédits
+function hasEnoughCredits(model, fileCount) {
     if (hasValidSubscription()) return true;
-    if (model === 'gemini-1.0-pro') {
-        return currentUser.freeCredits > 0 || currentUser.paidCredits > 0;
+    const requiredCredits = fileCount > 0 ? fileCount : 1;
+    if (model === 'gemini-1.5-flash' || model === 'gemini-1.0-pro') {
+        return currentUser.freeCredits >= requiredCredits || currentUser.paidCredits >= requiredCredits;
     }
-    return currentUser.paidCredits > 0;
+    return currentUser.paidCredits >= requiredCredits;
 }
 
-async function updateCredits(model) {
+// Fonction modifiée pour mettre à jour les crédits
+async function updateCredits(model, fileCount) {
     if (hasValidSubscription()) return;
     
-    if (model === 'gemini-1.0-pro') {
-        if (currentUser.freeCredits > 0) {
-            currentUser.freeCredits = Math.max(0, currentUser.freeCredits - 1);
-            document.getElementById('freeCredits').textContent = currentUser.freeCredits;
+    const creditsToDeduct = fileCount > 0 ? fileCount : 1;
+    
+    if (model === 'gemini-1.5-flash' || model === 'gemini-1.0-pro') {
+        if (currentUser.freeCredits >= creditsToDeduct) {
+            currentUser.freeCredits -= creditsToDeduct;
         } else {
-            currentUser.paidCredits = Math.max(0, currentUser.paidCredits - 1);
-            document.getElementById('paidCredits').textContent = currentUser.paidCredits;
+            const remainingCredits = creditsToDeduct - currentUser.freeCredits;
+            currentUser.freeCredits = 0;
+            currentUser.paidCredits = Math.max(0, currentUser.paidCredits - remainingCredits);
         }
     } else {
-        currentUser.paidCredits = Math.max(0, currentUser.paidCredits - 1);
-        document.getElementById('paidCredits').textContent = currentUser.paidCredits;
+        currentUser.paidCredits = Math.max(0, currentUser.paidCredits - creditsToDeduct);
     }
+    
+    document.getElementById('freeCredits').textContent = currentUser.freeCredits;
+    document.getElementById('paidCredits').textContent = currentUser.paidCredits;
     
     await syncUserData();
 }
@@ -560,196 +624,6 @@ function shareResponse(messageElement) {
     }
 }
 
-async function loadPDF(file) {
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-    const numPages = pdf.numPages;
-    let fullText = '';
-
-    for (let i = 1; i <= numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items.map(item => item.str).join(' ');
-        fullText += pageText + '\n\n';
-    }
-
-    return fullText;
-}
-
-async function reduceFileSize(file, maxSizeInMB) {
-    if (file.type.startsWith('image/')) {
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    let width = img.width;
-                    let height = img.height;
-                    let quality = 0.7;
-                    const maxSize = maxSizeInMB * 1024 * 1024;
-
-                    while (true) {
-                        canvas.width = width;
-                        canvas.height = height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, width, height);
-                        const dataUrl = canvas.toDataURL(file.type, quality);
-                        const blobBin = atob(dataUrl.split(',')[1]);
-                        const array = [];
-                        for (let i = 0; i < blobBin.length; i++) {
-                            array.push(blobBin.charCodeAt(i));
-                        }
-                        const newFile = new Blob([new Uint8Array(array)], {type: file.type});
-                        
-                        if (newFile.size <= maxSize) {
-                            resolve(newFile);
-                            break;
-                        }
-                        
-                        quality *= 0.9;
-                        width *= 0.9;
-                        height *= 0.9;
-                        
-                        if (quality < 0.1 || width < 100 || height < 100) {
-                            console.warn("Impossible de réduire suffisamment la taille de l'image");
-                            resolve(file);
-                            break;
-                        }
-                    }
-                };
-                img.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
-        });
-    } else if (file.type === 'application/pdf') {
-        console.warn("La réduction de taille n'est pas prise en charge pour les PDF");
-        return file;
-    } else {
-        return file;
-    }
-}
-
-async function handleFileUpload(event) {
-    const file = event.target.files[0];
-    if (file) {
-        let content = '';
-        const ocrResultElement = document.getElementById('ocrResult');
-        
-        if (ocrResultElement) {
-            ocrResultElement.classList.add('hidden');
-            ocrResultElement.textContent = '';
-        }
-
-        const fileSizeInMB = file.size / (1024 * 1024);
-        let processedFile = file;
-        if (fileSizeInMB > 1) {
-            processedFile = await reduceFileSize(file, 1);
-        }
-
-        if (processedFile.type === 'application/pdf') {
-            try {
-                const pdf = await pdfjsLib.getDocument(await processedFile.arrayBuffer()).promise;
-                const numPages = pdf.numPages;
-
-                if (numPages > 3) {
-                    content = await loadPDF(processedFile);
-                    if (ocrResultElement) {
-                        ocrResultElement.textContent = "Le PDF a plus de 3 pages. Utilisation du lecteur PDF standard.";
-                        ocrResultElement.classList.remove('hidden');
-                    }
-                } else {
-                    content = await loadPDF(processedFile);
-                    if (content.trim() === '') {
-                        content = await performOCR(processedFile);
-                        if (ocrResultElement) {
-                            ocrResultElement.textContent = "OCR utilisé pour extraire le texte du PDF.";
-                            ocrResultElement.classList.remove('hidden');
-                        }
-                    }
-                }
-            } catch (error) {
-                console.error('Erreur lors de la lecture du PDF:', error);
-                content = await performOCR(processedFile);
-                if (ocrResultElement) {
-                    ocrResultElement.textContent = "OCR utilisé pour extraire le texte du PDF.";
-                    ocrResultElement.classList.remove('hidden');
-                }
-            }
-        } else if (processedFile.type.startsWith('image/')) {
-            content = await performOCR(processedFile);
-            if (ocrResultElement) {
-                ocrResultElement.textContent = "OCR utilisé pour extraire le texte de l'image.";
-                ocrResultElement.classList.remove('hidden');
-            }
-        } else {
-            showNotification("Type de fichier non pris en charge.", 'error');
-            return;
-        }
-
-        pinnedFile = {
-            name: file.name,
-            content: content
-        };
-
-        updatePinnedFile(pinnedFile);
-    }
-}
-
-function updatePinnedFile(file) {
-    const pinnedItems = document.getElementById('pinnedItems');
-    const existingFile = pinnedItems.querySelector('.pinned-item[data-type="file"]');
-    if (existingFile) {
-        existingFile.remove();
-    }
-    if (file) {
-        const item = document.createElement('div');
-        item.className = 'pinned-item';
-        item.setAttribute('data-type', 'file');
-        item.innerHTML = `
-            <span class="icon">📎</span>
-            <span class="name" title="${file.name}">${file.name}</span>
-            <span class="remove" onclick="removePinnedFile()">❌</span>
-        `;
-        pinnedItems.appendChild(item);
-    }
-}
-
-function removePinnedFile() {
-    pinnedFile = null;
-    updatePinnedFile(null);
-}
-
-async function performOCR(file) {
-    const apiKey = 'K84184304788957';
-    const apiUrl = 'https://api.ocr.space/parse/image';
-
-    const formData = new FormData();
-    formData.append('apikey', apiKey);
-    formData.append('language', 'eng');
-    formData.append('isOverlayRequired', 'false');
-    formData.append('file', file);
-
-    try {
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            body: formData
-        });
-
-        const data = await response.json();
-
-        if (data.ParsedResults && data.ParsedResults.length > 0) {
-            return data.ParsedResults[0].ParsedText;
-        } else {
-            throw new Error('Échec de l\'extraction du texte');
-        }
-    } catch (error) {
-        console.error('Erreur lors de l\'OCR:', error);
-        showNotification("Erreur lors de l'analyse OCR. Veuillez réessayer.", 'error');
-        return '';
-    }
-}
-
 function hasValidSubscription() {
     if (!currentUser.subscription || !currentUser.subscriptionEndDate) return false;
     return new Date() < new Date(currentUser.subscriptionEndDate);
@@ -794,7 +668,8 @@ function buySubscription() {
                 showNotification('Le paiement a été annulé ou a échoué.', 'error');
             }
         }
-    });fedaPayInstance.open();
+    });
+    fedaPayInstance.open();
 }
 
 async function activateSubscription(subscriptionType) {
@@ -920,6 +795,30 @@ function showPaymentNotification(message) {
             }, 300);
         }, 10000);
     }, 100);
+}
+
+async function showPaymentNotificationWithFreeOption(message) {
+    return new Promise((resolve) => {
+        const notification = document.createElement('div');
+        notification.className = 'notification error';
+        notification.innerHTML = `
+            ${message}<br>
+            <button onclick="resolveNotification('free')">Utiliser le modèle gratuit</button>
+            <button onclick="resolveNotification('subscription')">Acheter un abonnement</button>
+            <button onclick="resolveNotification('credits')">Acheter des crédits</button>
+            <button onclick="resolveNotification('cancel')">Annuler</button>
+        `;
+        document.body.appendChild(notification);
+
+        window.resolveNotification = function(choice) {
+            notification.remove();
+            resolve(choice);
+        };
+
+        setTimeout(() => {
+            notification.classList.add('show');
+        }, 100);
+    });
 }
 
 function toggleTheme() {
@@ -1249,6 +1148,7 @@ async function showReferralModal() {
 function generateReferralCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
+
 // Fonction pour obtenir ou créer un code de parrainage pour l'utilisateur actuel
 async function getOrCreateReferralCode() {
     if (!currentUser) return null;
@@ -1321,14 +1221,23 @@ async function rewardReferrer(username, amount) {
 
 window.onload = async function() {
     await attemptAutoLogin();
-    
+
     if (currentUser) {
         if (currentUser.freeCredits === undefined) currentUser.freeCredits = 0;
         if (currentUser.paidCredits === undefined) currentUser.paidCredits = 0;
         if (currentUser.subscription === undefined) currentUser.subscription = null;
         if (currentUser.subscriptionEndDate === undefined) currentUser.subscriptionEndDate = null;
         if (currentUser.lastFreeCreditsReset === undefined) currentUser.lastFreeCreditsReset = new Date().toISOString();
-        
+
+        // Charger les données d'importation de fichiers depuis la base de données
+        const userRef = db.ref('users/' + currentUser.username);
+        const snapshot = await userRef.once('value');
+        const userData = snapshot.val();
+        if (userData) {
+            importedFilesCount = userData.importedFilesCount || 0;
+            lastImportReset = new Date(userData.lastImportReset || new Date());
+        }
+
         await syncUserData();
     }
 
@@ -1354,6 +1263,22 @@ window.onload = async function() {
     document.body.classList.add('loaded');
 
     setInterval(checkSubscriptionStatus, 3600000);
+
+    // Charger la liste des clés API au chargement de la page
+    await loadApiKeyList();
+
+    // Initialiser l'API Gemini avec une clé aléatoire
+    initializeGeminiAPI();
+
+    // Mise à jour de la sélection du modèle par défaut
+    const modelSelect = document.getElementById('modelSelect');
+    if (!modelSelect.value) {
+        modelSelect.value = 'gemini-1.5-flash';
+    }
+
+    // Appeler resetImportedFilesCount au chargement de la page et toutes les 24 heures
+    await resetImportedFilesCount();
+    setInterval(resetImportedFilesCount, 24 * 60 * 60 * 1000);
 };
 
 function setupUIEventListeners() {
@@ -1515,3 +1440,4 @@ window.shareOnFacebook = shareOnFacebook;
 window.shareOnTwitter = shareOnTwitter;
 window.shareOnLinkedIn = shareOnLinkedIn;
 window.shareOnWhatsApp = shareOnWhatsApp;
+window.removePinnedFile = removePinnedFile;
