@@ -19,6 +19,17 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.29.0/docxtemplater.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PizZip/3.0.6/pizzip.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "@google/generative-ai": "https://esm.run/@google/generative-ai@latest"
+            }
+        }
+    </script>
+    <script type="module">
+        import { GoogleGenerativeAI } from "@google/generative-ai";
+        window.GoogleGenerativeAI = GoogleGenerativeAI;
+    </script>
 </head>
 <body>
     <div class="header">
@@ -52,8 +63,9 @@
 
             <h3>Modèles</h3>
             <select id="modelSelect" onchange="checkModelAccess()">
-                <optgroup label="Modèle gratuit">
-                    <option value="gemini-1.0-pro" selected>Gemini 1.0 Pro</option>
+                <optgroup label="Modèles gratuits">
+                    <option value="gemini-1.5-flash" selected>Gemini 1.5 Flash</option>
+                    <option value="gemini-1.0-pro">Gemini 1.0 Pro</option>
                 </optgroup>
                 <optgroup label="Modèles avancés">
                     <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
@@ -108,7 +120,7 @@
                 <div class="input-container">
                     <textarea id="userInput" placeholder="Tapez votre message ici..." rows="1"></textarea>
                     <div class="input-actions">
-                        <input type="file" id="fileInput" class="file-input" accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileUpload(event)">
+                        <input type="file" id="fileInput" class="file-input" accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileUpload(event)" multiple>
                         <label for="fileInput" class="file-label"><i class="fas fa-paperclip"></i></label>
                         <button id="promptListButton" onclick="togglePromptList()"><i class="fas fa-list"></i></button>
                         <button onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
