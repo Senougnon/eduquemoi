@@ -370,7 +370,7 @@ async function sendMessage() {
 
     const userInput = document.getElementById('userInput').value.trim();
     let model = document.getElementById('modelSelect').value || 'gemini-1.5-flash';
-    const modelSelect = document.getElementById('modelSelect'); // Récupérer l'élément select
+    const modelSelect = document.getElementById('modelSelect');
 
     if (!userInput && pinnedFiles.length === 0 && !pinnedPrompt) {
         showNotification('Veuillez entrer un message, joindre un fichier ou sélectionner un prompt.', 'error');
@@ -394,7 +394,7 @@ async function sendMessage() {
             buyCredits();
             return;
         } else {
-            return; 
+            return;
         }
     }
 
@@ -404,6 +404,11 @@ async function sendMessage() {
     addMessageToChat('user', displayMessage);
     document.getElementById('userInput').value = '';
     resetTextareaHeight();
+
+    // Affiche l'animation de chargement et cache le bouton d'envoi
+    const sendButton = document.querySelector('.input-actions button:last-child');
+    sendButton.classList.add('loading');
+    sendButton.disabled = true;
 
     try {
         const parts = [];
@@ -432,8 +437,7 @@ async function sendMessage() {
         let aiResponse = response.text();
 
         let messageElement;
-        // Vérification si le modèle est dans le groupe "Modèles gratuits"
-        if (modelSelect.options[modelSelect.selectedIndex].parentElement.label === "Modèles gratuits") { 
+        if (modelSelect.options[modelSelect.selectedIndex].parentElement.label === "Modèles gratuits") {
             const words = aiResponse.split(/\s+/);
             if (words.length > FREE_MODEL_MAX_RESPONSE) {
                 aiResponse = words.slice(0, FREE_MODEL_MAX_RESPONSE).join(' ') + '...(Utilisez un modèle avancé pour avoir la suite de ma réponse)';
@@ -452,9 +456,15 @@ async function sendMessage() {
         updatePinnedFiles();
         removePinnedPrompt();
         saveConversation();
+
     } catch (error) {
         console.error('Erreur lors de la génération de la réponse:', error);
         showNotification(`Erreur : ${error.message}. Veuillez réessayer.`, 'error');
+
+    } finally {
+        // Cache l'animation de chargement et réactive le bouton d'envoi (dans tous les cas)
+        sendButton.classList.remove('loading');
+        sendButton.disabled = false;
     }
 }
 
