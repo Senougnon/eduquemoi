@@ -361,6 +361,31 @@ function removePinnedFile(index) {
     pinnedFiles.splice(index, 1);
     updatePinnedFiles();
 }
+
+function createPinnedFilesElement(files) {
+    const pinnedFilesElement = document.createElement('div');
+    pinnedFilesElement.className = 'pinned-files-message';
+
+    files.forEach(file => {
+        const fileElement = document.createElement('div');
+        fileElement.className = 'pinned-file';
+
+        const iconElement = document.createElement('span');
+        iconElement.className = 'file-icon';
+        iconElement.textContent = file.type.startsWith('image/') ? '🖼️' : '📄';
+
+        const nameElement = document.createElement('span');
+        nameElement.className = 'file-name';
+        nameElement.textContent = file.name;
+
+        fileElement.appendChild(iconElement);
+        fileElement.appendChild(nameElement);
+        pinnedFilesElement.appendChild(fileElement);
+    });
+
+    return pinnedFilesElement;
+}
+
 async function sendMessage() {
     if (!currentUser) {
         showNotification('Veuillez vous connecter pour envoyer des messages.', 'error');
@@ -408,7 +433,26 @@ async function sendMessage() {
     let displayMessage = userInput;
     let fullMessage = userInput;
 
-    addMessageToChat('user', displayMessage);
+    // Créer un élément de message avec les fichiers épinglés
+    const messageElement = document.createElement('div');
+    messageElement.className = 'message user-message';
+
+    // Ajouter les fichiers épinglés au début du message
+    if (pinnedFiles.length > 0) {
+        const pinnedFilesElement = createPinnedFilesElement(pinnedFiles);
+        messageElement.appendChild(pinnedFilesElement);
+    }
+
+    // Ajouter le texte du message
+    const textElement = document.createElement('p');
+    textElement.textContent = displayMessage;
+    messageElement.appendChild(textElement);
+
+    // Ajouter le message au conteneur
+    const messageContainer = document.getElementById('messageContainer');
+    messageContainer.appendChild(messageElement);
+    messageContainer.scrollTop = messageContainer.scrollHeight;
+
     document.getElementById('userInput').value = '';
     resetTextareaHeight();
 
@@ -474,7 +518,6 @@ async function sendMessage() {
         sendButton.disabled = false;
     }
 }
-
 
 // Fonction pour lire un fichier en base64
 function readFileAsBase64(file) {
