@@ -369,7 +369,7 @@ async function sendMessage() {
     }
 
     const userInput = document.getElementById('userInput').value.trim();
-    let model = document.getElementById('modelSelect').value || 'gemini-1.5-flash';
+    let model = document.getElementById('modelSelect').value;
     const modelSelect = document.getElementById('modelSelect');
 
     if (!userInput && pinnedFiles.length === 0 && !pinnedPrompt) {
@@ -377,24 +377,34 @@ async function sendMessage() {
         return;
     }
 
-    if (!hasEnoughCredits(model, pinnedFiles.length)) {
-        const choice = await showPaymentNotificationWithFreeOption('Vous n\'avez pas assez de crédits pour ce message.');
-        if (choice === 'free') {
-            if (currentUser.freeCredits > 0) {
-                model = 'gemini-1.5-flash';
-                switchToFreeModel();
-            } else {
-                showNotification('Vous n\'avez plus de crédits gratuits. Veuillez acheter des crédits ou un abonnement.', 'error');
+    const requiredCredits = pinnedFiles.length > 0 ? pinnedFiles.length : 1;
+
+    // Vérification des crédits et sélection du modèle
+    if (!hasValidSubscription()) {
+        const isAdvancedModel = !['gemini-1.0-pro'].includes(model);
+        
+        if (isAdvancedModel) {
+            // Pour Gemini 1.5 Flash et les modèles avancés
+            if (currentUser.paidCredits < requiredCredits) {
+                if (model === 'gemini-1.5-flash' && currentUser.freeCredits >= requiredCredits) {
+                    // Utiliser les crédits gratuits pour Gemini 1.5 Flash
+                    showNotification('Utilisation de crédits gratuits pour Gemini 1.5 Flash.', 'info');
+                } else if (currentUser.freeCredits >= requiredCredits) {
+                    // Basculer vers Gemini 1.5 Flash avec des crédits gratuits
+                    model = 'gemini-1.5-flash';
+                    modelSelect.value = model;
+                    showNotification('Basculement vers Gemini 1.5 Flash (gratuit) en raison du manque de crédits payants.', 'info');
+                } else {
+                    showPaymentNotification('Vous n\'avez pas assez de crédits pour ce modèle.');
+                    return;
+                }
+            }
+        } else {
+            // Pour Gemini 1.0 Pro (modèle gratuit)
+            if (currentUser.freeCredits < requiredCredits && currentUser.paidCredits < requiredCredits) {
+                showPaymentNotification('Vous n\'avez pas assez de crédits pour envoyer ce message.');
                 return;
             }
-        } else if (choice === 'subscription') {
-            buySubscription();
-            return;
-        } else if (choice === 'credits') {
-            buyCredits();
-            return;
-        } else {
-            return;
         }
     }
 
@@ -437,7 +447,7 @@ async function sendMessage() {
         let aiResponse = response.text();
 
         let messageElement;
-        if (modelSelect.options[modelSelect.selectedIndex].parentElement.label === "Modèles gratuits") {
+        if (model === 'gemini-1.0-pro' || (model === 'gemini-1.5-flash' && currentUser.freeCredits >= requiredCredits)) {
             const words = aiResponse.split(/\s+/);
             if (words.length > FREE_MODEL_MAX_RESPONSE) {
                 aiResponse = words.slice(0, FREE_MODEL_MAX_RESPONSE).join(' ') + '...(Utilisez un modèle avancé pour avoir la suite de ma réponse)';
@@ -451,7 +461,7 @@ async function sendMessage() {
             messageElement = addMessageToChat('ai', aiResponse);
         }
 
-        await updateCredits(model, pinnedFiles.length);
+        await updateCredits(model, requiredCredits);
         pinnedFiles = [];
         updatePinnedFiles();
         removePinnedPrompt();
@@ -462,7 +472,7 @@ async function sendMessage() {
         showNotification(`Erreur : ${error.message}. Veuillez réessayer.`, 'error');
 
     } finally {
-        // Cache l'animation de chargement et réactive le bouton d'envoi (dans tous les cas)
+        // Cache l'animation de chargement et réactive le bouton d'envoi
         sendButton.classList.remove('loading');
         sendButton.disabled = false;
     }
@@ -478,32 +488,38 @@ function readFileAsBase64(file) {
     });
 }
 
-// Fonction modifiée pour vérifier les crédits
 function hasEnoughCredits(model, fileCount) {
-    if (hasValidSubscription()) return true;
     const requiredCredits = fileCount > 0 ? fileCount : 1;
+    
     if (model === 'gemini-1.5-flash' || model === 'gemini-1.0-pro') {
-        return currentUser.freeCredits >= requiredCredits || currentUser.paidCredits >= requiredCredits;
+        // Modèles gratuits
+        return currentUser.freeCredits >= requiredCredits || currentUser.paidCredits >= requiredCredits || hasValidSubscription();
+    } else {
+        // Modèles payants
+        return currentUser.paidCredits >= requiredCredits || hasValidSubscription();
     }
-    return currentUser.paidCredits >= requiredCredits;
 }
 
-// Fonction modifiée pour mettre à jour les crédits
-async function updateCredits(model, fileCount) {
+async function updateCredits(model, requiredCredits) {
     if (hasValidSubscription()) return;
     
-    const creditsToDeduct = fileCount > 0 ? fileCount : 1;
-    
-    if (model === 'gemini-1.5-flash' || model === 'gemini-1.0-pro') {
-        if (currentUser.freeCredits >= creditsToDeduct) {
-            currentUser.freeCredits -= creditsToDeduct;
+    if (model === 'gemini-1.5-flash') {
+        if (currentUser.paidCredits >= requiredCredits) {
+            currentUser.paidCredits -= requiredCredits;
         } else {
-            const remainingCredits = creditsToDeduct - currentUser.freeCredits;
+            currentUser.freeCredits -= requiredCredits;
+        }
+    } else if (model === 'gemini-1.0-pro') {
+        if (currentUser.freeCredits >= requiredCredits) {
+            currentUser.freeCredits -= requiredCredits;
+        } else {
+            const remainingCredits = requiredCredits - currentUser.freeCredits;
             currentUser.freeCredits = 0;
             currentUser.paidCredits = Math.max(0, currentUser.paidCredits - remainingCredits);
         }
     } else {
-        currentUser.paidCredits = Math.max(0, currentUser.paidCredits - creditsToDeduct);
+        // Modèles avancés
+        currentUser.paidCredits = Math.max(0, currentUser.paidCredits - requiredCredits);
     }
     
     document.getElementById('freeCredits').textContent = currentUser.freeCredits;
@@ -1028,8 +1044,12 @@ function showUpgradeButton(messageElement) {
     upgradeButton.textContent = 'Passer à un modèle avancé';
     upgradeButton.className = 'upgrade-button';
     upgradeButton.onclick = () => {
-        document.getElementById('modelSelect').value = 'gemini-1.5-pro';
-        showNotification('Modèle mis à jour vers Gemini 1.5 Pro', 'success');
+        if (hasValidSubscription() || currentUser.paidCredits > 0) {
+            document.getElementById('modelSelect').value = 'gemini-1.5-pro';
+            showNotification('Modèle mis à jour vers Gemini 1.5 Pro', 'success');
+        } else {
+            showPaymentNotification('Vous avez besoin d\'un abonnement ou de crédits payants pour utiliser ce modèle.');
+        }
     };
     messageElement.appendChild(upgradeButton);
 }
