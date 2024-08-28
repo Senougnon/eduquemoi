@@ -1175,4 +1175,33 @@ button:hover {
         animation: spin 1s ease-in-out infinite;
         margin-right: 5px; /* Ajouter une marge à droite si nécessaire */
     }
+    .pinned-files-message {
+        background-color: rgba(0, 0, 0, 0.05);
+        border-radius: 8px;
+        padding: 10px;
+        margin-bottom: 10px;
+    }
     
+    .pinned-file {
+        display: flex;
+        align-items: center;
+        margin-bottom: 5px;
+    }
+    
+    .file-icon {
+        font-size: 1.2em;
+        margin-right: 10px;
+    }
+    
+    .file-name {
+        font-size: 0.9em;
+        color: #555;
+    }
+    
+    [data-theme="dark"] .pinned-files-message {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    [data-theme="dark"] .file-name {
+        color: #ccc;
+    }
