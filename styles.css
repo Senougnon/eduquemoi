@@ -1,4 +1,4 @@
-/* Ajoutez ceci au début de votre fichier CSS */
+/* Styles de base */
 @media (prefers-color-scheme: dark) {
     :root {
         color-scheme: dark;
@@ -20,7 +20,7 @@
     --ai-message-color: #e8f5e9;
 }
 
-/* Modifiez votre sélecteur de thème sombre comme suit */
+/* Thème sombre */
 :root[data-theme="dark"], [data-theme="dark"] {
     --primary-color: #ffffff;
     --secondary-color: #d3d3d3;
@@ -69,6 +69,7 @@ body, html {
     transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+/* En-tête */
 .header {
     display: flex;
     justify-content: space-between;
@@ -119,6 +120,7 @@ body, html {
     background-color: var(--hover-color);
 }
 
+/* Structure principale */
 .main-container {
     display: flex;
     flex: 1;
@@ -150,6 +152,7 @@ body, html {
     transition: margin-left 0.3s ease;
 }
 
+/* Zone de messages */
 .message-container {
     flex: 1;
     overflow-y: auto;
@@ -158,13 +161,19 @@ body, html {
     flex-direction: column;
 }
 
+/* Zone de saisie */
+.input-area {
+    display: flex;
+    flex-direction: column;
+    margin-top: 10px;
+}
+
 .input-container {
     display: flex;
     align-items: center;
     background-color: var(--input-area-color);
     border-radius: 10px;
     padding: 10px;
-    margin-top: 10px;
 }
 
 #userInput {
@@ -205,6 +214,7 @@ body, html {
     display: none;
 }
 
+/* Styles pour les entrées, sélecteurs et boutons */
 input, select, button, textarea {
     background-color: var(--input-background);
     border: 1px solid var(--button-color);
@@ -223,6 +233,7 @@ button:hover {
     background-color: var(--hover-color);
 }
 
+/* Messages */
 .message {
     margin-bottom: 15px;
     padding: 15px;
@@ -246,6 +257,7 @@ button:hover {
     border-bottom-left-radius: 0;
 }
 
+/* Sélecteurs de modèle et d'abonnement */
 #modelSelect, #subscriptionSelect, #creditSelect {
     width: 100%;
     margin-bottom: 10px;
@@ -256,10 +268,12 @@ button:hover {
     border-radius: 5px;
 }
 
+/* Utilitaires */
 .hidden {
     display: none;
 }
 
+/* Notifications */
 .notification {
     position: fixed;
     top: 40px;
@@ -272,6 +286,7 @@ button:hover {
     transition: opacity 0.3s ease;
     z-index: 1000;
 }
+
 .notification button {
     margin-right: 5px;
     margin-top: 5px;
@@ -303,6 +318,7 @@ button:hover {
     background-color: #e74c3c;
 }
 
+/* Actions sur les messages */
 .message-actions {
     margin-top: 5px;
 }
@@ -316,6 +332,7 @@ button:hover {
     font-size: 0.9em;
 }
 
+/* Éléments épinglés */
 .pinned-items {
     display: flex;
     flex-wrap: wrap;
@@ -352,6 +369,7 @@ button:hover {
     opacity: 1;
 }
 
+/* Historique des conversations */
 #conversationHistory {
     margin-top: 20px;
 }
@@ -373,6 +391,7 @@ button:hover {
     background-color: var(--hover-color);
 }
 
+/* Modales */
 .modal {
     display: none;
     position: fixed;
@@ -409,6 +428,7 @@ button:hover {
     text-decoration: none;
 }
 
+/* Carte d'informations utilisateur */
 .user-info-card {
     background-color: var(--input-background);
     border-radius: 10px;
@@ -435,6 +455,7 @@ button:hover {
     color: var(--primary-color);
 }
 
+/* Boutons pleine largeur */
 .full-width-button {
     width: 100%;
     padding: 10px;
@@ -458,6 +479,7 @@ button:hover {
     background-color: var(--hover-color);
 }
 
+/* Élément de conversation */
 .conversation-item {
     display: flex;
     justify-content: space-between;
@@ -484,6 +506,7 @@ button:hover {
     opacity: 1;
 }
 
+/* Support de fichiers */
 .file-support {
     background-color: var(--input-background);
     border-radius: 10px;
@@ -505,18 +528,8 @@ button:hover {
     font-size: 0.9em;
 }
 
-#promptListModal {
-    display: none;
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    overflow: auto;
-    background-color: rgba(0,0,0,0.4);
-}
-
+/* Modal de liste de prompts */
+/* Modal de liste de prompts */
 #promptListModal .modal-content {
     background-color: var(--background-color);
     margin: 15% auto;
@@ -553,606 +566,784 @@ button:hover {
     align-items: center;
 }
 
-    #pinnedPrompt button {
-        background: none;
-        border: none;
-        color: var(--text-color);
-        cursor: pointer;
+#pinnedPrompt button {
+    background: none;
+    border: none;
+    color: var(--text-color);
+    cursor: pointer;
+}
+
+/* Styles pour le responsive design */
+@media (max-width: 768px) {
+    .sidebar {
+        transform: translateX(-100%);
     }
-    
-    @media (max-width: 768px) {
-        .sidebar {
-            transform: translateX(-100%);
-        }
-    
-        .sidebar.visible {
-            transform: translateX(0);
-        }
-    
-        .chat-container {
-            margin-left: 0;
-        }
-    
-        .chat-container.sidebar-visible {
-            margin-left: 0;
-        }
-    
-        .header {
-            padding: 5px;
-        }
-    
-        .logo {
-            font-size: 1em;
-        }
-    
-        .auth-buttons button, .theme-toggle {
-            padding: 3px 6px;
-            font-size: 0.7em;
-        }
+
+    .sidebar.visible {
+        transform: translateX(0);
     }
-    
-    [data-theme="light"] .user-info-card {
-        color: #333;
+
+    .chat-container {
+        margin-left: 0;
     }
-    
-    [data-theme="light"] .user-details #username {
-        color: #0066cc;
-        font-weight: bold;
+
+    .chat-container.sidebar-visible {
+        margin-left: 0;
     }
-    
-    [data-theme="light"] .user-details #freeCredits,
-    [data-theme="light"] .user-details #paidCredits {
-        color: #006600;
+
+    .header {
+        padding: 5px;
     }
-    
-    [data-theme="light"] .user-details #subscription {
-        color: #cc6600;
+
+    .logo {
+        font-size: 1em;
     }
-    
-    [data-theme="dark"] .user-info-card {
-        color: #e0e0e0;
+
+    .auth-buttons button, .theme-toggle {
+        padding: 3px 6px;
+        font-size: 0.7em;
     }
-    
-    [data-theme="dark"] .user-details #username {
-        color: #4da6ff;
-        font-weight: bold;
+}
+
+/* Styles spécifiques au thème clair */
+[data-theme="light"] .user-info-card {
+    color: #333;
+}
+
+[data-theme="light"] .user-details #username {
+    color: #0066cc;
+    font-weight: bold;
+}
+
+[data-theme="light"] .user-details #freeCredits,
+[data-theme="light"] .user-details #paidCredits {
+    color: #006600;
+}
+
+[data-theme="light"] .user-details #subscription {
+    color: #cc6600;
+}
+
+/* Styles spécifiques au thème sombre */
+[data-theme="dark"] .user-info-card {
+    color: #e0e0e0;
+}
+
+[data-theme="dark"] .user-details #username {
+    color: #4da6ff;
+    font-weight: bold;
+}
+
+[data-theme="dark"] .user-details #freeCredits,
+[data-theme="dark"] .user-details #paidCredits {
+    color: #66ff66;
+}
+
+[data-theme="dark"] .user-details #subscription {
+    color: #ffa64d;
+}
+
+/* Bouton de mise à niveau */
+.upgrade-button {
+    background-color: var(--secondary-color);
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: background-color 0.3s ease;
+}
+
+.upgrade-button:hover {
+    background-color: var(--hover-color);
+}
+
+/* Styles pour l'animation de chargement */
+.loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255,255,255,.3);
+    border-radius: 50%;
+    border-top-color: var(--primary-color);
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Styles pour les tooltips */
+.tooltip {
+    position: relative;
+    display: inline-block;
+}
+
+.tooltip .tooltiptext {
+    visibility: hidden;
+    width: 120px;
+    background-color: var(--sidebar-color);
+    color: var(--sidebar-text);
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px 0;
+    position: absolute;
+    z-index: 1;
+    bottom: 125%;
+    left: 50%;
+    margin-left: -60px;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* Styles pour la pagination */
+.pagination {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.pagination button {
+    background-color: var(--button-color);
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    margin: 0 5px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.pagination button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+/* Styles pour les onglets */
+.tabs {
+    display: flex;
+    border-bottom: 1px solid var(--button-color);
+    margin-bottom: 20px;
+}
+
+.tab {
+    padding: 10px 20px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    border-bottom: none;
+    margin-bottom: -1px;
+}
+
+.tab.active {
+    background-color: var(--background-color);
+    border-color: var(--button-color);
+    border-bottom-color: var(--background-color);
+}
+
+/* Styles pour le mode focus */
+.focus-mode {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--background-color);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+}
+
+.focus-mode .message-container {
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+.focus-mode .input-container {
+    margin-top: 20px;
+}
+
+.exit-focus-mode {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: var(--text-color);
+    font-size: 1.5em;
+    cursor: pointer;
+}
+
+/* Styles pour les animations de transition */
+.fade-in {
+    animation: fadeIn 0.5s;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.slide-in {
+    animation: slideIn 0.5s;
+}
+
+@keyframes slideIn {
+    from { transform: translateY(-20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+/* Ajustements pour l'accessibilité */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
     }
-    
-    [data-theme="dark"] .user-details #freeCredits,
-    [data-theme="dark"] .user-details #paidCredits {
-        color: #66ff66;
-    }
-    
-    [data-theme="dark"] .user-details #subscription {
-        color: #ffa64d;
-    }
-    
-    .upgrade-button {
-        background-color: var(--secondary-color);
-        color: white;
-        border: none;
-        padding: 5px 10px;
-        border-radius: 5px;
-        cursor: pointer;
-        margin-top: 10px;
-        transition: background-color 0.3s ease;
-    }
-    
-    .upgrade-button:hover {
-        background-color: var(--hover-color);
-    }
-    
-    /* Styles pour l'animation de chargement */
-    .loading {
-        display: inline-block;
-        width: 20px;
-        height: 20px;
-        border: 3px solid rgba(255,255,255,.3);
-        border-radius: 50%;
-        border-top-color: var(--primary-color);
-        animation: spin 1s ease-in-out infinite;
-    }
-    
-    @keyframes spin {
-        to { transform: rotate(360deg); }
-    }
-    
-    /* Styles pour les tooltips */
-    .tooltip {
-        position: relative;
-        display: inline-block;
-    }
-    
-    .tooltip .tooltiptext {
-        visibility: hidden;
-        width: 120px;
-        background-color: var(--sidebar-color);
-        color: var(--sidebar-text);
-        text-align: center;
-        border-radius: 6px;
-        padding: 5px 0;
-        position: absolute;
-        z-index: 1;
-        bottom: 125%;
-        left: 50%;
-        margin-left: -60px;
-        opacity: 0;
-        transition: opacity 0.3s;
-    }
-    
-    .tooltip:hover .tooltiptext {
-        visibility: visible;
-        opacity: 1;
-    }
-    
-    /* Styles pour la pagination */
-    .pagination {
-        display: flex;
-        justify-content: center;
-        margin-top: 20px;
-    }
-    
-    .pagination button {
-        background-color: var(--button-color);
-        color: white;
-        border: none;
-        padding: 5px 10px;
-        margin: 0 5px;
-        border-radius: 5px;
-        cursor: pointer;
-    }
-    
-    .pagination button:disabled {
-        background-color: #cccccc;
-        cursor: not-allowed;
-    }
-    
-    /* Styles pour les onglets */
-    .tabs {
-        display: flex;
-        border-bottom: 1px solid var(--button-color);
-        margin-bottom: 20px;
-    }
-    
-    .tab {
-        padding: 10px 20px;
-        cursor: pointer;
-        border: 1px solid transparent;
-        border-bottom: none;
-        margin-bottom: -1px;
-    }
-    
-    .tab.active {
-        background-color: var(--background-color);
-        border-color: var(--button-color);
-        border-bottom-color: var(--background-color);
-    }
-    
-    /* Styles pour le mode focus */
-    .focus-mode {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: var(--background-color);
-        z-index: 1000;
-        display: flex;
-        flex-direction: column;
-        padding: 20px;
-    }
-    
-    .focus-mode .message-container {
-        flex-grow: 1;
-        overflow-y: auto;
-    }
-    
-    .focus-mode .input-container {
-        margin-top: 20px;
-    }
-    
-    .exit-focus-mode {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        background: none;
-        border: none;
-        color: var(--text-color);
-        font-size: 1.5em;
-        cursor: pointer;
-    }
-    
-    /* Styles pour les animations de transition */
-    .fade-in {
-        animation: fadeIn 0.5s;
-    }
-    
-    @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-    }
-    
-    .slide-in {
-        animation: slideIn 0.5s;
-    }
-    
-    @keyframes slideIn {
-        from { transform: translateY(-20px); opacity: 0; }
-        to { transform: translateY(0); opacity: 1; }
-    }
-    
-    /* Ajustements pour l'accessibilité */
-    @media (prefers-reduced-motion: reduce) {
-        * {
-            animation-duration: 0.01ms !important;
-            animation-iteration-count: 1 !important;
-            transition-duration: 0.01ms !important;
-            scroll-behavior: auto !important;
-        }
-    }
-    
-    .screen-reader-only {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-        border: 0;
-    }
-    
-    /* Styles pour l'impression */
-    @media print {
-        .sidebar, .input-container, .auth-buttons, .theme-toggle {
-            display: none;
-        }
-    
-        .chat-container {
-            margin-left: 0;
-        }
-    
-        .message {
-            break-inside: avoid;
-        }
-    }
-    
-    .ocr-result {
-        background-color: #f0f0f0;
-        border: 1px solid #ddd;
-        border-radius: 5px;
-        padding: 10px;
-        margin-top: 10px;
-        font-size: 0.9em;
-        color: #666;
-    }
-    
-    .ocr-result.hidden {
+}
+
+.screen-reader-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Styles pour l'impression */
+@media print {
+    .sidebar, .input-container, .auth-buttons, .theme-toggle {
         display: none;
     }
-    
-    /* Styles pour la fenêtre flottante de facture */
-    .invoice-modal {
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background-color: var(--background-color);
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        z-index: 1002;
-        max-width: 500px;
-        width: 90%;
+
+    .chat-container {
+        margin-left: 0;
     }
-    
-    .invoice-modal h2 {
-        color: var(--primary-color);
-        margin-bottom: 15px;
+
+    .message {
+        break-inside: avoid;
     }
-    
-    .invoice-modal p {
-        margin-bottom: 10px;
+}
+
+/* Styles pour le résultat OCR */
+.ocr-result {
+    background-color: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 10px;
+    margin-top: 10px;
+    font-size: 0.9em;
+    color: #666;
+}
+
+.ocr-result.hidden {
+    display: none;
+}
+
+/* Styles pour la fenêtre flottante de facture */
+.invoice-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: var(--background-color);
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    z-index: 1002;
+    max-width: 500px;
+    width: 90%;
+}
+
+.invoice-modal h2 {
+    color: var(--primary-color);
+    margin-bottom: 15px;
+}
+
+.invoice-modal p {
+    margin-bottom: 10px;
+}
+
+.invoice-modal button {
+    margin-top: 15px;
+    padding: 8px 15px;
+    background-color: var(--button-color);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.invoice-modal button:hover {
+    background-color: var(--hover-color);
+}
+
+/* Styles pour l'overlay de la fenêtre flottante */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1001;
+}
+
+/* Styles pour le système de parrainage */
+#referralModal .modal-content {
+    text-align: center;
+}
+
+#referralLink {
+    width: 80%;
+    margin: 10px auto;
+    padding: 10px;
+    font-size: 0.9em;
+    text-align: center;
+}
+
+#referralModal button {
+    margin-top: 10px;
+}
+
+#referralModal h3 {
+    margin-top: 20px;
+    color: var(--primary-color);
+}
+
+#totalReferrals, #activeReferrals {
+    font-weight: bold;
+    color: var(--secondary-color);
+}
+
+/* Styles pour les boutons de partage social */
+.share-buttons {
+    display: flex;
+    justify-content: center;
+    margin-top: 15px;
+}
+
+.share-buttons button {
+    margin: 0 5px;
+    padding: 10px;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.share-buttons button:hover {
+    opacity: 0.8;
+}
+
+.copy-share {
+    background-color: #6c757d;
+    color: white;
+}
+
+.fb-share {
+    background-color: #3b5998;
+    color: white;
+}
+
+.twitter-share {
+    background-color: #1da1f2;
+    color: white;
+}
+
+.linkedin-share {
+    background-color: #0077b5;
+    color: white;
+}
+
+.whatsapp-share {
+    background-color: #25d366;
+    color: white;
+}
+
+/* Ajustements pour le responsive design */
+@media (max-width: 600px) {
+    .invoice-modal, #referralModal .modal-content {
+        width: 95%;
+        padding: 15px;
     }
-    
-    .invoice-modal button {
-        margin-top: 15px;
-        padding: 8px 15px;
-        background-color: var(--button-color);
-        color: white;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        transition: background-color 0.3s ease;
+
+    .invoice-modal h2, #referralModal h2 {
+        font-size: 1.2em;
     }
-    
-    .invoice-modal button:hover {
-        background-color: var(--hover-color);
-    }
-    
-    /* Styles pour l'overlay de la fenêtre flottante */
-    .modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: rgba(0, 0, 0, 0.5);
-        z-index: 1001;
-    }
-    
-    /* Styles pour le système de parrainage */
-    #referralModal .modal-content {
-        text-align: center;
-    }
-    
-    #referralLink {
-        width: 80%;
-        margin: 10px auto;
-        padding: 10px;
+
+    .invoice-modal p, #referralModal p {
         font-size: 0.9em;
-        text-align: center;
     }
-    
-    #referralModal button {
-        margin-top: 10px;
+
+    .invoice-modal button, #referralModal button {
+        font-size: 0.9em;
+        padding: 6px 12px;
     }
-    
-    #referralModal h3 {
-        margin-top: 20px;
-        color: var(--primary-color);
+
+    #referralLink {
+        width: 90%;
+        font-size: 0.8em;
     }
-    
-    #totalReferrals, #activeReferrals {
-        font-weight: bold;
-        color: var(--secondary-color);
-    }
-    
-    /* Styles pour les boutons de partage social */
+
     .share-buttons {
-        display: flex;
-        justify-content: center;
-        margin-top: 15px;
+        flex-wrap: wrap;
     }
     
     .share-buttons button {
-        margin: 0 5px;
-        padding: 10px;
-        border: none;
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        font-size: 18px;
-        cursor: pointer;
-        transition: background-color 0.3s ease;
+        margin: 5px;
     }
-    
-    .share-buttons button:hover {
-        opacity: 0.8;
-    }
-    
-    .copy-share {
-        background-color: #6c757d;
-        color: white;
-    }
-    
-    .fb-share {
-        background-color: #3b5998;
-        color: white;
-    }
-    
-    .twitter-share {
-        background-color: #1da1f2;
-        color: white;
-    }
-    
-    .linkedin-share {
-        background-color: #0077b5;
-        color: white;
-    }
-    
-    .whatsapp-share {
-        background-color: #25d366;
-        color: white;
-    }
-    
-    /* Ajustements pour le responsive design */
-    @media (max-width: 600px) {
-        .invoice-modal, #referralModal .modal-content {
-            width: 95%;
-            padding: 15px;
-        }
-    
-        .invoice-modal h2, #referralModal h2 {
-            font-size: 1.2em;
-        }
-    
-        .invoice-modal p, #referralModal p {
-            font-size: 0.9em;
-        }
-    
-        .invoice-modal button, #referralModal button {
-            font-size: 0.9em;
-            padding: 6px 12px;
-        }
-    
-        #referralLink {
-            width: 90%;
-            font-size: 0.8em;
-        }
-    
-        .share-buttons {
-            flex-wrap: wrap;
-        }
-        
-        .share-buttons button {
-            margin: 5px;
-        }
+}
+
+/* Styles pour la zone des éléments épinglés */
+.pinned-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 5px;
+}
+
+.pinned-item {
+    background-color: var(--input-background);
+    border: 1px solid var(--button-color);
+    border-radius: 3px;
+    padding: 2px 5px;
+    font-size: 0.8em;
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.pinned-item .icon {
+    margin-right: 5px;
+    flex-shrink: 0;
+}
+
+.pinned-item .name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pinned-item .remove {
+    margin-left: 5px;
+    cursor: pointer;
+    color: var(--text-color);
+    opacity: 0.7;
+    flex-shrink: 0;
+}
+
+.pinned-item .remove:hover {
+    opacity: 1;
+}
+
+/* Styles pour la modal de prompts */
+.prompt-modal {
+    max-width: 800px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.prompt-container {
+    display: flex;
+    gap: 20px;
+}
+
+.prompt-categories, .prompt-list {
+    flex: 1;
+}
+
+.prompt-categories ul, .prompt-list ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+    max-height: 50vh;
+    overflow-y: auto;
+}
+
+.prompt-categories li, .prompt-list li {
+    padding: 10px;
+    margin: 5px 0;
+    background-color: var(--input-background);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.prompt-categories li:hover, .prompt-list li:hover {
+    background-color: var(--hover-color);
+}
+
+.prompt-categories li.active {
+    background-color: var(--primary-color);
+    color: rgb(10, 2, 129);
+}
+
+.prompt-list li {
+    padding: 0;
+    margin: 5px 0;
+}
+
+
+.prompt-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background-color: var(--input-background);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.prompt-item:hover {
+    background-color: var(--hover-color);
+}
+
+.prompt-title {
+    flex-grow: 1;
+    margin-right: 10px;
+}
+
+.prompt-select-icon {
+    color: var(--primary-color);
+    font-size: 1.2em;
+}
+
+.prompt-item:hover .prompt-select-icon {
+    color: var(--hover-color);
+}
+
+/* Styles pour les fichiers épinglés */
+#pinnedFile {
+    background-color: var(--input-background);
+    border: 1px solid var(--button-color);
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+#pinnedFile .file-name {
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+#pinnedFile .remove-file {
+    background: none;
+    border: none;
+    color: var(--text-color);
+    cursor: pointer;
+    font-size: 1.2em;
+}
+
+/* Styles pour l'affichage du contenu du fichier */
+#fileContent {
+    background-color: var(--input-background);
+    border: 1px solid var(--button-color);
+    border-radius: 5px;
+    padding: 10px;
+    margin-top: 10px;
+    max-height: 200px;
+    overflow-y: auto;
+    font-size: 0.9em;
+}
+
+/* Styles pour le bouton d'amélioration de modèle */
+.upgrade-model-button {
+    background-color: var(--secondary-color);
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: background-color 0.3s ease;
+}
+
+.upgrade-model-button:hover {
+    background-color: var(--hover-color);
+}
+
+/* Styles pour l'affichage des crédits */
+.credit-display {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--input-background);
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+.credit-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.credit-label {
+    font-size: 0.8em;
+    color: var(--text-color);
+    opacity: 0.7;
+}
+
+.credit-value {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
+/* Styles pour l'animation de chargement pendant le traitement de l'API */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid var(--background-color);
+    border-top: 5px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Styles pour les messages d'erreur */
+.error-message {
+    background-color: #ffebee;
+    color: #c62828;
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    font-size: 0.9em;
+}
+
+/* Styles pour les bulles d'aide */
+.help-bubble {
+    position: relative;
+    display: inline-block;
+    cursor: help;
+}
+
+.help-bubble .help-text {
+    visibility: hidden;
+    width: 200px;
+    background-color: var(--sidebar-color);
+    color: var(--sidebar-text);
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px;
+    position: absolute;
+    z-index: 1;
+    bottom: 125%;
+    left: 50%;
+    margin-left: -100px;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.help-bubble:hover .help-text {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* Ajustements supplémentaires pour le responsive design */
+@media (max-width: 480px) {
+    .main-container {
+        flex-direction: column;
     }
 
-    .input-area {
-        display: flex;
-        flex-direction: column;
-        margin-top: 10px;
+    .sidebar {
+        width: 100%;
+        position: static;
+        height: auto;
+        max-height: 300px;
+        overflow-y: auto;
     }
-    
-    .pinned-items {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 5px;
-        margin-bottom: 5px;
+
+    .chat-container {
+        margin-left: 0;
+        padding: 10px;
     }
-    
-    .pinned-item {
-        background-color: var(--input-background);
-        border: 1px solid var(--button-color);
-        border-radius: 3px;
-        padding: 2px 5px;
-        font-size: 0.8em;
-        display: inline-flex;
-        align-items: center;
-        max-width: 100%;
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-    }
-    
-    .pinned-item .icon {
-        margin-right: 5px;
-        flex-shrink: 0;
-    }
-    
-    .pinned-item .name {
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    
-    .pinned-item .remove {
-        margin-left: 5px;
-        cursor: pointer;
-        color: var(--text-color);
-        opacity: 0.7;
-        flex-shrink: 0;
-    }
-    
-    .pinned-item .remove:hover {
-        opacity: 1;
-    }
-    
+
     .input-container {
-        display: flex;
-        align-items: center;
-        background-color: var(--input-area-color);
-        border-radius: 10px;
-        padding: 10px;
+        flex-direction: column;
     }
-    
-    #userInput {
-        flex-grow: 1;
-        border: none;
-        background-color: transparent;
-        color: var(--text-color);
-        font-size: 1em;
-        padding: 10px;
-        outline: none;
-        resize: vertical;
-        min-height: 20px;
-        max-height: 150px;
-        margin-right: 10px;
-    }
-    
+
     .input-actions {
-        display: flex;
-        align-items: center;
-    }
-    
-    .input-actions button, .input-actions label {
-        background: none;
-        border: none;
-        color: var(--button-color);
-        cursor: pointer;
-        font-size: 1.2em;
-        padding: 5px;
-        margin: 0 5px;
-        transition: color 0.3s ease;
-    }
-    
-    .input-actions button:hover, .input-actions label:hover {
-        color: var(--hover-color);
-    }
-    .prompt-modal {
-        max-width: 800px;
-        width: 90%;
-        max-height: 80vh;
-        overflow-y: auto;
-    }
-    
-    .prompt-container {
-        display: flex;
-        gap: 20px;
-    }
-    
-    .prompt-categories, .prompt-list {
-        flex: 1;
-    }
-    
-    .prompt-categories ul, .prompt-list ul {
-        list-style-type: none;
-        padding: 0;
-        margin: 0;
-        max-height: 50vh;
-        overflow-y: auto;
-    }
-    
-    .prompt-categories li, .prompt-list li {
-        padding: 10px;
-        margin: 5px 0;
-        background-color: var(--input-background);
-        border-radius: 5px;
-        cursor: pointer;
-        transition: background-color 0.3s ease;
-    }
-    
-    .prompt-categories li:hover, .prompt-list li:hover {
-        background-color: var(--hover-color);
-    }
-    
-    .prompt-categories li.active {
-        background-color: var(--primary-color);
-        color: rgb(10, 2, 129);
-    }
-    
-    .prompt-list li {
-        padding: 0;
-        margin: 5px 0;
-    }
-    
-    .prompt-item {
-        display: flex;
+        margin-top: 10px;
         justify-content: space-between;
-        align-items: center;
-        padding: 10px;
-        background-color: var(--input-background);
-        border-radius: 5px;
-        cursor: pointer;
-        transition: background-color 0.3s ease;
     }
-    
-    .prompt-item:hover {
-        background-color: var(--hover-color);
+
+    .prompt-modal {
+        width: 95%;
     }
-    
-    .prompt-title {
-        flex-grow: 1;
-        margin-right: 10px;
+
+    .prompt-container {
+        flex-direction: column;
     }
-    
-    .prompt-select-icon {
-        color: var(--primary-color);
-        font-size: 1.2em;
+
+    .prompt-categories, .prompt-list {
+        max-height: 30vh;
     }
-    
-    .prompt-item:hover .prompt-select-icon {
-        color: var(--hover-color);
+}
+
+/* Styles pour l'accessibilité du clavier */
+button:focus, input:focus, select:focus, textarea:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* Styles pour le mode haute contrast (pour l'accessibilité) */
+@media (forced-colors: active) {
+    :root {
+        --primary-color: CanvasText;
+        --background-color: Canvas;
+        --text-color: CanvasText;
+        --button-color: Highlight;
+        --hover-color: HighlightText;
     }
+
+    button, input, select, textarea {
+        border: 1px solid CanvasText;
+    }
+
+    .message, .pinned-item, .conversation-item {
+        border: 1px solid CanvasText;
+    }
+}
+
+/* Fin des styles CSS */
