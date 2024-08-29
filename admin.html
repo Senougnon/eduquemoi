@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administration Eduque moi</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #50c878;
+            --background-color: #f5f7fa;
+            --text-color: #333333;
+            --sidebar-color: #2c3e50;
+            --sidebar-text: #ecf0f1;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--background-color);
+            color: var(--text-color);
+        }
+
+        .container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 250px;
+            background-color: var(--sidebar-color);
+            color: var(--sidebar-text);
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar h2 {
+            margin-bottom: 30px;
+            font-size: 24px;
+            text-align: center;
+        }
+
+        .sidebar ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .sidebar li {
+            margin-bottom: 15px;
+        }
+
+        .sidebar a {
+            color: var(--sidebar-text);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+
+        .sidebar a:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .sidebar i {
+            margin-right: 10px;
+            font-size: 18px;
+        }
+
+        .content {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+        }
+
+        h1, h2 {
+            color: var(--primary-color);
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+
+        .chart-container {
+            height: 300px;
+            margin-top: 20px;
+        }
+
+        .button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .button:hover {
+            background-color: #3a7bc8;
+        }
+
+        .search-container {
+            display: flex;
+            margin-bottom: 20px;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px 0 0 5px;
+        }
+
+        .search-button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 0 5px 5px 0;
+            cursor: pointer;
+        }
+
+        .sort-button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: white;
+            margin-left: 5px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 8px;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: #000;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h2>Eduque moi</h2>
+            <ul>
+                <li><a href="#users"><i class="fas fa-users"></i> Utilisateurs</a></li>
+                <li><a href="#prompts"><i class="fas fa-list"></i> Prompts</a></li>
+                <li><a href="#sales"><i class="fas fa-chart-line"></i> Ventes</a></li>
+                <li><a href="#analytics"><i class="fas fa-chart-bar"></i> Analyses</a></li>
+            </ul>
+        </div>
+        <div class="content">
+            <h1>Tableau de bord d'administration</h1>
+            
+            <section id="users" class="card">
+                <h2>Gestion des utilisateurs</h2>
+                <div class="search-container">
+                    <input type="text" id="userSearch" class="search-input" placeholder="Rechercher un utilisateur...">
+                    <button onclick="searchUsers()" class="search-button"><i class="fas fa-search"></i></button>
+                </div>
+                <table id="userTable">
+                    <thead>
+                        <tr>
+                            <th>Nom d'utilisateur <button class="sort-button" onclick="sortTable('userTable', 0)"><i class="fas fa-sort"></i></button></th>
+                            <th>Crédits gratuits <button class="sort-button" onclick="sortTable('userTable', 1)"><i class="fas fa-sort"></i></button></th>
+                            <th>Crédits payants <button class="sort-button" onclick="sortTable('userTable', 2)"><i class="fas fa-sort"></i></button></th>
+                            <th>Abonnement <button class="sort-button" onclick="sortTable('userTable', 3)"><i class="fas fa-sort"></i></button></th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Les utilisateurs seront ajoutés ici dynamiquement -->
+                    </tbody>
+                </table>
+                <button onclick="showAddUserForm()" class="button">Ajouter un utilisateur</button>
+            </section>
+
+            <section id="prompts" class="card">
+                <h2>Gestion des prompts</h2>
+                <div class="search-container">
+                    <input type="text" id="promptSearch" class="search-input" placeholder="Rechercher un prompt...">
+                    <button onclick="searchPrompts()" class="search-button"><i class="fas fa-search"></i></button>
+                </div>
+                <table id="promptTable">
+                    <thead>
+                        <tr>
+                            <th>ID <button class="sort-button" onclick="sortTable('promptTable', 0)"><i class="fas fa-sort"></i></button></th>
+                            <th>Titre <button class="sort-button" onclick="sortTable('promptTable', 1)"><i class="fas fa-sort"></i></button></th>
+                            <th>Catégorie <button class="sort-button" onclick="sortTable('promptTable', 2)"><i class="fas fa-sort"></i></button></th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Les prompts seront ajoutés ici dynamiquement -->
+                    </tbody>
+                </table>
+                <button onclick="showAddPromptForm()" class="button">Ajouter un prompt</button>
+            </section>
+
+            <section id="sales" class="card">
+                <h2>Analyse des ventes</h2>
+                <div class="chart-container">
+                    <canvas id="salesChart"></canvas>
+                </div>
+            </section>
+
+            <section id="analytics" class="card">
+                <h2>Analyses globales</h2>
+                <div class="chart-container">
+                    <canvas id="userActivityChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <canvas id="creditUsageChart"></canvas>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Modal pour l'ajout/édition d'utilisateur -->
+    <div id="userModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="userModalTitle">Ajouter un utilisateur</h2>
+            <form id="userForm">
+                <div class="form-group">
+                    <label for="username">Nom d'utilisateur</label>
+                    <input type="text" id="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="freeCredits">Crédits gratuits</label>
+                    <input type="number" id="freeCredits" required>
+                </div>
+                <div class="form-group">
+                    <label for="paidCredits">Crédits payants</label>
+                    <input type="number" id="paidCredits" required>
+                </div>
+                <div class="form-group">
+                    <label for="subscription">Abonnement</label>
+                    <select id="subscription">
+                        <option value="">Aucun</option>
+                        <option value="basic">Basic</option>
+                        <option value="premium">Premium</option>
+                    </select>
+                </div>
+                <button type="submit" class="button">Sauvegarder</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal pour l'ajout/édition de prompt -->
+    <div id="promptModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="promptModalTitle">Ajouter un prompt</h2>
+            <form id="promptForm">
+                <div class="form-group">
+                    <label for="promptTitle">Titre</label>
+                    <input type="text" id="promptTitle" required>
+                </div>
+                <div class="form-group">
+                    <label for="promptCategory">Catégorie</label>
+                    <input type="text" id="promptCategory" required>
+                </div>
+                <div class="form-group">
+                    <label for="promptContent">Contenu</label>
+                    <textarea id="promptContent" rows="4" required></textarea>
+                </div>
+                <button type="submit" class="button">Sauvegarder</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Configuration Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyCvizcYorGDPN3GXqma0opp7wAiMkaCt64",
+            authDomain: "gemini-bb56e.firebaseapp.com",
+            databaseURL: "https://gemini-bb56e-default-rtdb.firebaseio.com",
+            projectId: "gemini-bb56e",
+            storageBucket: "gemini-bb56e.appspot.com",
+            messagingSenderId: "277143630015",
+            appId: "1:277143630015:web:78736f2cf52d29495d160a",
+            measurementId: "G-CSN292219J"
+        };
+
+        // Initialiser Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Fonction pour afficher les utilisateurs
+        function displayUsers() {
+            const userTable = document.getElementById('userTable').getElementsByTagName('tbody')[0];
+            userTable.innerHTML = '';
+            db.ref('users').on('value', (snapshot) => {
+                const users = snapshot.val();
+                for (let username in users) {
+                    const user = users[username];
+                    const row = userTable.insertRow();
+                    row.innerHTML = `
+                        <td>${username}</td>
+                        <td>${user.freeCredits || 0}</td>
+                        <td>${user.paidCredits || 0}</td>
+                        <td>${user.subscription || 'Aucun'}</td>
+                        <td>
+                            <button onclick="editUser('${username}')" class="button">Éditer</button>
+                            <button onclick="deleteUser('${username}')" class="button">Supprimer</button>
+                        </td>
+                    `;
+                }
+            });
+        }
+
+        // Fonction pour afficher les prompts
+function displayPrompts() {
+            const promptTable = document.getElementById('promptTable').getElementsByTagName('tbody')[0];
+            promptTable.innerHTML = '';
+            db.ref('prompts').on('value', (snapshot) => {
+                const prompts = snapshot.val();
+                for (let id in prompts) {
+                    const prompt = prompts[id];
+                    const row = promptTable.insertRow();
+                    row.innerHTML = `
+                        <td>${id}</td>
+                        <td>${prompt.title}</td>
+                        <td>${prompt.category}</td>
+                        <td>
+                            <button onclick="editPrompt('${id}')" class="button">Éditer</button>
+                            <button onclick="deletePrompt('${id}')" class="button">Supprimer</button>
+                        </td>
+                    `;
+                }
+            });
+        }
+
+        // Fonction pour trier les tableaux
+        function sortTable(tableId, n) {
+            var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
+            table = document.getElementById(tableId);
+            switching = true;
+            dir = "asc";
+            while (switching) {
+                switching = false;
+                rows = table.rows;
+                for (i = 1; i < (rows.length - 1); i++) {
+                    shouldSwitch = false;
+                    x = rows[i].getElementsByTagName("TD")[n];
+                    y = rows[i + 1].getElementsByTagName("TD")[n];
+                    if (dir == "asc") {
+                        if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
+                            shouldSwitch = true;
+                            break;
+                        }
+                    } else if (dir == "desc") {
+                        if (x.innerHTML.toLowerCase() < y.innerHTML.toLowerCase()) {
+                            shouldSwitch = true;
+                            break;
+                        }
+                    }
+                }
+                if (shouldSwitch) {
+                    rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                    switching = true;
+                    switchcount++;
+                } else {
+                    if (switchcount == 0 && dir == "asc") {
+                        dir = "desc";
+                        switching = true;
+                    }
+                }
+            }
+        }
+
+        // Fonction de recherche pour les utilisateurs
+        function searchUsers() {
+            const input = document.getElementById("userSearch");
+            const filter = input.value.toUpperCase();
+            const table = document.getElementById("userTable");
+            const tr = table.getElementsByTagName("tr");
+
+            for (let i = 1; i < tr.length; i++) {
+                const td = tr[i].getElementsByTagName("td")[0];
+                if (td) {
+                    const txtValue = td.textContent || td.innerText;
+                    if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                        tr[i].style.display = "";
+                    } else {
+                        tr[i].style.display = "none";
+                    }
+                }
+            }
+        }
+
+        // Fonction de recherche pour les prompts
+        function searchPrompts() {
+            const input = document.getElementById("promptSearch");
+            const filter = input.value.toUpperCase();
+            const table = document.getElementById("promptTable");
+            const tr = table.getElementsByTagName("tr");
+
+            for (let i = 1; i < tr.length; i++) {
+                const td = tr[i].getElementsByTagName("td")[1]; // Recherche sur le titre du prompt
+                if (td) {
+                    const txtValue = td.textContent || td.innerText;
+                    if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                        tr[i].style.display = "";
+                    } else {
+                        tr[i].style.display = "none";
+                    }
+                }
+            }
+        }
+
+        // Fonctions pour les modals
+        function showModal(modalId) {
+            document.getElementById(modalId).style.display = "block";
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = "none";
+        }
+
+        // Gestion des utilisateurs
+        function showAddUserForm() {
+            document.getElementById('userModalTitle').textContent = "Ajouter un utilisateur";
+            document.getElementById('userForm').reset();
+            showModal('userModal');
+        }
+
+        function editUser(username) {
+            document.getElementById('userModalTitle').textContent = "Éditer l'utilisateur";
+            db.ref('users/' + username).once('value', (snapshot) => {
+                const user = snapshot.val();
+                document.getElementById('username').value = username;
+                document.getElementById('freeCredits').value = user.freeCredits || 0;
+                document.getElementById('paidCredits').value = user.paidCredits || 0;
+                document.getElementById('subscription').value = user.subscription || '';
+            });
+            showModal('userModal');
+        }
+
+        function deleteUser(username) {
+            if (confirm(`Êtes-vous sûr de vouloir supprimer l'utilisateur ${username} ?`)) {
+                db.ref('users/' + username).remove()
+                    .then(() => alert('Utilisateur supprimé avec succès'))
+                    .catch((error) => alert('Erreur lors de la suppression : ' + error.message));
+            }
+        }
+
+        // Gestion des prompts
+        function showAddPromptForm() {
+            document.getElementById('promptModalTitle').textContent = "Ajouter un prompt";
+            document.getElementById('promptForm').reset();
+            showModal('promptModal');
+        }
+
+        function editPrompt(id) {
+            document.getElementById('promptModalTitle').textContent = "Éditer le prompt";
+            db.ref('prompts/' + id).once('value', (snapshot) => {
+                const prompt = snapshot.val();
+                document.getElementById('promptTitle').value = prompt.title;
+                document.getElementById('promptCategory').value = prompt.category;
+                document.getElementById('promptContent').value = prompt.content;
+            });
+            showModal('promptModal');
+        }
+
+        function deletePrompt(id) {
+            if (confirm(`Êtes-vous sûr de vouloir supprimer ce prompt ?`)) {
+                db.ref('prompts/' + id).remove()
+                    .then(() => alert('Prompt supprimé avec succès'))
+                    .catch((error) => alert('Erreur lors de la suppression : ' + error.message));
+            }
+        }
+
+        // Gestion des formulaires
+        document.getElementById('userForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const userData = {
+                freeCredits: parseInt(document.getElementById('freeCredits').value),
+                paidCredits: parseInt(document.getElementById('paidCredits').value),
+                subscription: document.getElementById('subscription').value
+            };
+            db.ref('users/' + username).set(userData)
+                .then(() => {
+                    alert('Utilisateur sauvegardé avec succès');
+                    closeModal('userModal');
+                })
+                .catch((error) => alert('Erreur lors de la sauvegarde : ' + error.message));
+        });
+
+        document.getElementById('promptForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const promptData = {
+                title: document.getElementById('promptTitle').value,
+                category: document.getElementById('promptCategory').value,
+                content: document.getElementById('promptContent').value
+            };
+            const newPromptRef = db.ref('prompts').push();
+            newPromptRef.set(promptData)
+                .then(() => {
+                    alert('Prompt sauvegardé avec succès');
+                    closeModal('promptModal');
+                })
+                .catch((error) => alert('Erreur lors de la sauvegarde : ' + error.message));
+        });
+
+        // Fermeture des modals
+        document.querySelectorAll('.close').forEach(closeBtn => {
+            closeBtn.onclick = function() {
+                this.closest('.modal').style.display = 'none';
+            }
+        });
+
+        window.onclick = function(event) {
+            if (event.target.className === 'modal') {
+                event.target.style.display = "none";
+            }
+        }
+
+        // Création des graphiques
+        function createSalesChart() {
+            const ctx = document.getElementById('salesChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'],
+                    datasets: [{
+                        label: 'Ventes mensuelles',
+                        data: [12, 19, 3, 5, 2, 3],
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function createUserActivityChart() {
+            const ctx = document.getElementById('userActivityChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
+                    datasets: [{
+                        label: 'Activité quotidienne des utilisateurs',
+                        data: [65, 59, 80, 81, 56, 55, 40],
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        borderColor: 'rgb(54, 162, 235)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function createCreditUsageChart() {
+            const ctx = document.getElementById('creditUsageChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: ['Crédits utilisés', 'Crédits restants'],
+                    datasets: [{
+                        data: [300, 700],
+                        backgroundColor: [
+                            'rgb(255, 99, 132)',
+                            'rgb(54, 162, 235)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Utilisation des crédits'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function() {
+            displayUsers();
+            displayPrompts();
+            createSalesChart();
+            createUserActivityChart();
+            createCreditUsageChart();
+        });
+    </script>
+</body>
+</html>
