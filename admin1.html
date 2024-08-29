@@ -26,7 +26,7 @@
             color: var(--text-color);
         }
 
-        .container {
+container {
             display: flex;
             min-height: 100vh;
         }
@@ -37,7 +37,11 @@
             color: var(--sidebar-text);
             padding: 20px;
             transition: all 0.3s ease;
+            position: fixed;  /* Rend la barre latérale fixe */
+            height: 100vh;   /* Hauteur totale de la vue */
+            overflow-y: auto; /* Permet le défilement si le contenu est trop long */
         }
+
 
         .sidebar h2 {
             margin-bottom: 30px;
@@ -76,8 +80,10 @@
         .content {
             flex: 1;
             padding: 30px;
+            margin-left: 250px; /* Ajoute une marge à gauche égale à la largeur de la barre latérale */
             overflow-y: auto;
         }
+
 
         h1, h2 {
             color: var(--primary-color);
