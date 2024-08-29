@@ -18,6 +18,10 @@
             --sidebar-text: #ecf0f1;
         }
 
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Poppins', sans-serif;
             margin: 0;
@@ -26,7 +30,7 @@
             color: var(--text-color);
         }
 
-container {
+        .container {
             display: flex;
             min-height: 100vh;
         }
@@ -37,11 +41,18 @@ container {
             color: var(--sidebar-text);
             padding: 20px;
             transition: all 0.3s ease;
-            position: fixed;  /* Rend la barre latérale fixe */
-            height: 100vh;   /* Hauteur totale de la vue */
-            overflow-y: auto; /* Permet le défilement si le contenu est trop long */
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 1000;
         }
 
+        .content {
+            flex: 1;
+            padding: 30px;
+            margin-left: 250px;
+            overflow-y: auto;
+        }
 
         .sidebar h2 {
             margin-bottom: 30px;
@@ -77,14 +88,6 @@ container {
             font-size: 18px;
         }
 
-        .content {
-            flex: 1;
-            padding: 30px;
-            margin-left: 250px; /* Ajoute une marge à gauche égale à la largeur de la barre latérale */
-            overflow-y: auto;
-        }
-
-
         h1, h2 {
             color: var(--primary-color);
             margin-bottom: 20px;
@@ -117,11 +120,6 @@ container {
 
         tr:hover {
             background-color: #f5f5f5;
-        }
-
-        .chart-container {
-            height: 300px;
-            margin-top: 20px;
         }
 
         .button {
@@ -167,10 +165,15 @@ container {
             margin-left: 5px;
         }
 
+        .chart-container {
+            height: 300px;
+            margin-top: 20px;
+        }
+
         .modal {
             display: none;
             position: fixed;
-            z-index: 1;
+            z-index: 1001;
             left: 0;
             top: 0;
             width: 100%;
@@ -214,15 +217,74 @@ container {
         }
 
         .form-group input,
-        .form-group select {
+        .form-group select,
+        .form-group textarea {
             width: 100%;
             padding: 8px;
             border: 1px solid #ddd;
             border-radius: 4px;
         }
+
+        #menuToggle {
+            display: none;
+            cursor: pointer;
+            padding: 10px;
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 1001;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                width: 100%;
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+            }
+
+            .content {
+                margin-left: 0;
+                padding: 20px;
+            }
+
+            #menuToggle {
+                display: block;
+            }
+
+            table {
+                font-size: 14px;
+            }
+
+            th, td {
+                padding: 8px;
+            }
+
+            .card {
+                padding: 15px;
+            }
+
+            .chart-container {
+                height: 200px;
+            }
+
+            .modal-content {
+                width: 95%;
+                margin: 10% auto;
+            }
+        }
     </style>
 </head>
 <body>
+    <div id="menuToggle">
+        <i class="fas fa-bars"></i>
+    </div>
+
     <div class="container">
         <div class="sidebar">
             <h2>Eduque moi</h2>
@@ -371,7 +433,7 @@ container {
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // Fonction pour afficher les utilisateurs
+       // Fonction pour afficher les utilisateurs
         function displayUsers() {
             const userTable = document.getElementById('userTable').getElementsByTagName('tbody')[0];
             userTable.innerHTML = '';
@@ -395,7 +457,7 @@ container {
         }
 
         // Fonction pour afficher les prompts
-function displayPrompts() {
+        function displayPrompts() {
             const promptTable = document.getElementById('promptTable').getElementsByTagName('tbody')[0];
             promptTable.innerHTML = '';
             db.ref('prompts').on('value', (snapshot) => {
@@ -681,6 +743,33 @@ function displayPrompts() {
             });
         }
 
+        // Gestion du menu pour mobile
+        document.getElementById('menuToggle').addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.toggle('active');
+        });
+
+        // Fermer le menu lorsqu'un lien est cliqué (pour mobile)
+        document.querySelectorAll('.sidebar a').forEach(link => {
+            link.addEventListener('click', function() {
+                if (window.innerWidth <= 768) {
+                    document.querySelector('.sidebar').classList.remove('active');
+                }
+            });
+        });
+
+        // Ajuster les graphiques pour le mobile
+        function resizeCharts() {
+            if (window.innerWidth <= 768) {
+                // Ajuster les options des graphiques pour le mobile
+                // Par exemple, réduire la taille des polices, ajuster les marges, etc.
+            } else {
+                // Rétablir les options par défaut pour les écrans plus larges
+            }
+            // Redessiner les graphiques si nécessaire
+        }
+
+        window.addEventListener('resize', resizeCharts);
+
         // Initialisation
         document.addEventListener('DOMContentLoaded', function() {
             displayUsers();
@@ -688,6 +777,7 @@ function displayPrompts() {
             createSalesChart();
             createUserActivityChart();
             createCreditUsageChart();
+            resizeCharts();
         });
     </script>
 </body>
