@@ -85,52 +85,53 @@ function initializeGeminiAPI() {
                 });
         }
 
-        // Fonction pour gérer le changement d'état d'authentification
-        function onAuthStateChanged(user) {
-            if (user) {
-                // L'utilisateur est connecté
-                currentUser = user;
-                updateUIForLoggedInUser();
-                initializeUserData(user);
-            } else {
-                // L'utilisateur est déconnecté
-                currentUser = null;
-                updateUIForLoggedOutUser();
-            }
+            // Mettre à jour la fonction onAuthStateChanged
+    function onAuthStateChanged(user) {
+        console.log("État d'authentification changé:", user ? "Connecté" : "Déconnecté");
+        if (user) {
+            currentUser = user;
+            initializeUserData(user);
+        } else {
+            currentUser = null;
+            updateUIForLoggedOutUser();
         }
+    }
 
-        // Fonction pour initialiser les données de l'utilisateur
-        async function initializeUserData(user) {
-            const userRef = db.ref('users/' + user.uid);
-            const snapshot = await userRef.once('value');
-            if (!snapshot.exists()) {
-                // Nouvel utilisateur, initialiser ses données
-                await userRef.set({
-                    email: user.email,
-                    freeCredits: 10,
-                    paidCredits: 0,
-                    subscription: null,
-                    subscriptionEndDate: null,
-                    lastFreeCreditsReset: new Date().toISOString()
-                });
-            }
-            // Charger les données de l'utilisateur
-            const userData = (await userRef.once('value')).val();
-            currentUser = { ...currentUser, ...userData };
-            updateUIForLoggedInUser();
-        }
-
-        // Fonction de déconnexion
-        function logout() {
-            auth.signOut().then(() => {
-                currentUser = null;
-                updateUIForLoggedOutUser();
-                showNotification('Déconnexion réussie.', 'success');
-            }).catch((error) => {
-                console.error("Erreur lors de la déconnexion:", error);
-                showNotification("Erreur lors de la déconnexion. Veuillez réessayer.", 'error');
+    // Fonction pour initialiser les données de l'utilisateur
+    async function initializeUserData(user) {
+        console.log("Initialisation des données utilisateur pour:", user.email);
+        const userEmail = user.email.replace('.', ','); // Remplacer le point par une virgule car Firebase n'accepte pas les points dans les clés
+        const userRef = db.ref('users/' + userEmail);
+        const snapshot = await userRef.once('value');
+        if (!snapshot.exists()) {
+            console.log("Nouvel utilisateur, initialisation des données");
+            await userRef.set({
+                uid: user.uid, // Nous gardons l'UID comme référence
+                email: user.email,
+                freeCredits: 10,
+                paidCredits: 0,
+                subscription: null,
+                subscriptionEndDate: null,
+                lastFreeCreditsReset: new Date().toISOString()
             });
         }
+        const userData = (await userRef.once('value')).val();
+        currentUser = { ...currentUser, ...userData };
+        updateUIForLoggedInUser();
+    }
+
+    function logout() {
+        console.log("Tentative de déconnexion...");
+        auth.signOut().then(() => {
+            console.log("Déconnexion réussie");
+            currentUser = null;
+            updateUIForLoggedOutUser();
+            showNotification('Déconnexion réussie.', 'success');
+        }).catch((error) => {
+            console.error("Erreur lors de la déconnexion:", error);
+            showNotification("Erreur lors de la déconnexion. Veuillez réessayer.", 'error');
+        });
+    }
 
 // Fonction pour vérifier et mettre à jour le statut de l'abonnement
 async function checkSubscriptionStatus() {
