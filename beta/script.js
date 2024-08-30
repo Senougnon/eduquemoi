@@ -104,30 +104,13 @@ function initializeGeminiAPI() {
         return email.split('@')[0];
     }
 
-    // Fonction pour trouver un nom d'utilisateur unique
-    async function findUniqueUsername(baseUsername) {
-        let username = baseUsername;
-        let counter = 1;
-        const usersRef = db.ref('users');
-        
-        while (true) {
-            const snapshot = await usersRef.child(username).once('value');
-            if (!snapshot.exists()) {
-                return username;
-            }
-            username = `${baseUsername}${counter}`;
-            counter++;
-        }
-    }
+
 
     // Fonction pour initialiser les données de l'utilisateur
     async function initializeUserData(user) {
         console.log("Initialisation des données utilisateur pour:", user.email);
-        let username = getUsernameFromEmail(user.email);
+        const username = getUsernameFromEmail(user.email);
         
-        // Vérifier si le nom d'utilisateur existe déjà
-        username = await findUniqueUsername(username);
-
         const userRef = db.ref('users/' + username);
         const snapshot = await userRef.once('value');
         if (!snapshot.exists()) {
@@ -135,16 +118,23 @@ function initializeGeminiAPI() {
             await userRef.set({
                 uid: user.uid,
                 email: user.email,
-                username: username,
                 freeCredits: 10,
                 paidCredits: 0,
                 subscription: null,
                 subscriptionEndDate: null,
                 lastFreeCreditsReset: new Date().toISOString()
             });
+        } else {
+            console.log("Utilisateur existant, mise à jour des données si nécessaire");
+            // Ici, vous pouvez choisir de mettre à jour certaines données si nécessaire
+            // Par exemple, mettre à jour l'email si il a changé
+            await userRef.update({
+                email: user.email,
+                uid: user.uid
+            });
         }
         const userData = (await userRef.once('value')).val();
-        currentUser = { ...currentUser, ...userData };
+        currentUser = { ...currentUser, ...userData, username };
         updateUIForLoggedInUser();
     }
 
