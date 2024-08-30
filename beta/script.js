@@ -1,12 +1,4 @@
-const API_KEY = 'AIzaSyB3umTE3n2d5gwKzOmJz4ss1pFZMR8_vOE';
-const API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models/';
-let currentUser = null;
-let pinnedFiles = [];
-let currentConversation = [];
-let conversations = {};
-const FREE_CREDITS_PER_DAY = 10;
-const FREE_MODEL_MAX_WORDS = 50;
-const FREE_MODEL_MAX_RESPONSE = 100;
+
 
         // Configuration Firebase
         const firebaseConfig = {
@@ -24,6 +16,16 @@ const FREE_MODEL_MAX_RESPONSE = 100;
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.database();
+
+        const API_KEY = 'AIzaSyB3umTE3n2d5gwKzOmJz4ss1pFZMR8_vOE';
+const API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models/';
+let currentUser = null;
+let pinnedFiles = [];
+let currentConversation = [];
+let conversations = {};
+const FREE_CREDITS_PER_DAY = 10;
+const FREE_MODEL_MAX_WORDS = 50;
+const FREE_MODEL_MAX_RESPONSE = 100;
 
 let prompts = {};
 let pinnedPrompt = null;
