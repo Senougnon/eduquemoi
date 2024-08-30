@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prototype Google Drive - Eduque moi</title>
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; }
+        button { cursor: pointer; padding: 10px; margin: 10px 0; }
+        #fileList { margin-top: 20px; }
+        .file-item { background: #f4f4f4; margin: 5px 0; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Prototype Google Drive - Eduque moi</h1>
+    <button id="authorize_button" style="display: none;">Autoriser</button>
+    <button id="signout_button" style="display: none;">Déconnexion</button>
+    <div id="content" style="display: none;">
+        <h2>Fichiers Google Drive</h2>
+        <div id="fileList"></div>
+    </div>
+
+    <script>
+        const CLIENT_ID = '277143630015-ngrjab0fe0l6q7t77e7jt9ukbmrm9hfk.apps.googleusercontent.com';
+        const API_KEY = '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'; // Remplacez par votre clé API
+        const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+        const SCOPES = 'https://www.googleapis.com/auth/drive.metadata.readonly';
+
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+
+        document.getElementById('authorize_button').style.display = 'none';
+        document.getElementById('signout_button').style.display = 'none';
+
+        function gapiLoaded() {
+            gapi.load('client', initializeGapiClient);
+        }
+
+        async function initializeGapiClient() {
+            await gapi.client.init({
+                apiKey: API_KEY,
+                discoveryDocs: [DISCOVERY_DOC],
+            });
+            gapiInited = true;
+            maybeEnableButtons();
+        }
+
+        function gisLoaded() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: '', // défini plus tard
+            });
+            gisInited = true;
+            maybeEnableButtons();
+        }
+
+        function maybeEnableButtons() {
+            if (gapiInited && gisInited) {
+                document.getElementById('authorize_button').style.display = 'block';
+            }
+        }
+
+        function handleAuthClick() {
+            tokenClient.callback = async (resp) => {
+                if (resp.error !== undefined) {
+                    throw (resp);
+                }
+                document.getElementById('signout_button').style.display = 'block';
+                document.getElementById('authorize_button').style.display = 'none';
+                await listFiles();
+            };
+
+            if (gapi.client.getToken() === null) {
+                tokenClient.requestAccessToken({prompt: 'consent'});
+            } else {
+                tokenClient.requestAccessToken({prompt: ''});
+            }
+        }
+
+        function handleSignoutClick() {
+            const token = gapi.client.getToken();
+            if (token !== null) {
+                google.accounts.oauth2.revoke(token.access_token);
+                gapi.client.setToken('');
+                document.getElementById('content').style.display = 'none';
+                document.getElementById('authorize_button').style.display = 'block';
+                document.getElementById('signout_button').style.display = 'none';
+            }
+        }
+
+        async function listFiles() {
+            let response;
+            try {
+                response = await gapi.client.drive.files.list({
+                    'pageSize': 10,
+                    'fields': 'files(id, name)',
+                });
+            } catch (err) {
+                document.getElementById('content').innerText = err.message;
+                return;
+            }
+            const files = response.result.files;
+            if (!files || files.length == 0) {
+                document.getElementById('content').innerText = 'Aucun fichier trouvé.';
+                return;
+            }
+            const output = files.reduce(
+                (str, file) => `${str}<div class="file-item">${file.name} (${file.id})</div>`,
+                '<div id="fileList">');
+            document.getElementById('content').innerHTML = output + '</div>';
+            document.getElementById('content').style.display = 'block';
+        }
+
+        document.getElementById('authorize_button').addEventListener('click', handleAuthClick);
+        document.getElementById('signout_button').addEventListener('click', handleSignoutClick);
+    </script>
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+</body>
+</html>
