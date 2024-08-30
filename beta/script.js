@@ -1,31 +1,134 @@
 const API_KEY = 'AIzaSyB3umTE3n2d5gwKzOmJz4ss1pFZMR8_vOE';
 const API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models/';
 let currentUser = null;
-let pinnedFile = null;
+let pinnedFiles = [];
 let currentConversation = [];
 let conversations = {};
 const FREE_CREDITS_PER_DAY = 10;
 const FREE_MODEL_MAX_WORDS = 50;
 const FREE_MODEL_MAX_RESPONSE = 100;
 
-// Configuration Firebase
-const firebaseConfig = {
-    apiKey: "AIzaSyCvizcYorGDPN3GXqma0opp7wAiMkaCt64",
-    authDomain: "gemini-bb56e.firebaseapp.com",
-    databaseURL: "https://gemini-bb56e-default-rtdb.firebaseio.com",
-    projectId: "gemini-bb56e",
-    storageBucket: "gemini-bb56e.appspot.com",
-    messagingSenderId: "277143630015",
-    appId: "1:277143630015:web:78736f2cf52d29495d160a",
-    measurementId: "G-CSN292219J"
-};
+        // Configuration Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyCvizcYorGDPN3GXqma0opp7wAiMkaCt64",
+            authDomain: "gemini-bb56e.firebaseapp.com",
+            databaseURL: "https://gemini-bb56e-default-rtdb.firebaseio.com",
+            projectId: "gemini-bb56e",
+            storageBucket: "gemini-bb56e.appspot.com",
+            messagingSenderId: "277143630015",
+            appId: "1:277143630015:web:78736f2cf52d29495d160a",
+            measurementId: "G-CSN292219J"
+        };
 
-// Initialiser Firebase
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+        // Initialiser Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
 
 let prompts = {};
 let pinnedPrompt = null;
+
+// Configuration de l'API Gemini
+let genAI;
+const API_KEY_LIST_REF = db.ref('API');
+let apiKeyList = [];
+
+// Fonction pour charger la liste des clés API au chargement de la page
+async function loadApiKeyList() {
+    try {
+        const snapshot = await API_KEY_LIST_REF.once('value');
+        const data = snapshot.val();
+        if (data) {
+            apiKeyList = Object.values(data); // Convertir l'objet en tableau
+        } else {
+            console.warn("Aucune clé API trouvée dans la base de données.");
+        }
+    } catch (error) {
+        console.error("Erreur lors du chargement de la liste des clés API:", error);
+    }
+}
+
+// Fonction pour obtenir une clé API aléatoire
+function getRandomApiKey() {
+    if (apiKeyList.length === 0) {
+        console.error("La liste des clés API est vide.");
+        return null; // Ou gérer l'erreur différemment
+    }
+    const randomIndex = Math.floor(Math.random() * apiKeyList.length);
+    return apiKeyList[randomIndex];
+}
+
+// Fonction pour initialiser l'API Gemini (modifiée)
+function initializeGeminiAPI() {
+    const apiKey = getRandomApiKey(); // Obtenir une clé aléatoire
+    if (apiKey) {
+        genAI = new GoogleGenerativeAI(apiKey);
+    } else {
+        // Gérer le cas où aucune clé API n'est disponible
+        showNotification("Erreur : Impossible d'initialiser l'API. Aucune clé API disponible.", 'error');
+    }
+}
+
+        // Fonction pour gérer l'authentification Google
+        function handleGoogleAuth() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider)
+                .then((result) => {
+                    // L'utilisateur est connecté
+                    currentUser = result.user;
+                    onAuthStateChanged(currentUser);
+                }).catch((error) => {
+                    console.error("Erreur d'authentification Google:", error);
+                    showNotification("Erreur d'authentification Google. Veuillez réessayer.", 'error');
+                });
+        }
+
+        // Fonction pour gérer le changement d'état d'authentification
+        function onAuthStateChanged(user) {
+            if (user) {
+                // L'utilisateur est connecté
+                currentUser = user;
+                updateUIForLoggedInUser();
+                initializeUserData(user);
+            } else {
+                // L'utilisateur est déconnecté
+                currentUser = null;
+                updateUIForLoggedOutUser();
+            }
+        }
+
+        // Fonction pour initialiser les données de l'utilisateur
+        async function initializeUserData(user) {
+            const userRef = db.ref('users/' + user.uid);
+            const snapshot = await userRef.once('value');
+            if (!snapshot.exists()) {
+                // Nouvel utilisateur, initialiser ses données
+                await userRef.set({
+                    email: user.email,
+                    freeCredits: 10,
+                    paidCredits: 0,
+                    subscription: null,
+                    subscriptionEndDate: null,
+                    lastFreeCreditsReset: new Date().toISOString()
+                });
+            }
+            // Charger les données de l'utilisateur
+            const userData = (await userRef.once('value')).val();
+            currentUser = { ...currentUser, ...userData };
+            updateUIForLoggedInUser();
+        }
+
+        // Fonction de déconnexion
+        function logout() {
+            auth.signOut().then(() => {
+                currentUser = null;
+                updateUIForLoggedOutUser();
+                showNotification('Déconnexion réussie.', 'success');
+            }).catch((error) => {
+                console.error("Erreur lors de la déconnexion:", error);
+                showNotification("Erreur lors de la déconnexion. Veuillez réessayer.", 'error');
+            });
+        }
 
 // Fonction pour vérifier et mettre à jour le statut de l'abonnement
 async function checkSubscriptionStatus() {
@@ -112,25 +215,27 @@ function closeModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
 }
 
-function updateUIForLoggedInUser() {
-    document.getElementById('loginBtn').classList.add('hidden');
-    document.getElementById('registerBtn').classList.add('hidden');
-    document.getElementById('logoutBtn').classList.remove('hidden');
-    document.getElementById('userInfo').classList.remove('hidden');
-    document.getElementById('username').textContent = currentUser.username;
-    document.getElementById('freeCredits').textContent = currentUser.freeCredits;
-    document.getElementById('paidCredits').textContent = currentUser.paidCredits;
-    document.getElementById('subscription').textContent = currentUser.subscription || 'Aucun';
-    loadConversationHistory();
-}
+        // Mettre à jour l'interface utilisateur pour un utilisateur connecté
+        function updateUIForLoggedInUser() {
+            document.getElementById('googleAuthBtn').classList.add('hidden');
+            document.getElementById('logoutBtn').classList.remove('hidden');
+            document.getElementById('userInfo').classList.remove('hidden');
+            document.getElementById('username').textContent = currentUser.email;
+            document.getElementById('freeCredits').textContent = currentUser.freeCredits;
+            document.getElementById('paidCredits').textContent = currentUser.paidCredits;
+            document.getElementById('subscription').textContent = currentUser.subscription || 'Aucun';
+            loadConversationHistory();
+        }
 
-function updateUIForLoggedOutUser() {
-    document.getElementById('loginBtn').classList.remove('hidden');
-    document.getElementById('registerBtn').classList.remove('hidden');
-    document.getElementById('logoutBtn').classList.add('hidden');
-    document.getElementById('userInfo').classList.add('hidden');
-    document.getElementById('conversationHistory').innerHTML = '<h3>Historique des conversations</h3>';
-}
+        // Mettre à jour l'interface utilisateur pour un utilisateur déconnecté
+        function updateUIForLoggedOutUser() {
+            document.getElementById('googleAuthBtn').classList.remove('hidden');
+            document.getElementById('logoutBtn').classList.add('hidden');
+            document.getElementById('userInfo').classList.add('hidden');
+            document.getElementById('conversationHistory').innerHTML = '<h3>Historique des conversations</h3>';
+        }
+
+
 
 function storeLoginInfo(username, password) {
     localStorage.setItem('eduqueMoiUsername', username);
@@ -252,16 +357,6 @@ async function login(username, password) {
     }
 }
 
-function logout() {
-    if (currentUser) {
-        syncUserData();
-    }
-    currentUser = null;
-    updateUIForLoggedOutUser();
-    showNotification('Déconnexion réussie.', 'success');
-    clearLoginInfo();
-}
-
 async function resetFreeCreditsIfNeeded() {
     const now = new Date();
     const lastReset = new Date(currentUser.lastFreeCreditsReset);
@@ -281,10 +376,68 @@ async function resetFreeCreditsIfNeeded() {
 
 function checkModelAccess() {
     const selectedModel = document.getElementById('modelSelect').value;
-    if (selectedModel !== 'gemini-1.0-pro' && !hasValidSubscription() && currentUser.paidCredits <= 0) {
+    if (!['gemini-1.5-flash', 'gemini-1.0-pro'].includes(selectedModel) && !hasValidSubscription() && currentUser.paidCredits <= 0) {
         showPaymentNotification('Ce modèle nécessite un abonnement ou des crédits payants.');
-        document.getElementById('modelSelect').value = 'gemini-1.0-pro';
+        document.getElementById('modelSelect').value = 'gemini-1.5-flash';
     }
+}
+
+// Fonction pour gérer l'ajout de fichiers
+function handleFileUpload(event) {
+    const files = event.target.files;
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.type.startsWith('image/') || file.type === 'application/pdf') {
+            pinnedFiles.push(file);
+            updatePinnedFiles();
+        }
+    }
+}
+
+// Fonction pour mettre à jour l'affichage des fichiers épinglés
+function updatePinnedFiles() {
+    const pinnedItems = document.getElementById('pinnedItems');
+    pinnedItems.innerHTML = '';
+    pinnedFiles.forEach((file, index) => {
+        const item = document.createElement('div');
+        item.className = 'pinned-item';
+        item.innerHTML = `
+            <span class="icon">${file.type.startsWith('image/') ? '🖼️' : '📄'}</span>
+            <span class="name" title="${file.name}">${file.name}</span>
+            <span class="remove" onclick="removePinnedFile(${index})">❌</span>
+        `;
+        pinnedItems.appendChild(item);
+    });
+}
+
+// Fonction pour supprimer un fichier épinglé
+function removePinnedFile(index) {
+    pinnedFiles.splice(index, 1);
+    updatePinnedFiles();
+}
+
+function createPinnedFilesElement(files) {
+    const pinnedFilesElement = document.createElement('div');
+    pinnedFilesElement.className = 'pinned-files-message';
+
+    files.forEach(file => {
+        const fileElement = document.createElement('div');
+        fileElement.className = 'pinned-file';
+
+        const iconElement = document.createElement('span');
+        iconElement.className = 'file-icon';
+        iconElement.textContent = file.type.startsWith('image/') ? '🖼️' : '📄';
+
+        const nameElement = document.createElement('span');
+        nameElement.className = 'file-name';
+        nameElement.textContent = file.name;
+
+        fileElement.appendChild(iconElement);
+        fileElement.appendChild(nameElement);
+        pinnedFilesElement.appendChild(fileElement);
+    });
+
+    return pinnedFilesElement;
 }
 
 async function sendMessage() {
@@ -295,62 +448,101 @@ async function sendMessage() {
 
     const userInput = document.getElementById('userInput').value.trim();
     let model = document.getElementById('modelSelect').value;
+    const modelSelect = document.getElementById('modelSelect');
 
-    if (!userInput && !pinnedFile && !pinnedPrompt) {
+    if (!userInput && pinnedFiles.length === 0 && !pinnedPrompt) {
         showNotification('Veuillez entrer un message, joindre un fichier ou sélectionner un prompt.', 'error');
         return;
     }
 
-    if (!hasEnoughCredits(model)) {
-        const choice = await showPaymentNotificationWithFreeOption('Vous n\'avez plus de crédits pour ce modèle.');
-        if (choice === 'free') {
-            if (currentUser.freeCredits > 0) {
-                model = 'gemini-1.0-pro'; // Basculer vers le modèle gratuit
-                switchToFreeModel();
+    const requiredCredits = pinnedFiles.length > 0 ? pinnedFiles.length : 1;
+
+    // Vérification des crédits et sélection du modèle
+    if (!hasValidSubscription()) {
+        if (model === 'gemini-1.5-flash') {
+            // Vérifier d'abord les crédits payants pour Gemini 1.5 Flash
+            if (currentUser.paidCredits >= requiredCredits) {
+                showNotification('Utilisation de crédits payants pour Gemini 1.5 Flash.', 'info');
+            } else if (currentUser.freeCredits >= requiredCredits) {
+                showNotification('Utilisation de crédits gratuits pour Gemini 1.5 Flash.', 'info');
             } else {
-                showNotification('Vous n\'avez plus de crédits gratuits. Veuillez acheter des crédits ou un abonnement.', 'error');
+                showPaymentNotification('Vous n\'avez pas assez de crédits pour utiliser Gemini 1.5 Flash.');
                 return;
             }
-        } else if (choice === 'subscription') {
-            buySubscription();
-            return;
-        } else if (choice === 'credits') {
-            buyCredits();
-            return;
+        } else if (!['gemini-1.0-pro'].includes(model)) {
+            // Pour les autres modèles avancés
+            if (currentUser.paidCredits < requiredCredits) {
+                showPaymentNotification('Vous n\'avez pas assez de crédits payants pour ce modèle avancé.');
+                return;
+            }
         } else {
-            return; // L'utilisateur a choisi d'annuler
+            // Pour Gemini 1.0 Pro (modèle gratuit)
+            if (currentUser.freeCredits < requiredCredits && currentUser.paidCredits < requiredCredits) {
+                showPaymentNotification('Vous n\'avez pas assez de crédits pour envoyer ce message.');
+                return;
+            }
         }
     }
 
-    // Le reste de la fonction sendMessage reste inchangé
     let displayMessage = userInput;
     let fullMessage = userInput;
 
-    if (pinnedFile) {
-        fullMessage = `[Contenu du fichier joint: ${pinnedFile.content}]\n\n${fullMessage}`;
-        displayMessage = `[Fichier joint: ${pinnedFile.name}]\n\n${displayMessage}`;
+    // Créer un élément de message avec les fichiers épinglés
+    const messageElement = document.createElement('div');
+    messageElement.className = 'message user-message';
+
+    // Ajouter les fichiers épinglés au début du message
+    if (pinnedFiles.length > 0) {
+        const pinnedFilesElement = createPinnedFilesElement(pinnedFiles);
+        messageElement.appendChild(pinnedFilesElement);
     }
 
-    if (pinnedPrompt) {
-        fullMessage = `${pinnedPrompt.content}\n\n${fullMessage}`;
-        displayMessage = `[Prompt: ${pinnedPrompt.title}]\n\n${displayMessage}`;
-    }
+    // Ajouter le texte du message
+    const textElement = document.createElement('p');
+    textElement.textContent = displayMessage;
+    messageElement.appendChild(textElement);
 
-    addMessageToChat('user', displayMessage);
+    // Ajouter le message au conteneur
+    const messageContainer = document.getElementById('messageContainer');
+    messageContainer.appendChild(messageElement);
+    messageContainer.scrollTop = messageContainer.scrollHeight;
+
     document.getElementById('userInput').value = '';
     resetTextareaHeight();
 
-    try {
-        const conversationContext = currentConversation.map(msg => msg.content).join('\n');
-        
-        const response = await axios.post(`${API_BASE_URL}${model}:generateContent?key=${API_KEY}`, {
-            contents: [{ parts: [{ text: conversationContext + '\n' + fullMessage }] }]
-        });
+    // Affiche l'animation de chargement et cache le bouton d'envoi
+    const sendButton = document.querySelector('.input-actions button:last-child');
+    sendButton.classList.add('loading');
+    sendButton.disabled = true;
 
-        let aiResponse = response.data.candidates[0].content.parts[0].text;
+    try {
+        const parts = [];
+
+        if (fullMessage) {
+            parts.push({ text: fullMessage });
+        }
+
+        for (const file of pinnedFiles) {
+            const fileData = await readFileAsBase64(file);
+            parts.push({
+                inlineData: {
+                    data: fileData,
+                    mimeType: file.type
+                }
+            });
+        }
+
+        if (pinnedPrompt) {
+            parts.unshift({ text: pinnedPrompt.content });
+        }
+
+        const generativeModel = genAI.getGenerativeModel({ model: model });
+        const result = await generativeModel.generateContent(parts);
+        const response = await result.response;
+        let aiResponse = response.text();
 
         let messageElement;
-        if (model === 'gemini-1.0-pro') {
+        if (model === 'gemini-1.0-pro' || (model === 'gemini-1.5-flash' && currentUser.paidCredits < requiredCredits)) {
             const words = aiResponse.split(/\s+/);
             if (words.length > FREE_MODEL_MAX_RESPONSE) {
                 aiResponse = words.slice(0, FREE_MODEL_MAX_RESPONSE).join(' ') + '...(Utilisez un modèle avancé pour avoir la suite de ma réponse)';
@@ -364,120 +556,71 @@ async function sendMessage() {
             messageElement = addMessageToChat('ai', aiResponse);
         }
 
-        await updateCredits(model);
-        removePinnedFile();
+        await updateCredits(model, requiredCredits);
+        pinnedFiles = [];
+        updatePinnedFiles();
         removePinnedPrompt();
         saveConversation();
+
     } catch (error) {
         console.error('Erreur lors de la génération de la réponse:', error);
         showNotification(`Erreur : ${error.message}. Veuillez réessayer.`, 'error');
+
+    } finally {
+        // Cache l'animation de chargement et réactive le bouton d'envoi
+        sendButton.classList.remove('loading');
+        sendButton.disabled = false;
     }
 }
 
-function hasEnoughCredits(model) {
-    if (hasValidSubscription()) return true;
-    if (model === 'gemini-1.0-pro') {
-        return currentUser.freeCredits > 0 || currentUser.paidCredits > 0;
-    }
-    return currentUser.paidCredits > 0;
-}
-
-async function showPaymentNotificationWithFreeOption(message) {
-    return new Promise((resolve) => {
-        const notification = document.createElement('div');
-        notification.className = 'notification error';
-        notification.innerHTML = `
-            ${message}<br>
-            <button onclick="resolveNotification('free')">Utiliser le modèle gratuit</button>
-            <button onclick="resolveNotification('subscription')">Acheter un abonnement</button>
-            <button onclick="resolveNotification('credits')">Acheter des crédits</button>
-            <button onclick="resolveNotification('cancel')">Annuler</button>
-        `;
-        document.body.appendChild(notification);
-
-        window.resolveNotification = function(choice) {
-            notification.remove();
-            resolve(choice);
-        };
-
-        setTimeout(() => {
-            notification.classList.add('show');
-        }, 100);
+// Fonction pour lire un fichier en base64
+function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
     });
 }
 
-function switchToFreeModel() {
-    const modelSelect = document.getElementById('modelSelect');
-    modelSelect.value = 'gemini-1.0-pro';
-    showNotification('Basculé vers le modèle gratuit Gemini 1.0 Pro', 'info');
-}
-function hasEnoughCredits(model) {
-    if (hasValidSubscription()) return true;
-    if (model === 'gemini-1.0-pro') {
-        return currentUser.freeCredits > 0 || currentUser.paidCredits > 0;
+function hasEnoughCredits(model, fileCount) {
+    const requiredCredits = fileCount > 0 ? fileCount : 1;
+    
+    if (model === 'gemini-1.5-flash' || model === 'gemini-1.0-pro') {
+        // Modèles gratuits
+        return currentUser.freeCredits >= requiredCredits || currentUser.paidCredits >= requiredCredits || hasValidSubscription();
+    } else {
+        // Modèles payants
+        return currentUser.paidCredits >= requiredCredits || hasValidSubscription();
     }
-    return currentUser.paidCredits > 0;
 }
 
-async function updateCredits(model) {
+async function updateCredits(model, requiredCredits) {
     if (hasValidSubscription()) return;
     
-    if (model === 'gemini-1.0-pro') {
-        if (currentUser.freeCredits > 0) {
-            currentUser.freeCredits = Math.max(0, currentUser.freeCredits - 1);
-            document.getElementById('freeCredits').textContent = currentUser.freeCredits;
+    if (model === 'gemini-1.5-flash') {
+        if (currentUser.paidCredits >= requiredCredits) {
+            currentUser.paidCredits -= requiredCredits;
         } else {
-            currentUser.paidCredits = Math.max(0, currentUser.paidCredits - 1);
-            document.getElementById('paidCredits').textContent = currentUser.paidCredits;
+            currentUser.freeCredits -= requiredCredits;
+        }
+    } else if (model === 'gemini-1.0-pro') {
+        if (currentUser.freeCredits >= requiredCredits) {
+            currentUser.freeCredits -= requiredCredits;
+        } else {
+            const remainingCredits = requiredCredits - currentUser.freeCredits;
+            currentUser.freeCredits = 0;
+            currentUser.paidCredits = Math.max(0, currentUser.paidCredits - remainingCredits);
         }
     } else {
-        currentUser.paidCredits = Math.max(0, currentUser.paidCredits - 1);
-        document.getElementById('paidCredits').textContent = currentUser.paidCredits;
+        // Modèles avancés
+        currentUser.paidCredits = Math.max(0, currentUser.paidCredits - requiredCredits);
     }
     
+    document.getElementById('freeCredits').textContent = currentUser.freeCredits;
+    document.getElementById('paidCredits').textContent = currentUser.paidCredits;
+    
     await syncUserData();
-}
-
- // Fonction modifiée pour ouvrir la bibliothèque
- function openLibrary() {
-    if (currentUser) {
-        const token = generateToken(currentUser.username);
-        const userData = {
-            username: currentUser.username,
-            freeCredits: currentUser.freeCredits,
-            paidCredits: currentUser.paidCredits,
-            subscription: currentUser.subscription,
-            token: token
-        };
-        localStorage.setItem('eduqueMoiUserData', JSON.stringify(userData));
-        window.location.href = 'Bibliothèque.html';
-    } else {
-        alert("Veuillez vous connecter pour accéder à la bibliothèque.");
-    }
-}
-
-                // Modification de la fonction loadUserInfo pour mettre à jour le bouton de la bibliothèque
-                function loadUserInfo() {
-                    const username = localStorage.getItem('eduqueMoiUsername');
-                    if (username) {
-                        db.ref('users/' + username).once('value', (snapshot) => {
-                            currentUser = snapshot.val();
-                            document.getElementById('username').textContent = username;
-                            document.getElementById('freeCredits').textContent = currentUser.freeCredits;
-                            document.getElementById('paidCredits').textContent = currentUser.paidCredits;
-                            document.getElementById('subscription').textContent = currentUser.subscription || 'Aucun';
-                            
-                            // Activer le bouton de la bibliothèque
-                            document.getElementById('libraryBtn').disabled = false;
-                        });
-                    } else {
-                        // Désactiver le bouton de la bibliothèque si l'utilisateur n'est pas connecté
-                        document.getElementById('libraryBtn').disabled = true;
-                    }
-                }
-// Fonction pour générer un token simple
-function generateToken(username) {
-    return btoa(username + ':' + Date.now());
 }
 
 function addMessageToChat(sender, message) {
@@ -602,196 +745,6 @@ function shareResponse(messageElement) {
     }
 }
 
-async function loadPDF(file) {
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-    const numPages = pdf.numPages;
-    let fullText = '';
-
-    for (let i = 1; i <= numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items.map(item => item.str).join(' ');
-        fullText += pageText + '\n\n';
-    }
-
-    return fullText;
-}
-
-async function reduceFileSize(file, maxSizeInMB) {
-    if (file.type.startsWith('image/')) {
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    let width = img.width;
-                    let height = img.height;
-                    let quality = 0.7;
-                    const maxSize = maxSizeInMB * 1024 * 1024;
-
-                    while (true) {
-                        canvas.width = width;
-                        canvas.height = height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, width, height);
-                        const dataUrl = canvas.toDataURL(file.type, quality);
-                        const blobBin = atob(dataUrl.split(',')[1]);
-                        const array = [];
-                        for (let i = 0; i < blobBin.length; i++) {
-                            array.push(blobBin.charCodeAt(i));
-                        }
-                        const newFile = new Blob([new Uint8Array(array)], {type: file.type});
-                        
-                        if (newFile.size <= maxSize) {
-                            resolve(newFile);
-                            break;
-                        }
-                        
-                        quality *= 0.9;
-                        width *= 0.9;
-                        height *= 0.9;
-                        
-                        if (quality < 0.1 || width < 100 || height < 100) {
-                            console.warn("Impossible de réduire suffisamment la taille de l'image");
-                            resolve(file);
-                            break;
-                        }
-                    }
-                };
-                img.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
-        });
-    } else if (file.type === 'application/pdf') {
-        console.warn("La réduction de taille n'est pas prise en charge pour les PDF");
-        return file;
-    } else {
-        return file;
-    }
-}
-
-async function handleFileUpload(event) {
-    const file = event.target.files[0];
-    if (file) {
-        let content = '';
-        const ocrResultElement = document.getElementById('ocrResult');
-        
-        if (ocrResultElement) {
-            ocrResultElement.classList.add('hidden');
-            ocrResultElement.textContent = '';
-        }
-
-        const fileSizeInMB = file.size / (1024 * 1024);
-        let processedFile = file;
-        if (fileSizeInMB > 1) {
-            processedFile = await reduceFileSize(file, 1);
-        }
-
-        if (processedFile.type === 'application/pdf') {
-            try {
-                const pdf = await pdfjsLib.getDocument(await processedFile.arrayBuffer()).promise;
-                const numPages = pdf.numPages;
-
-                if (numPages > 3) {
-                    content = await loadPDF(processedFile);
-                    if (ocrResultElement) {
-                        ocrResultElement.textContent = "Le PDF a plus de 3 pages. Utilisation du lecteur PDF standard.";
-                        ocrResultElement.classList.remove('hidden');
-                    }
-                } else {
-                    content = await loadPDF(processedFile);
-                    if (content.trim() === '') {
-                        content = await performOCR(processedFile);
-                        if (ocrResultElement) {
-                            ocrResultElement.textContent = "OCR utilisé pour extraire le texte du PDF.";
-                            ocrResultElement.classList.remove('hidden');
-                        }
-                    }
-                }
-            } catch (error) {
-                console.error('Erreur lors de la lecture du PDF:', error);
-                content = await performOCR(processedFile);
-                if (ocrResultElement) {
-                    ocrResultElement.textContent = "OCR utilisé pour extraire le texte du PDF.";
-                    ocrResultElement.classList.remove('hidden');
-                }
-            }
-        } else if (processedFile.type.startsWith('image/')) {
-            content = await performOCR(processedFile);
-            if (ocrResultElement) {
-                ocrResultElement.textContent = "OCR utilisé pour extraire le texte de l'image.";
-                ocrResultElement.classList.remove('hidden');
-            }
-        } else {
-            showNotification("Type de fichier non pris en charge.", 'error');
-            return;
-        }
-
-        pinnedFile = {
-            name: file.name,
-            content: content
-        };
-
-        updatePinnedFile(pinnedFile);
-    }
-}
-
-function updatePinnedFile(file) {
-    const pinnedItems = document.getElementById('pinnedItems');
-    const existingFile = pinnedItems.querySelector('.pinned-item[data-type="file"]');
-    if (existingFile) {
-        existingFile.remove();
-    }
-    if (file) {
-        const item = document.createElement('div');
-        item.className = 'pinned-item';
-        item.setAttribute('data-type', 'file');
-        item.innerHTML = `
-            <span class="icon">📎</span>
-            <span class="name" title="${file.name}">${file.name}</span>
-            <span class="remove" onclick="removePinnedFile()">❌</span>
-        `;
-        pinnedItems.appendChild(item);
-    }
-}
-
-function removePinnedFile() {
-    pinnedFile = null;
-    updatePinnedFile(null);
-}
-
-async function performOCR(file) {
-    const apiKey = 'K84184304788957';
-    const apiUrl = 'https://api.ocr.space/parse/image';
-
-    const formData = new FormData();
-    formData.append('apikey', apiKey);
-    formData.append('language', 'eng');
-    formData.append('isOverlayRequired', 'false');
-    formData.append('file', file);
-
-    try {
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            body: formData
-        });
-
-        const data = await response.json();
-
-        if (data.ParsedResults && data.ParsedResults.length > 0) {
-            return data.ParsedResults[0].ParsedText;
-        } else {
-            throw new Error('Échec de l\'extraction du texte');
-        }
-    } catch (error) {
-        console.error('Erreur lors de l\'OCR:', error);
-        showNotification("Erreur lors de l'analyse OCR. Veuillez réessayer.", 'error');
-        return '';
-    }
-}
-
 function hasValidSubscription() {
     if (!currentUser.subscription || !currentUser.subscriptionEndDate) return false;
     return new Date() < new Date(currentUser.subscriptionEndDate);
@@ -836,7 +789,8 @@ function buySubscription() {
                 showNotification('Le paiement a été annulé ou a échoué.', 'error');
             }
         }
-    });fedaPayInstance.open();
+    });
+    fedaPayInstance.open();
 }
 
 async function activateSubscription(subscriptionType) {
@@ -962,6 +916,30 @@ function showPaymentNotification(message) {
             }, 300);
         }, 10000);
     }, 100);
+}
+
+async function showPaymentNotificationWithFreeOption(message) {
+    return new Promise((resolve) => {
+        const notification = document.createElement('div');
+        notification.className = 'notification error';
+        notification.innerHTML = `
+            ${message}<br>
+            <button onclick="resolveNotification('free')">Utiliser le modèle gratuit</button>
+            <button onclick="resolveNotification('subscription')">Acheter un abonnement</button>
+            <button onclick="resolveNotification('credits')">Acheter des crédits</button>
+            <button onclick="resolveNotification('cancel')">Annuler</button>
+        `;
+        document.body.appendChild(notification);
+
+        window.resolveNotification = function(choice) {
+            notification.remove();
+            resolve(choice);
+        };
+
+        setTimeout(() => {
+            notification.classList.add('show');
+        }, 100);
+    });
 }
 
 function toggleTheme() {
@@ -1161,8 +1139,12 @@ function showUpgradeButton(messageElement) {
     upgradeButton.textContent = 'Passer à un modèle avancé';
     upgradeButton.className = 'upgrade-button';
     upgradeButton.onclick = () => {
-        document.getElementById('modelSelect').value = 'gemini-1.5-pro';
-        showNotification('Modèle mis à jour vers Gemini 1.5 Pro', 'success');
+        if (hasValidSubscription() || currentUser.paidCredits > 0) {
+            document.getElementById('modelSelect').value = 'gemini-1.5-pro';
+            showNotification('Modèle mis à jour vers Gemini 1.5 Pro', 'success');
+        } else {
+            showPaymentNotification('Vous avez besoin d\'un abonnement ou de crédits payants pour utiliser ce modèle.');
+        }
     };
     messageElement.appendChild(upgradeButton);
 }
@@ -1291,6 +1273,7 @@ async function showReferralModal() {
 function generateReferralCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
+
 // Fonction pour obtenir ou créer un code de parrainage pour l'utilisateur actuel
 async function getOrCreateReferralCode() {
     if (!currentUser) return null;
@@ -1363,14 +1346,23 @@ async function rewardReferrer(username, amount) {
 
 window.onload = async function() {
     await attemptAutoLogin();
-    
+
     if (currentUser) {
         if (currentUser.freeCredits === undefined) currentUser.freeCredits = 0;
         if (currentUser.paidCredits === undefined) currentUser.paidCredits = 0;
         if (currentUser.subscription === undefined) currentUser.subscription = null;
         if (currentUser.subscriptionEndDate === undefined) currentUser.subscriptionEndDate = null;
         if (currentUser.lastFreeCreditsReset === undefined) currentUser.lastFreeCreditsReset = new Date().toISOString();
-        
+
+        // Charger les données d'importation de fichiers depuis la base de données
+        const userRef = db.ref('users/' + currentUser.username);
+        const snapshot = await userRef.once('value');
+        const userData = snapshot.val();
+        if (userData) {
+            importedFilesCount = userData.importedFilesCount || 0;
+            lastImportReset = new Date(userData.lastImportReset || new Date());
+        }
+
         await syncUserData();
     }
 
@@ -1396,6 +1388,22 @@ window.onload = async function() {
     document.body.classList.add('loaded');
 
     setInterval(checkSubscriptionStatus, 3600000);
+
+    // Charger la liste des clés API au chargement de la page
+    await loadApiKeyList();
+
+    // Initialiser l'API Gemini avec une clé aléatoire
+    initializeGeminiAPI();
+
+    // Mise à jour de la sélection du modèle par défaut
+    const modelSelect = document.getElementById('modelSelect');
+    if (!modelSelect.value) {
+        modelSelect.value = 'gemini-1.5-flash';
+    }
+
+    // Appeler resetImportedFilesCount au chargement de la page et toutes les 24 heures
+    await resetImportedFilesCount();
+    setInterval(resetImportedFilesCount, 24 * 60 * 60 * 1000);
 };
 
 function setupUIEventListeners() {
@@ -1536,6 +1544,9 @@ setInterval(updateUI, 300000);
 // Initialisation
 checkApiStatusRegularly();
 
+        // Écouter les changements d'état d'authentification
+        auth.onAuthStateChanged(onAuthStateChanged);
+
 // Exportation des fonctions et variables nécessaires
 window.showLoginModal = showLoginModal;
 window.showRegisterModal = showRegisterModal;
@@ -1557,3 +1568,4 @@ window.shareOnFacebook = shareOnFacebook;
 window.shareOnTwitter = shareOnTwitter;
 window.shareOnLinkedIn = shareOnLinkedIn;
 window.shareOnWhatsApp = shareOnWhatsApp;
+window.removePinnedFile = removePinnedFile;
