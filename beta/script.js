@@ -85,52 +85,83 @@ function initializeGeminiAPI() {
                 });
         }
 
-        // Fonction pour gérer le changement d'état d'authentification
-        function onAuthStateChanged(user) {
-            if (user) {
-                // L'utilisateur est connecté
-                currentUser = user;
-                updateUIForLoggedInUser();
-                initializeUserData(user);
-            } else {
-                // L'utilisateur est déconnecté
-                currentUser = null;
-                updateUIForLoggedOutUser();
-            }
+    // Mettre à jour la fonction onAuthStateChanged
+    function onAuthStateChanged(user) {
+        console.log("État d'authentification changé:", user ? "Connecté" : "Déconnecté");
+        if (user) {
+            currentUser = user;
+            initializeUserData(user);
+        } else {
+            currentUser = null;
+            updateUIForLoggedOutUser();
         }
+    }
 
-        // Fonction pour initialiser les données de l'utilisateur
-        async function initializeUserData(user) {
-            const userRef = db.ref('users/' + user.uid);
-            const snapshot = await userRef.once('value');
+
+
+    // Fonction pour extraire le nom d'utilisateur de l'email
+    function getUsernameFromEmail(email) {
+        return email.split('@')[0];
+    }
+
+    // Fonction pour trouver un nom d'utilisateur unique
+    async function findUniqueUsername(baseUsername) {
+        let username = baseUsername;
+        let counter = 1;
+        const usersRef = db.ref('users');
+        
+        while (true) {
+            const snapshot = await usersRef.child(username).once('value');
             if (!snapshot.exists()) {
-                // Nouvel utilisateur, initialiser ses données
-                await userRef.set({
-                    email: user.email,
-                    freeCredits: 10,
-                    paidCredits: 0,
-                    subscription: null,
-                    subscriptionEndDate: null,
-                    lastFreeCreditsReset: new Date().toISOString()
-                });
+                return username;
             }
-            // Charger les données de l'utilisateur
-            const userData = (await userRef.once('value')).val();
-            currentUser = { ...currentUser, ...userData };
-            updateUIForLoggedInUser();
+            username = `${baseUsername}${counter}`;
+            counter++;
         }
+    }
 
-        // Fonction de déconnexion
-        function logout() {
-            auth.signOut().then(() => {
-                currentUser = null;
-                updateUIForLoggedOutUser();
-                showNotification('Déconnexion réussie.', 'success');
-            }).catch((error) => {
-                console.error("Erreur lors de la déconnexion:", error);
-                showNotification("Erreur lors de la déconnexion. Veuillez réessayer.", 'error');
+    // Fonction pour initialiser les données de l'utilisateur
+    async function initializeUserData(user) {
+        console.log("Initialisation des données utilisateur pour:", user.email);
+        let username = getUsernameFromEmail(user.email);
+        
+        // Vérifier si le nom d'utilisateur existe déjà
+        username = await findUniqueUsername(username);
+
+        const userRef = db.ref('users/' + username);
+        const snapshot = await userRef.once('value');
+        if (!snapshot.exists()) {
+            console.log("Nouvel utilisateur, initialisation des données");
+            await userRef.set({
+                uid: user.uid,
+                email: user.email,
+                username: username,
+                freeCredits: 10,
+                paidCredits: 0,
+                subscription: null,
+                subscriptionEndDate: null,
+                lastFreeCreditsReset: new Date().toISOString()
             });
         }
+        const userData = (await userRef.once('value')).val();
+        currentUser = { ...currentUser, ...userData };
+        updateUIForLoggedInUser();
+    }
+
+
+
+    function logout() {
+        console.log("Tentative de déconnexion...");
+        auth.signOut().then(() => {
+            console.log("Déconnexion réussie");
+            currentUser = null;
+            updateUIForLoggedOutUser();
+            showNotification('Déconnexion réussie.', 'success');
+        }).catch((error) => {
+            console.error("Erreur lors de la déconnexion:", error);
+            showNotification("Erreur lors de la déconnexion. Veuillez réessayer.", 'error');
+        });
+    }
 
 // Fonction pour vérifier et mettre à jour le statut de l'abonnement
 async function checkSubscriptionStatus() {
@@ -217,17 +248,18 @@ function closeModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
 }
 
-        // Mettre à jour l'interface utilisateur pour un utilisateur connecté
-        function updateUIForLoggedInUser() {
-            document.getElementById('googleAuthBtn').classList.add('hidden');
-            document.getElementById('logoutBtn').classList.remove('hidden');
-            document.getElementById('userInfo').classList.remove('hidden');
-            document.getElementById('username').textContent = currentUser.email;
-            document.getElementById('freeCredits').textContent = currentUser.freeCredits;
-            document.getElementById('paidCredits').textContent = currentUser.paidCredits;
-            document.getElementById('subscription').textContent = currentUser.subscription || 'Aucun';
-            loadConversationHistory();
-        }
+    // Mettre à jour la fonction updateUIForLoggedInUser
+    function updateUIForLoggedInUser() {
+        console.log("Mise à jour de l'UI pour l'utilisateur connecté");
+        document.getElementById('googleAuthBtn').classList.add('hidden');
+        document.getElementById('logoutBtn').classList.remove('hidden');
+        document.getElementById('userInfo').classList.remove('hidden');
+        document.getElementById('username').textContent = currentUser.username || getUsernameFromEmail(currentUser.email);
+        document.getElementById('freeCredits').textContent = currentUser.freeCredits;
+        document.getElementById('paidCredits').textContent = currentUser.paidCredits;
+        document.getElementById('subscription').textContent = currentUser.subscription || 'Aucun';
+        loadConversationHistory();
+    }
 
         // Mettre à jour l'interface utilisateur pour un utilisateur déconnecté
         function updateUIForLoggedOutUser() {
