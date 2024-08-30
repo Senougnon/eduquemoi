@@ -1,169 +1,93 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prototype Drive - Eduque moi (Authentification côté client)</title>
-    <script src="https://apis.google.com/js/api.js"></script>
-    <script src="https://accounts.google.com/gsi/client"></script>
-    <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; }
-        button { cursor: pointer; padding: 10px; margin: 10px 0; }
-        input, textarea { display: block; margin-bottom: 10px; width: 300px; }
-        #content { display: none; }
-    </style>
+  <title>Test d'intégration Google Drive</title>
+  <script src="https://apis.google.com/js/api.js"></script>
+  <script>
+    // ID client de votre application Google
+    const CLIENT_ID = '277143630015-ngrjab0fe0l6q7t77e7jt9ukbmrm9hfk.apps.googleusercontent.com';
+
+    // URI de redirection autorisée pour votre application
+    const REDIRECT_URI = 'https://eduquemoi.netlify.app/oauth2callback'; 
+
+    // Portée des autorisations demandées
+    const SCOPE = 'https://www.googleapis.com/auth/drive';
+
+    // Fonction pour charger l'API Google Drive et initialiser l'authentification
+    function handleClientLoad() {
+      gapi.load('client:auth2', initClient);
+    }
+
+    // Fonction pour initialiser l'API Google Drive et gérer l'authentification
+    function initClient() {
+      gapi.client.init({
+        clientId: CLIENT_ID,
+        discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+        scope: SCOPE
+      }).then(function () {
+        // Écouteur d'événements pour les changements d'état d'authentification
+        gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
+
+        // Mettre à jour l'état de connexion initial
+        updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
+
+        // Attacher des gestionnaires d'événements aux boutons
+        document.getElementById('signin-button').onclick = handleAuthClick;
+        document.getElementById('signout-button').onclick = handleSignoutClick;
+        document.getElementById('create-file-button').onclick = createFile;
+      });
+    }
+
+    // Fonction pour mettre à jour l'interface utilisateur en fonction de l'état de connexion
+    function updateSigninStatus(isSignedIn) {
+      if (isSignedIn) {
+        document.getElementById('signin-button').style.display = 'none';
+        document.getElementById('signout-button').style.display = 'block';
+        document.getElementById('create-file-button').style.display = 'block';
+      } else {
+        document.getElementById('signin-button').style.display = 'block';
+        document.getElementById('signout-button').style.display = 'none';
+        document.getElementById('create-file-button').style.display = 'none';
+      }
+    }
+
+    // Fonction pour gérer le clic sur le bouton de connexion
+    function handleAuthClick(event) {
+      gapi.auth2.getAuthInstance().signIn();
+    }
+
+    // Fonction pour gérer le clic sur le bouton de déconnexion
+    function handleSignoutClick(event) {
+      gapi.auth2.getAuthInstance().signOut();
+    }
+
+    // Fonction pour créer un nouveau fichier dans Google Drive
+    function createFile() {
+      gapi.client.drive.files.create({
+        resource: {
+          name: 'Nouveau fichier',
+          mimeType: 'text/plain'
+        }
+      }).then(function(response) {
+        console.log('Fichier créé avec succès :', response);
+        alert('Fichier créé avec succès !');
+      }, function(reason) {
+        console.error('Erreur lors de la création du fichier :', reason);
+        alert('Erreur lors de la création du fichier.');
+      });
+    }
+  </script>
 </head>
 <body>
-    <h1>Prototype Drive - Eduque moi</h1>
-    <button id="authorize_button" style="display: none;">Autoriser</button>
-    <button id="signout_button" style="display: none;">Déconnexion</button>
+  <h1>Test d'intégration Google Drive</h1>
 
-    <div id="content">
-        <h2>Enregistrer dans Google Sheets</h2>
-        <input type="text" id="sheetId" placeholder="ID de la feuille Google Sheets">
-        <input type="text" id="name" placeholder="Nom">
-        <input type="email" id="email" placeholder="Email">
-        <textarea id="message" placeholder="Message"></textarea>
-        <button id="save_to_sheet">Enregistrer dans Sheets</button>
+  <button id="signin-button">Se connecter avec Google</button>
+  <button id="signout-button" style="display: none;">Se déconnecter</button>
+  <button id="create-file-button" style="display: none;">Créer un fichier</button>
 
-        <h2>Créer un document Google Docs</h2>
-        <input type="text" id="docTitle" placeholder="Titre du document">
-        <textarea id="docContent" placeholder="Contenu du document"></textarea>
-        <button id="create_doc">Créer un document</button>
-    </div>
-
-    <script>
-        const CLIENT_ID = '277143630015-ngrjab0fe0l6q7t77e7jt9ukbmrm9hfk.apps.googleusercontent.com';
-        const API_KEY = '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'; // Remplacez par votre clé API
-        const DISCOVERY_DOC_DRIVE = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
-        const DISCOVERY_DOC_SHEETS = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
-        const DISCOVERY_DOC_DOCS = 'https://docs.googleapis.com/$discovery/rest?version=v1';
-        const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/documents';
-
-        let tokenClient;
-        let gapiInited = false;
-        let gisInited = false;
-
-        document.getElementById('authorize_button').style.display = 'none';
-        document.getElementById('signout_button').style.display = 'none';
-
-        function gapiLoaded() {
-            gapi.load('client', initializeGapiClient);
-        }
-
-        async function initializeGapiClient() {
-            await gapi.client.init({
-                apiKey: API_KEY,
-                discoveryDocs: [DISCOVERY_DOC_DRIVE, DISCOVERY_DOC_SHEETS, DISCOVERY_DOC_DOCS],
-            });
-            gapiInited = true;
-            maybeEnableButtons();
-        }
-
-        function gisLoaded() {
-            tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: CLIENT_ID,
-                scope: SCOPES,
-                callback: '', // défini plus tard
-            });
-            gisInited = true;
-            maybeEnableButtons();
-        }
-
-        function maybeEnableButtons() {
-            if (gapiInited && gisInited) {
-                document.getElementById('authorize_button').style.display = 'block';
-            }
-        }
-
-        function handleAuthClick() {
-            tokenClient.callback = async (resp) => {
-                if (resp.error !== undefined) {
-                    throw (resp);
-                }
-                document.getElementById('signout_button').style.display = 'block';
-                document.getElementById('authorize_button').style.display = 'none';
-                document.getElementById('content').style.display = 'block';
-            };
-
-            if (gapi.client.getToken() === null) {
-                tokenClient.requestAccessToken({prompt: 'consent'});
-            } else {
-                tokenClient.requestAccessToken({prompt: ''});
-            }
-        }
-
-        function handleSignoutClick() {
-            const token = gapi.client.getToken();
-            if (token !== null) {
-                google.accounts.oauth2.revoke(token.access_token);
-                gapi.client.setToken('');
-                document.getElementById('content').style.display = 'none';
-                document.getElementById('authorize_button').style.display = 'block';
-                document.getElementById('signout_button').style.display = 'none';
-            }
-        }
-
-        async function saveToSheet() {
-            const sheetId = document.getElementById('sheetId').value;
-            const name = document.getElementById('name').value;
-            const email = document.getElementById('email').value;
-            const message = document.getElementById('message').value;
-
-            try {
-                const response = await gapi.client.sheets.spreadsheets.values.append({
-                    spreadsheetId: sheetId,
-                    range: 'A1',
-                    valueInputOption: 'USER_ENTERED',
-                    resource: {
-                        values: [[name, email, message]]
-                    }
-                });
-                console.log('Données enregistrées:', response);
-                alert('Données enregistrées avec succès dans Google Sheets');
-            } catch (err) {
-                console.error('Erreur lors de l\'enregistrement des données:', err);
-                alert('Erreur lors de l\'enregistrement des données');
-            }
-        }
-
-        async function createDoc() {
-            const title = document.getElementById('docTitle').value;
-            const content = document.getElementById('docContent').value;
-
-            try {
-                const doc = await gapi.client.docs.documents.create({
-                    title: title
-                });
-                
-                await gapi.client.docs.documents.batchUpdate({
-                    documentId: doc.result.documentId,
-                    resource: {
-                        requests: [{
-                            insertText: {
-                                location: {
-                                    index: 1
-                                },
-                                text: content
-                            }
-                        }]
-                    }
-                });
-
-                console.log('Document créé:', doc);
-                alert(`Document créé avec succès. ID: ${doc.result.documentId}`);
-            } catch (err) {
-                console.error('Erreur lors de la création du document:', err);
-                alert('Erreur lors de la création du document');
-            }
-        }
-
-        document.getElementById('authorize_button').addEventListener('click', handleAuthClick);
-        document.getElementById('signout_button').addEventListener('click', handleSignoutClick);
-        document.getElementById('save_to_sheet').addEventListener('click', saveToSheet);
-        document.getElementById('create_doc').addEventListener('click', createDoc);
-    </script>
-    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
-    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+  <script async defer src="https://apis.google.com/js/api.js"
+    onload="this.onload=function(){};handleClientLoad()"
+    onreadystatechange="if (this.readyState === 'complete') this.onload()">
+  </script>
 </body>
 </html>
