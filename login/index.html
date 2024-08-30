@@ -3,33 +3,528 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="light dark">
-    <title>Eduque moi</title>
-    <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <title>Plateforme Gemini Améliorée</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js"></script>
     <script src="https://cdn.fedapay.com/checkout.js?v=1.1.7"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.worker.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.worker.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.29.0/docxtemplater.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PizZip/3.0.6/pizzip.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-    <script type="importmap">
-        {
-            "imports": {
-                "@google/generative-ai": "https://esm.run/@google/generative-ai@latest"
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" rel="stylesheet">
+<style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #50c878;
+            --background-color: #f5f7fa;
+            --text-color: #333333;
+            --input-background: #ffffff;
+            --button-color: #4a90e2;
+            --hover-color: #3a7bc8;
+            --sidebar-color: #2c3e50;
+            --sidebar-text: #ecf0f1;
+            --input-area-color: #e8f0fe;
+            --user-message-color: #e1f5fe;
+            --ai-message-color: #e8f5e9;
+        }
+
+        [data-theme="dark"] {
+            --primary-color: #6c5ce7;
+            --secondary-color: #00b894;
+            --background-color: #2d3436;
+            --text-color: #ecf0f1;
+            --input-background: #34495e;
+            --button-color: #6c5ce7;
+            --hover-color: #5b4cc4;
+            --sidebar-color: #2c3e50;
+            --sidebar-text: #ecf0f1;
+            --input-area-color: #3d4852;
+            --user-message-color: #3949ab;
+            --ai-message-color: #1b5e20;
+        }
+
+        body, html {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 10px;
+            background-color: var(--primary-color);
+            color: white;
+            height: 30px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+        }
+
+        .toggle-sidebar {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.2em;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        .logo {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        .auth-buttons button, .theme-toggle {
+            margin-left: 5px;
+            background-color: var(--button-color);
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            font-size: 0.8em;
+        }
+
+        .auth-buttons button:hover, .theme-toggle:hover {
+            background-color: var(--hover-color);
+        }
+
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            margin-top: 30px;
+        }
+
+        .sidebar {
+            width: 260px;
+            background-color: var(--sidebar-color);
+            color: var(--sidebar-text);
+            padding: 20px;
+            overflow-y: auto;
+            transition: transform 0.3s ease;
+            position: fixed;
+            top: 30px;
+            bottom: 0;
+            left: 0;
+            z-index: 999;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow-y: auto;
+            margin-left: 260px;
+            transition: margin-left 0.3s ease;
+        }
+
+        .message-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-container {
+            display: flex;
+            padding: 15px;
+            align-items: center;
+            background-color: var(--input-area-color);
+            border-radius: 10px;
+            margin-top: 20px;
+            position: sticky;
+            bottom: 0;
+        }
+
+        #userInput {
+            flex-grow: 1;
+            border: none;
+            background-color: transparent;
+            color: var(--text-color);
+            font-size: 1em;
+            padding: 10px;
+            outline: none;
+            resize: vertical;
+            min-height: 20px;
+            max-height: 150px;
+        }
+
+        input, select, button, textarea {
+            background-color: var(--input-background);
+            border: 1px solid var(--button-color);
+            color: var(--text-color);
+            padding: 10px;
+            margin: 5px;
+            border-radius: 5px;
+        }
+
+        button {
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: var(--hover-color);
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 15px;
+            border-radius: 10px;
+            max-width: 80%;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            word-wrap: break-word;
+        }
+
+        .user-message {
+            background-color: var(--user-message-color);
+            color: var(--text-color);
+            align-self: flex-end;
+            border-bottom-right-radius: 0;
+        }
+
+        .ai-message {
+            background-color: var(--ai-message-color);
+            color: var(--text-color);
+            align-self: flex-start;
+            border-bottom-left-radius: 0;
+        }
+
+        #modelSelect, #subscriptionSelect, #creditSelect {
+            width: 100%;
+            margin-bottom: 10px;
+            background-color: var(--input-background);
+            color: var(--text-color);
+            border: 1px solid var(--button-color);
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .notification {
+            position: fixed;
+            top: 40px;
+            right: 20px;
+            padding: 10px 20px;
+            border-radius: 5px;
+            color: white;
+            font-weight: 600;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 1000;
+        }
+
+        .notification.show {
+            opacity: 1;
+        }
+
+        .notification.success {
+            background-color: var(--secondary-color);
+        }
+
+        .notification.error {
+            background-color: #e74c3c;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-label {
+            cursor: pointer;
+            margin-left: 10px;
+            color: var(--button-color);
+        }
+
+        .message-actions {
+            margin-top: 5px;
+        }
+
+        .message-actions button {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            cursor: pointer;
+            margin-right: 5px;
+            font-size: 0.9em;
+        }
+
+        .pinned-file {
+            background-color: var(--input-background);
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        #conversationHistory {
+            margin-top: 20px;
+        }
+
+        #conversationHistory h3 {
+            margin-bottom: 10px;
+        }
+
+        .conversation-item {
+            padding: 10px;
+            margin-bottom: 5px;
+            background-color: var(--input-background);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .conversation-item:hover {
+            background-color: var(--hover-color);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1001;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+
+        .modal-content {
+            background-color: var(--background-color);
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid var(--button-color);
+            width: 300px;
+            border-radius: 10px;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: var(--text-color);
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+
+            .sidebar.visible {
+                transform: translateX(0);
+            }
+
+            .chat-container {
+                margin-left: 0;
+            }
+
+            .chat-container.sidebar-visible {
+                margin-left: 0;
+            }
+
+            .header {
+                padding: 5px;
+            }
+
+            .logo {
+                font-size: 1em;
+            }
+
+            .auth-buttons button, .theme-toggle {
+                padding: 3px 6px;
+                font-size: 0.7em;
             }
         }
-    </script>
-    <script type="module">
-        import { GoogleGenerativeAI } from "@google/generative-ai";
-        window.GoogleGenerativeAI = GoogleGenerativeAI;
-    </script>
+
+        .user-info-card {
+    background-color: var(--input-background);
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.user-info-card h3 {
+    margin-top: 0;
+    color: var(--primary-color);
+    border-bottom: 2px solid var(--primary-color);
+    padding-bottom: 5px;
+}
+
+.user-details p {
+    margin: 10px 0;
+    display: flex;
+    align-items: center;
+}
+
+.user-details i {
+    margin-right: 10px;
+    color: var(--primary-color);
+}
+
+.full-width-button {
+    width: 100%;
+    padding: 10px;
+    background-color: var(--button-color);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1em;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.full-width-button i {
+    margin-right: 10px;
+}
+
+.full-width-button:hover {
+    background-color: var(--hover-color);
+}
+
+.conversation-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    margin-bottom: 5px;
+    background-color: var(--input-background);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.conversation-item:hover {
+    background-color: var(--hover-color);
+}
+
+.conversation-item .delete-icon {
+    color: var(--text-color);
+    opacity: 0.5;
+    transition: opacity 0.3s ease;
+}
+
+.conversation-item:hover .delete-icon {
+    opacity: 1;
+}
+.file-support {
+    background-color: var(--input-background);
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.file-support.hidden {
+    display: none;
+}
+
+.pinned-file {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--input-area-color);
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+
+.file-content {
+    max-height: 200px;
+    overflow-y: auto;
+    background-color: var(--input-area-color);
+    padding: 10px;
+    border-radius: 5px;
+    font-size: 0.9em;
+}
+
+.file-label {
+    cursor: pointer;
+    margin-left: 10px;
+    color: var(--button-color);
+}
+
+.file-input {
+    display: none;
+}      
+/* Nouveaux styles pour le mode clair */
+[data-theme="light"] .user-info-card {
+    color: #333; /* Couleur de texte par défaut pour le mode clair */
+}
+
+[data-theme="light"] .user-details #username {
+    color: #0066cc; /* Bleu pour le nom d'utilisateur en mode clair */
+    font-weight: bold;
+}
+
+[data-theme="light"] .user-details #freeCredits,
+[data-theme="light"] .user-details #paidCredits {
+    color: #006600; /* Vert pour les crédits en mode clair */
+}
+
+[data-theme="light"] .user-details #subscription {
+    color: #cc6600; /* Orange pour le forfait en mode clair */
+}
+
+/* Styles pour le mode sombre (pour référence) */
+[data-theme="dark"] .user-info-card {
+    color: #e0e0e0; /* Couleur de texte par défaut pour le mode sombre */
+}
+
+[data-theme="dark"] .user-details #username {
+    color: #4da6ff; /* Bleu clair pour le nom d'utilisateur en mode sombre */
+    font-weight: bold;
+}
+
+[data-theme="dark"] .user-details #freeCredits,
+[data-theme="dark"] .user-details #paidCredits {
+    color: #66ff66; /* Vert clair pour les crédits en mode sombre */
+}
+
+[data-theme="dark"] .user-details #subscription {
+    color: #ffa64d; /* Orange clair pour le forfait en mode sombre */
+}
+    </style>
 </head>
 <body>
     <div class="header">
@@ -54,7 +549,7 @@
             <div id="userInfo" class="user-info-card">
                 <h3>Informations utilisateur</h3>
                 <div class="user-details">
-                    <p><i class="fas fa-user"></i> <span id="username">Utilisateur</span></p>
+                    <p><i class="fas fa-user"></i> <span id="username">Sidoine</span></p>
                     <p><i class="fas fa-coins"></i> Crédits offerts: <span id="freeCredits">0</span></p>
                     <p><i class="fas fa-dollar-sign"></i> Crédits payants: <span id="paidCredits">0</span></p>
                     <p><i class="fas fa-calendar-alt"></i> Forfait: <span id="subscription">Aucun</span></p>
@@ -63,9 +558,8 @@
 
             <h3>Modèles</h3>
             <select id="modelSelect" onchange="checkModelAccess()">
-                <optgroup label="Modèles gratuits">
-                    <option value="gemini-1.5-flash" selected>Gemini 1.5 Flash</option>
-                    <option value="gemini-1.0-pro">Gemini 1.0 Pro</option>
+                <optgroup label="Modèle gratuit">
+                    <option value="gemini-1.0-pro" selected>Gemini 1.0 Pro</option>
                 </optgroup>
                 <optgroup label="Modèles avancés">
                     <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
@@ -93,10 +587,6 @@
             </select>
             <button onclick="buyCredits()">Acheter des crédits</button>
 
-            <button id="referralBtn" class="full-width-button" onclick="showReferralModal()">
-                <i class="fas fa-user-plus"></i> Parrainage
-            </button>
-
             <div id="conversationHistory">
                 <h3>Historique des conversations</h3>
                 <button id="newConversationBtn" class="full-width-button" onclick="createNewConversation()">
@@ -113,36 +603,14 @@
             <div id="fileSupport" class="file-support hidden">
                 <div id="pinnedFile" class="pinned-file"></div>
                 <div id="fileContent" class="file-content"></div>
-                <div id="ocrResult" class="ocr-result hidden"></div>
             </div>
-            <div class="input-area">
-                <div id="pinnedItems" class="pinned-items"></div>
-                <div class="input-container">
-                    <textarea id="userInput" placeholder="Tapez votre message ici..." rows="1"></textarea>
-                    <div class="input-actions">
-                        <input type="file" id="fileInput" class="file-input" accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileUpload(event)" multiple>
-                        <label for="fileInput" class="file-label"><i class="fas fa-paperclip"></i></label>
-                        <button id="promptListButton" onclick="togglePromptList()"><i class="fas fa-list"></i></button>
-                        <button onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
-                    </div>
-                </div>
-            </div>
-        </div>    
-    </div>
-
-    <div id="promptListModal" class="modal">
-        <div class="modal-content prompt-modal">
-            <span class="close" onclick="closePromptModal()">&times;</span>
-            <h2>Sélectionnez un Prompt</h2>
-            <div class="prompt-container">
-                <div class="prompt-categories">
-                    <h3>Catégories</h3>
-                    <ul id="promptCategories"></ul>
-                </div>
-                <div class="prompt-list">
-                    <h3>Prompts</h3>
-                    <ul id="promptList"></ul>
-                </div>
+            <div class="input-container">
+                <textarea id="userInput" placeholder="Tapez votre message ici..." rows="1"></textarea>
+                <label for="fileInput" class="file-label">
+                    <i class="fas fa-paperclip"></i>
+                </label>
+                <input type="file" id="fileInput" class="file-input" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.txt" onchange="handleFileUpload(event)">
+                <button onclick="sendMessage()">Envoyer</button>
             </div>
         </div>
     </div>
@@ -167,25 +635,1082 @@
         </div>
     </div>
 
-    <div id="referralModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('referralModal')">&times;</span>
-            <h2>Programme de Parrainage</h2>
-            <p>Partagez votre lien unique et gagnez des récompenses pour chaque nouvel utilisateur inscrit !</p>
-            <input type="text" id="referralLink" readonly>
-            <div class="share-buttons">
-                <button onclick="copyReferralLink()" class="copy-share" title="Copier le lien"><i class="fas fa-copy"></i></button>
-                <button onclick="shareOnFacebook()" class="fb-share"><i class="fab fa-facebook-f"></i></button>
-                <button onclick="shareOnTwitter()" class="twitter-share"><i class="fab fa-twitter"></i></button>
-                <button onclick="shareOnLinkedIn()" class="linkedin-share"><i class="fab fa-linkedin-in"></i></button>
-                <button onclick="shareOnWhatsApp()" class="whatsapp-share"><i class="fab fa-whatsapp"></i></button>
-            </div>
-            <h3>Vos statistiques</h3>
-            <p>Total de parrainages : <span id="totalReferrals">0</span></p>
-            <p>Parrainages actifs : <span id="activeReferrals">0</span></p>
-        </div>
-    </div>
 
-    <script src="script.js"></script>
+    <script>
+const API_KEY = 'AIzaSyB3umTE3n2d5gwKzOmJz4ss1pFZMR8_vOE';
+const API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models/';
+let currentUser = null;
+let pinnedFile = null;
+let currentConversation = [];
+let conversations = {};
+const FREE_CREDITS_PER_DAY = 10;
+const FREE_MODEL_MAX_WORDS = 50;
+const FREE_MODEL_MAX_RESPONSE = 100;
+
+// Configuration Firebase
+const firebaseConfig = {
+    apiKey: "AIzaSyCvizcYorGDPN3GXqma0opp7wAiMkaCt64",
+    authDomain: "gemini-bb56e.firebaseapp.com",
+    databaseURL: "https://gemini-bb56e-default-rtdb.firebaseio.com",
+    projectId: "gemini-bb56e",
+    storageBucket: "gemini-bb56e.appspot.com",
+    messagingSenderId: "277143630015",
+    appId: "1:277143630015:web:78736f2cf52d29495d160a",
+    measurementId: "G-CSN292219J"
+};
+
+// Initialiser Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+function showLoginModal() {
+    document.getElementById('loginModal').style.display = 'block';
+}
+
+function showRegisterModal() {
+    document.getElementById('registerModal').style.display = 'block';
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+}
+
+function updateUIForLoggedInUser() {
+    document.getElementById('loginBtn').classList.add('hidden');
+    document.getElementById('registerBtn').classList.add('hidden');
+    document.getElementById('logoutBtn').classList.remove('hidden');
+    document.getElementById('userInfo').classList.remove('hidden');
+    document.getElementById('username').textContent = currentUser.username;
+    document.getElementById('freeCredits').textContent = currentUser.freeCredits;
+    document.getElementById('paidCredits').textContent = currentUser.paidCredits;
+    document.getElementById('subscription').textContent = currentUser.subscription || 'Aucun';
+    loadConversationHistory();
+}
+
+function updateUIForLoggedOutUser() {
+    document.getElementById('loginBtn').classList.remove('hidden');
+    document.getElementById('registerBtn').classList.remove('hidden');
+    document.getElementById('logoutBtn').classList.add('hidden');
+    document.getElementById('userInfo').classList.add('hidden');
+    document.getElementById('conversationHistory').innerHTML = '<h3>Historique des conversations</h3>';
+}
+
+function storeLoginInfo(username, password) {
+    localStorage.setItem('eduqueMoiUsername', username);
+    localStorage.setItem('eduqueMoiPassword', password);
+}
+
+function getStoredLoginInfo() {
+    return {
+        username: localStorage.getItem('eduqueMoiUsername'),
+        password: localStorage.getItem('eduqueMoiPassword')
+    };
+}
+
+function clearLoginInfo() {
+    localStorage.removeItem('eduqueMoiUsername');
+    localStorage.removeItem('eduqueMoiPassword');
+}
+
+async function register() {
+    const username = document.getElementById('registerUsername').value;
+    const password = document.getElementById('registerPassword').value;
+    
+    if (!username || !password) {
+        showNotification('Veuillez remplir tous les champs.', 'error');
+        return;
+    }
+
+    try {
+        const userRef = db.ref('users/' + username);
+        const snapshot = await userRef.once('value');
+        if (snapshot.exists()) {
+            showNotification('Ce nom d\'utilisateur existe déjà.', 'error');
+            return;
+        }
+        
+        const now = new Date();
+        await userRef.set({
+            password: password,
+            freeCredits: FREE_CREDITS_PER_DAY,
+            paidCredits: 0,
+            subscription: null,
+            subscriptionEndDate: null,
+            lastFreeCreditsReset: now.toISOString()
+        });
+        
+        currentUser = { 
+            username, 
+            freeCredits: FREE_CREDITS_PER_DAY, 
+            paidCredits: 0, 
+            subscription: null, 
+            subscriptionEndDate: null,
+            lastFreeCreditsReset: now.toISOString()
+        };
+        updateUIForLoggedInUser();
+        showNotification('Inscription réussie !', 'success');
+        closeModal('registerModal');
+        storeLoginInfo(username, password);
+    } catch (error) {
+        console.error('Erreur lors de l\'inscription:', error);
+        showNotification('Erreur lors de l\'inscription. Veuillez réessayer.', 'error');
+    }
+}
+
+async function login(username, password) {
+    if (!username || !password) {
+        username = document.getElementById('loginUsername').value;
+        password = document.getElementById('loginPassword').value;
+    }
+    
+    if (!username || !password) {
+        showNotification('Veuillez remplir tous les champs.', 'error');
+        return;
+    }
+
+    try {
+        const userRef = db.ref('users/' + username);
+        const snapshot = await userRef.once('value');
+        if (snapshot.exists() && snapshot.val().password === password) {
+            const userData = snapshot.val();
+            currentUser = { 
+                username, 
+                freeCredits: userData.freeCredits,
+                paidCredits: userData.paidCredits,
+                subscription: userData.subscription,
+                subscriptionEndDate: userData.subscriptionEndDate,
+                lastFreeCreditsReset: userData.lastFreeCreditsReset
+            };
+            await resetFreeCreditsIfNeeded();
+            updateUIForLoggedInUser();
+            showNotification('Connexion réussie !', 'success');
+            closeModal('loginModal');
+            storeLoginInfo(username, password);
+        } else {
+            showNotification('Nom d\'utilisateur ou mot de passe incorrect.', 'error');
+        }
+    } catch (error) {
+        console.error('Erreur lors de la connexion:', error);
+        showNotification('Erreur lors de la connexion. Veuillez réessayer.', 'error');
+    }
+}
+
+function logout() {
+    if (currentUser) {
+        syncUserData();
+    }
+    currentUser = null;
+    updateUIForLoggedOutUser();
+    showNotification('Déconnexion réussie.', 'success');
+    clearLoginInfo();
+}
+
+async function resetFreeCreditsIfNeeded() {
+    const now = new Date();
+    const lastReset = new Date(currentUser.lastFreeCreditsReset);
+    if (now.getTime() - lastReset.getTime() >= 24 * 60 * 60 * 1000) {
+        currentUser.freeCredits = FREE_CREDITS_PER_DAY;
+        currentUser.lastFreeCreditsReset = now.toISOString();
+        await syncUserData();
+        document.getElementById('freeCredits').textContent = currentUser.freeCredits;
+    }
+}
+
+function checkModelAccess() {
+    const selectedModel = document.getElementById('modelSelect').value;
+    if (selectedModel !== 'gemini-1.0-pro' && !hasValidSubscription() && currentUser.paidCredits <= 0) {
+        showPaymentNotification('Ce modèle nécessite un abonnement ou des crédits payants.');
+        document.getElementById('modelSelect').value = 'gemini-1.0-pro';
+    }
+}
+
+async function sendMessage() {
+    console.log("Début de sendMessage");
+    console.log("État de l'utilisateur:", currentUser);
+
+    if (!currentUser) {
+        showNotification('Veuillez vous connecter pour envoyer des messages.', 'error');
+        return;
+    }
+
+    const userInput = document.getElementById('userInput').value;
+    let model = document.getElementById('modelSelect').value;
+
+    console.log("Modèle sélectionné:", model);
+    console.log("Entrée utilisateur:", userInput);
+
+    if (!userInput && !pinnedFile) {
+        showNotification('Veuillez entrer un message ou joindre un fichier.', 'error');
+        return;
+    }
+
+    let fullMessage = userInput;
+    if (pinnedFile) {
+        fullMessage = `[Contenu du fichier joint: ${pinnedFile.content}]\n\n${userInput}`;
+    }
+
+    if (!hasEnoughCredits(model)) {
+        showPaymentNotification('Vous n\'avez plus de crédits. Veuillez acheter des crédits ou un forfait pour continuer.');
+        return;
+    }
+
+    addMessageToChat('user', fullMessage);
+    document.getElementById('userInput').value = '';
+
+    try {
+        console.log("Envoi de la requête à l'API Gemini");
+        console.log("URL de l'API:", `${API_BASE_URL}${model}:generateContent?key=${API_KEY}`);
+        console.log("Contenu de la requête:", {
+            contents: [{ parts: [{ text: currentConversation.map(msg => msg.content).join('\n') + '\n' + fullMessage }] }]
+        });
+
+        const response = await axios.post(`${API_BASE_URL}${model}:generateContent?key=${API_KEY}`, {
+            contents: [{ parts: [{ text: currentConversation.map(msg => msg.content).join('\n') + '\n' + fullMessage }] }]
+        });
+
+        console.log("Réponse de l'API reçue:", response.data);
+
+        let aiResponse = response.data.candidates[0].content.parts[0].text;
+
+        let messageElement;
+        if (model === 'gemini-1.0-pro') {
+            const words = aiResponse.split(/\s+/);
+            if (words.length > FREE_MODEL_MAX_RESPONSE) {
+                aiResponse = words.slice(0, FREE_MODEL_MAX_RESPONSE).join(' ') + '...(Utilisez un model avancée pour avoir la suite de ma reponse)';
+                showNotification(`La réponse a été tronquée à ${FREE_MODEL_MAX_RESPONSE} mots.`, 'info');
+                messageElement = addMessageToChat('ai', aiResponse);
+                showUpgradeButton(messageElement);
+            } else {
+                messageElement = addMessageToChat('ai', aiResponse);
+            }
+        } else {
+            messageElement = addMessageToChat('ai', aiResponse);
+        }
+
+        await updateCredits(model);
+        removePinnedFile();
+        saveConversation();
+    } catch (error) {
+        console.error('Erreur détaillée lors de la génération de la réponse:', error);
+        if (error.response) {
+            console.error('Statut de la réponse:', error.response.status);
+            console.error('Données de la réponse:', error.response.data);
+            console.error('En-têtes de la réponse:', error.response.headers);
+        } else if (error.request) {
+            console.error('Requête sans réponse:', error.request);
+        } else {
+            console.error('Erreur de configuration de la requête:', error.message);
+        }
+        showNotification(`Erreur lors de la génération de la réponse: ${error.message}. Veuillez réessayer.`, 'error');
+    }
+    console.log("Fin de sendMessage");
+}
+
+async function checkApiStatus() {
+    try {
+        const response = await axios.get(`${API_BASE_URL}models?key=${API_KEY}`);
+        console.log("Statut de l'API Gemini:", response.status);
+        console.log("Modèles disponibles:", response.data);
+    } catch (error) {
+        console.error("Erreur lors de la vérification du statut de l'API:", error);
+    }
+}
+
+function hasEnoughCredits(model) {
+    if (hasValidSubscription()) return true;
+    if (model === 'gemini-1.0-pro') {
+        return currentUser.freeCredits > 0 || currentUser.paidCredits > 0;
+    }
+    return currentUser.paidCredits > 0;
+}
+
+async function updateCredits(model) {
+    if (hasValidSubscription()) return;
+    
+    if (model === 'gemini-1.0-pro') {
+        if (currentUser.freeCredits > 0) {
+            currentUser.freeCredits = Math.max(0, currentUser.freeCredits - 1);
+            document.getElementById('freeCredits').textContent = currentUser.freeCredits;
+        } else {
+            currentUser.paidCredits = Math.max(0, currentUser.paidCredits - 1);
+            document.getElementById('paidCredits').textContent = currentUser.paidCredits;
+        }
+    } else {
+        currentUser.paidCredits = Math.max(0, currentUser.paidCredits - 1);
+        document.getElementById('paidCredits').textContent = currentUser.paidCredits;
+    }
+    
+    await syncUserData();
+}
+
+function addMessageToChat(sender, message) {
+    const messageContainer = document.getElementById('messageContainer');
+    const messageElement = document.createElement('div');
+    messageElement.classList.add('message', sender === 'user' ? 'user-message' : 'ai-message');
+    
+    if (sender === 'ai') {
+        message = message.replace(/\*\*/g, '\n');
+        
+        // Créer un élément pour le texte du message
+        const textElement = document.createElement('div');
+        messageElement.appendChild(textElement);
+
+        // Animer la réponse
+        animateResponse(textElement, message);
+
+        // Créer les boutons d'action immédiatement
+        const actionsElement = document.createElement('div');
+        actionsElement.classList.add('message-actions');
+        actionsElement.innerHTML = `
+            <button onclick="copyResponse(this.parentNode.parentNode)"><i class="fas fa-copy"></i></button>
+            <button onclick="exportResponse(this.parentNode.parentNode, 'word')"><i class="fas fa-file-word"></i></button>
+            <button onclick="exportResponse(this.parentNode.parentNode, 'pdf')"><i class="fas fa-file-pdf"></i></button>
+            <button onclick="shareResponse(this.parentNode.parentNode)"><i class="fas fa-share-alt"></i></button>
+        `;
+        messageElement.appendChild(actionsElement);
+    } else {
+        messageElement.textContent = message;
+    }
+
+    messageContainer.appendChild(messageElement);
+    messageContainer.scrollTop = messageContainer.scrollHeight;
+
+    currentConversation.push({ sender, content: message });
+
+    return messageElement; // Retourner l'élément de message
+}
+
+// Mise à jour des fonctions de manipulation des réponses pour travailler avec la nouvelle structure
+function copyResponse(messageElement) {
+    const responseText = messageElement.querySelector('div:first-child').textContent;
+    navigator.clipboard.writeText(responseText).then(() => {
+        showNotification('Réponse copiée dans le presse-papiers', 'success');
+    });
+}
+
+async function exportResponse(messageElement, format) {
+    const responseText = messageElement.querySelector('div:first-child').textContent;
+    if (format === 'word') {
+        const blob = await generateWordDoc(responseText);
+        saveAs(blob, "response.docx");
+    } else if (format === 'pdf') {
+        const blob = await generatePDF(responseText);
+        saveAs(blob, "response.pdf");
+    }
+    showNotification(`Export en ${format.toUpperCase()} réussi`, 'success');
+}
+
+
+
+async function generateWordDoc(text) {
+    const content = `
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+            <w:body>
+                <w:p>
+                    <w:pPr>
+                        <w:pStyle w:val="Heading1"/>
+                    </w:pPr>
+                    <w:r>
+                        <w:t>Réponse d'Eduque moi</w:t>
+                    </w:r>
+                </w:p>
+                <w:p>
+                    <w:r>
+                        <w:t>${text}</w:t>
+                    </w:r>
+                </w:p>
+            </w:body>
+        </w:document>
+    `;
+    const zip = new PizZip();
+    zip.file("word/document.xml", content);
+    const blob = await zip.generateAsync({type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
+    return blob;
+}
+
+function generatePDF(text) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    doc.setFontSize(18);
+    doc.text("Réponse d'Eduque moi", 20, 20);
+    
+    doc.setFontSize(12);
+    const splitText = doc.splitTextToSize(text, 170);
+    
+    let y = 30;
+    const pageHeight = doc.internal.pageSize.height;
+    
+    for (let i = 0; i < splitText.length; i++) {
+        if (y > pageHeight - 20) {
+            doc.addPage();
+            y = 20;
+        }
+        doc.text(splitText[i], 20, y);
+        y += 7;
+    }
+    
+    return doc.output('blob');
+}
+
+function shareResponse(messageElement) {
+    const responseText = messageElement.querySelector('div:first-child').textContent;
+    if (navigator.share) {
+        navigator.share({
+            title: 'Réponse de Eduque moi',
+            text: responseText
+        }).then(() => {
+            showNotification('Partage réussi', 'success');
+        }).catch((error) => {
+            console.error('Erreur lors du partage:', error);
+            showNotification('Erreur lors du partage', 'error');
+        });
+    } else {
+        showNotification('Le partage n\'est pas pris en charge sur votre appareil', 'error');
+    }
+}
+
+async function loadPDF(file) {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+    const numPages = pdf.numPages;
+    let fullText = '';
+
+    for (let i = 1; i <= numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map(item => item.str).join(' ');
+        fullText += pageText + '\n\n';
+    }
+
+    return fullText;
+}
+
+async function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (file) {
+        let content = '';
+        if (file.type === 'application/pdf') {
+            content = await loadPDF(file);
+        } else {
+            const reader = new FileReader();
+            content = await new Promise((resolve) => {
+                reader.onload = (e) => resolve(e.target.result);
+                reader.readAsText(file);
+            });
+        }
+
+        pinnedFile = {
+            name: file.name,
+            content: content
+        };
+
+        const fileSupport = document.getElementById('fileSupport');
+        const pinnedFileElement = document.getElementById('pinnedFile');
+        const fileContentElement = document.getElementById('fileContent');
+
+        pinnedFileElement.innerHTML = `
+            <span>${file.name}</span>
+            <button onclick="removePinnedFile()"><i class="fas fa-times"></i></button>
+        `;
+        fileContentElement.textContent = content.substring(0, 500) + (content.length > 500 ? '...' : '');
+        
+        fileSupport.classList.remove('hidden');
+    }
+}
+
+function removePinnedFile() {
+    pinnedFile = null;
+    const fileSupport = document.getElementById('fileSupport');
+    const pinnedFileElement = document.getElementById('pinnedFile');
+    const fileContentElement = document.getElementById('fileContent');
+
+    pinnedFileElement.innerHTML = '';
+    fileContentElement.textContent = '';
+    fileSupport.classList.add('hidden');
+}
+
+function hasValidSubscription() {
+    if (!currentUser.subscription || !currentUser.subscriptionEndDate) return false;
+    return new Date() < new Date(currentUser.subscriptionEndDate);
+}
+
+function buySubscription() {
+    const subscriptionType = document.getElementById('subscriptionSelect').value;
+    if (!subscriptionType) {
+        showNotification('Veuillez sélectionner un forfait.', 'error');
+        return;
+    }
+
+    const subscriptionPrices = {
+        '24h': 500, '3d': 1200, '7d': 2400, '30d': 8000, '3m': 20000
+    };
+
+    const price = subscriptionPrices[subscriptionType];
+
+    var fedaPayInstance = FedaPay.init({
+        public_key: 'pk_live_TfSz212W0xSMKK7oPEogkFmp',
+        transaction: {
+            amount: price,
+            description: `Achat d'un forfait ${subscriptionType} pour Eduque moi`
+        },
+        customer: {
+            email: 'client@example.com'
+        },
+        onComplete: function(response) {
+            if (response.reason === FedaPay.CHECKOUT_COMPLETED) {
+                activateSubscription(subscriptionType);
+                showNotification(`Forfait ${subscriptionType} activé avec succès !`, 'success');
+            } else {
+                showNotification('Le paiement a été annulé ou a échoué.', 'error');
+            }
+        }
+    });
+    fedaPayInstance.open();
+}
+
+async function activateSubscription(subscriptionType) {
+    const durations = { '24h': 1, '3d': 3, '7d': 7, '30d': 30, '3m': 90 };
+    const days = durations[subscriptionType];
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + days);
+
+    currentUser.subscription = subscriptionType;
+    currentUser.subscriptionEndDate = endDate.toISOString();
+
+    await syncUserData();
+
+    document.getElementById('subscription').textContent = subscriptionType;
+}
+
+function buyCredits() {
+    const creditAmount = document.getElementById('creditSelect').value;
+    if (!creditAmount) {
+        showNotification('Veuillez sélectionner un pack de crédits.', 'error');
+        return;
+    }
+
+    const creditPrices = {
+       '10': 200, '100': 1000, '500': 4500, '1000': 8000
+    };
+
+    const price = creditPrices[creditAmount];
+
+    var fedaPayInstance = FedaPay.init({
+        public_key: 'pk_live_TfSz212W0xSMKK7oPEogkFmp',
+        transaction: {
+            amount: price,
+            description: `Achat de ${creditAmount} crédits pour Eduque moi`
+        },
+        customer: {
+            email: 'client@example.com'
+        },
+        onComplete: function(response) {
+            if (response.reason === FedaPay.CHECKOUT_COMPLETED) {
+                addCreditsToUser(parseInt(creditAmount));
+                showNotification(`${creditAmount} crédits ont été ajoutés à votre compte.`, 'success');
+            } else {
+                showNotification('Le paiement a été annulé ou a échoué.', 'error');
+            }
+        }
+    });
+    fedaPayInstance.open();
+}
+
+async function addCreditsToUser(amount) {
+    currentUser.paidCredits += amount;
+    await syncUserData();
+    document.getElementById('paidCredits').textContent = currentUser.paidCredits;
+}
+
+function showNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.textContent = message;
+    notification.className = `notification ${type}`;
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+        notification.classList.add('show');
+        setTimeout(() => {
+            notification.classList.remove('show');
+            setTimeout(() => {
+                notification.remove();
+            }, 300);
+        }, 3000);
+    }, 100);
+}
+
+function showPaymentNotification(message) {
+    const notification = document.createElement('div');
+    notification.className = 'notification error';
+    notification.innerHTML = `
+        ${message}<br>
+        <button onclick="buySubscription()">Acheter un abonnement</button>
+        <button onclick="buyCredits()">Acheter des crédits</button>
+    `;
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+        notification.classList.add('show');
+        setTimeout(() => {
+            notification.classList.remove('show');
+            setTimeout(() => {
+                notification.remove();
+            }, 300);
+        }, 10000); // Afficher pendant 10 secondes
+    }, 100);
+}
+
+function toggleTheme() {
+    const body = document.body;
+    const currentTheme = body.getAttribute('data-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    body.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    updateThemeIcon(newTheme);
+}
+
+function updateThemeIcon(theme) {
+    const themeToggle = document.querySelector('.theme-toggle i');
+    themeToggle.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+}
+
+function toggleSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    const chatContainer = document.querySelector('.chat-container');
+    sidebar.classList.toggle('visible');
+    chatContainer.classList.toggle('sidebar-visible');
+}
+
+// Mise à jour de la fonction saveConversation pour gérer les nouvelles conversations
+function saveConversation() {
+    if (!currentUser) return;
+    // Utiliser l'ID existant si disponible, sinon en créer un nouveau
+    const conversationId = currentConversation.id || Date.now().toString();
+    conversations[conversationId] = currentConversation;
+    // Sauvegarder l'ID pour la conversation actuelle
+    currentConversation.id = conversationId;
+    localStorage.setItem(`conversations_${currentUser.username}`, JSON.stringify(conversations));
+    updateConversationHistory();
+}
+
+function loadConversationHistory() {
+    if (!currentUser) return;
+    const savedConversations = localStorage.getItem(`conversations_${currentUser.username}`);
+    if (savedConversations) {
+        conversations = JSON.parse(savedConversations);
+        updateConversationHistory();
+    }
+}
+
+function updateConversationHistory() {
+    const historyContainer = document.getElementById('historyList');
+    historyContainer.innerHTML = '';
+
+    const sortedConversations = Object.keys(conversations).sort((a, b) => parseInt(b) - parseInt(a));
+
+    sortedConversations.forEach(id => {
+        const conversation = conversations[id];
+        const element = document.createElement('div');
+        element.className = 'conversation-item';
+        
+        const textSpan = document.createElement('span');
+        textSpan.textContent = `Conversation du ${new Date(parseInt(id)).toLocaleString()}`;
+        textSpan.onclick = () => loadConversation(id);
+        
+        const deleteIcon = document.createElement('i');
+        deleteIcon.className = 'fas fa-trash delete-icon';
+        deleteIcon.onclick = (e) => {
+            e.stopPropagation();
+            deleteConversation(id);
+        };
+        
+        element.appendChild(textSpan);
+        element.appendChild(deleteIcon);
+        historyContainer.appendChild(element);
+    });
+}
+
+function deleteConversation(id) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer cette conversation ?')) {
+        delete conversations[id];
+        localStorage.setItem(`conversations_${currentUser.username}`, JSON.stringify(conversations));
+        updateConversationHistory();
+    }
+}
+
+function createNewConversation() {
+    // Sauvegarder la conversation actuelle si elle existe
+    if (currentConversation.length > 0) {
+        saveConversation();
+    }
+
+    // Réinitialiser la conversation actuelle
+    currentConversation = [];
+    
+    // Effacer le contenu de la zone de chat
+    const messageContainer = document.getElementById('messageContainer');
+    messageContainer.innerHTML = '';
+
+    // Mettre à jour l'interface utilisateur
+    updateConversationHistory();
+
+    // Optionnel : afficher un message de bienvenue pour la nouvelle conversation
+    addMessageToChat('ai', 'Bienvenue dans une nouvelle conversation ! Comment puis-je vous aider aujourd\'hui ?');
+
+    // Faire défiler jusqu'en haut de la conversation
+    messageContainer.scrollTop = 0;
+
+    // Mettre le focus sur la zone de saisie
+    document.getElementById('userInput').focus();
+}
+
+// Mise à jour de la fonction loadConversation
+function loadConversation(id) {
+    // Sauvegarder la conversation actuelle avant d'en charger une nouvelle
+    if (currentConversation.length > 0 && currentConversation.id !== id) {
+        saveConversation();
+    }
+
+    currentConversation = conversations[id];
+    currentConversation.id = id; // S'assurer que l'ID est défini
+    const messageContainer = document.getElementById('messageContainer');
+    messageContainer.innerHTML = '';
+    currentConversation.forEach(message => {
+        addMessageToChat(message.sender, message.content);
+    });
+
+    // Faire défiler jusqu'en haut de la conversation chargée
+    messageContainer.scrollTop = 0;
+}
+
+async function syncUserData() {
+    if (!currentUser) return;
+
+    const updateData = {
+        freeCredits: currentUser.freeCredits || 0,
+        paidCredits: currentUser.paidCredits || 0,
+        lastFreeCreditsReset: currentUser.lastFreeCreditsReset || new Date().toISOString()
+    };
+
+    if (currentUser.subscription) {
+        updateData.subscription = currentUser.subscription;
+    }
+    if (currentUser.subscriptionEndDate) {
+        updateData.subscriptionEndDate = currentUser.subscriptionEndDate;
+    }
+
+    const userRef = db.ref('users/' + currentUser.username);
+    try {
+        await userRef.update(updateData);
+        console.log("Données utilisateur mises à jour avec succès:", updateData);
+    } catch (error) {
+        console.error("Erreur lors de la mise à jour des données utilisateur:", error);
+        showNotification("Erreur lors de la mise à jour de votre profil. Veuillez réessayer.", 'error');
+    }
+}
+
+function adjustTextareaHeight() {
+    const textarea = document.getElementById('userInput');
+    textarea.style.height = 'auto';
+    textarea.style.height = textarea.scrollHeight + 'px';
+}
+
+async function attemptAutoLogin() {
+    const storedInfo = getStoredLoginInfo();
+    if (storedInfo.username && storedInfo.password) {
+        try {
+            const userRef = db.ref('users/' + storedInfo.username);
+            const snapshot = await userRef.once('value');
+            if (snapshot.exists() && snapshot.val().password === storedInfo.password) {
+                const userData = snapshot.val();
+                currentUser = { 
+                    username: storedInfo.username, 
+                    freeCredits: userData.freeCredits,
+                    paidCredits: userData.paidCredits,
+                    subscription: userData.subscription,
+                    subscriptionEndDate: userData.subscriptionEndDate,
+                    lastFreeCreditsReset: userData.lastFreeCreditsReset
+                };
+                await resetFreeCreditsIfNeeded();
+                updateUIForLoggedInUser();
+                console.log('Connexion automatique réussie');
+            } else {
+                clearLoginInfo();
+                console.log('Échec de la connexion automatique : informations invalides');
+            }
+        } catch (error) {
+            console.error('Erreur lors de la connexion automatique:', error);
+            clearLoginInfo();
+        }
+    }
+}
+
+function saveSelectedModel() {
+    const selectedModel = document.getElementById('modelSelect').value;
+    localStorage.setItem('selectedModel', selectedModel);
+}
+
+function loadSelectedModel() {
+    const savedModel = localStorage.getItem('selectedModel');
+    if (savedModel) {
+        document.getElementById('modelSelect').value = savedModel;
+    }
+}
+
+function showUpgradeButton(messageElement) {
+    const upgradeButton = document.createElement('button');
+    upgradeButton.textContent = 'Passer à un modèle avancé';
+    upgradeButton.className = 'upgrade-button';
+    upgradeButton.onclick = () => {
+        document.getElementById('modelSelect').value = 'gemini-1.5-pro';
+        showNotification('Modèle mis à jour vers Gemini 1.5 Pro', 'success');
+    };
+    messageElement.appendChild(upgradeButton);
+}
+
+function animateResponse(element, text) {
+    let index = 0;
+    element.textContent = '';
+    const interval = setInterval(() => {
+        if (index < text.length) {
+            element.textContent += text[index];
+            index++;
+        } else {
+            clearInterval(interval);
+        }
+    }, 1); // Ajustez la vitesse d'animation ici
+}
+
+window.onload = async function() {
+    await attemptAutoLogin();
+    
+    if (currentUser) {
+        // Vérifiez et corrigez les données utilisateur
+        if (currentUser.freeCredits === undefined) currentUser.freeCredits = 0;
+        if (currentUser.paidCredits === undefined) currentUser.paidCredits = 0;
+        if (currentUser.subscription === undefined) currentUser.subscription = null;
+        if (currentUser.subscriptionEndDate === undefined) currentUser.subscriptionEndDate = null;
+        if (currentUser.lastFreeCreditsReset === undefined) currentUser.lastFreeCreditsReset = new Date().toISOString();
+        
+        await syncUserData();
+    }
+
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.body.setAttribute('data-theme', savedTheme);
+    updateThemeIcon(savedTheme);
+
+    const inputContainer = document.querySelector('.input-container');
+    const userInput = document.getElementById('userInput');
+    const fileLabel = document.querySelector('.file-label');
+    const sendButton = inputContainer.querySelector('button');
+
+    function adjustInputWidth() {
+        const containerWidth = inputContainer.offsetWidth;
+        const fileLabelWidth = fileLabel.offsetWidth;
+        const sendButtonWidth = sendButton.offsetWidth;
+        const padding = 20;
+        userInput.style.width = `${containerWidth - fileLabelWidth - sendButtonWidth - padding}px`;
+    }
+
+    adjustInputWidth();
+    window.addEventListener('resize', adjustInputWidth);
+
+    userInput.addEventListener('input', adjustTextareaHeight);
+
+    document.getElementById('modelSelect').addEventListener('change', checkModelAccess);
+
+    if (window.innerWidth <= 768) {
+        document.querySelector('.sidebar').classList.remove('visible');
+        document.querySelector('.chat-container').classList.remove('sidebar-visible');
+    }
+
+    if (currentUser) {
+        const userRef = db.ref('users/' + currentUser.username);
+        userRef.on('value', (snapshot) => {
+            const userData = snapshot.val();
+            if (userData) {
+                currentUser = {
+                    ...currentUser,
+                    freeCredits: userData.freeCredits,
+                    paidCredits: userData.paidCredits,
+                    subscription: userData.subscription,
+                    subscriptionEndDate: userData.subscriptionEndDate,
+                    lastFreeCreditsReset: userData.lastFreeCreditsReset
+                };
+                updateUIForLoggedInUser();
+            }
+        });
+    }
+
+    if (currentUser) {
+        loadConversationHistory();
+    }
+
+    initModals();
+
+    loadSelectedModel();
+    document.getElementById('modelSelect').addEventListener('change', saveSelectedModel);
+
+    document.body.classList.add('loaded');
+};
+
+function initModals() {
+    const modals = document.querySelectorAll('.modal');
+    const closeButtons = document.querySelectorAll('.close');
+
+    closeButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            button.closest('.modal').style.display = 'none';
+        });
+    });
+
+    window.addEventListener('click', (event) => {
+        modals.forEach(modal => {
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+    });
+}
+
+// Ajoutez ces fonctions pour gérer les événements de touches
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+    }
+});
+
+document.getElementById('userInput').addEventListener('keydown', function(event) {
+    if (event.key === 'Enter' && event.shiftKey) {
+        event.preventDefault();
+        const start = this.selectionStart;
+        const end = this.selectionEnd;
+        const value = this.value;
+        this.value = value.substring(0, start) + '\n' + value.substring(end);
+        this.selectionStart = this.selectionEnd = start + 1;
+    }
+});
+
+// Fonction pour vérifier régulièrement l'état de l'API
+function checkApiStatusRegularly() {
+    checkApiStatus();
+    setInterval(checkApiStatus, 60000); // Vérifier toutes les minutes
+}
+
+// Appelez cette fonction au chargement de la page
+checkApiStatusRegularly();
+
+// Fonction pour gérer les erreurs de réseau
+window.addEventListener('offline', function() {
+    showNotification('Vous êtes hors ligne. Veuillez vérifier votre connexion internet.', 'error');
+});
+
+window.addEventListener('online', function() {
+    showNotification('Vous êtes de nouveau en ligne.', 'success');
+});
+
+// Fonction pour sauvegarder l'état de l'application avant de quitter
+window.addEventListener('beforeunload', function() {
+    if (currentUser) {
+        localStorage.setItem('lastConversation', JSON.stringify(currentConversation));
+    }
+});
+
+// Fonction pour restaurer l'état de l'application au chargement
+function restoreAppState() {
+    const lastConversation = localStorage.getItem('lastConversation');
+    if (lastConversation) {
+        currentConversation = JSON.parse(lastConversation);
+        currentConversation.forEach(message => {
+            addMessageToChat(message.sender, message.content);
+        });
+    }
+}
+
+window.onload = async function() {
+    await attemptAutoLogin();
+    
+    if (currentUser) {
+        // Vérifiez et corrigez les données utilisateur
+        if (currentUser.freeCredits === undefined) currentUser.freeCredits = 0;
+        if (currentUser.paidCredits === undefined) currentUser.paidCredits = 0;
+        if (currentUser.subscription === undefined) currentUser.subscription = null;
+        if (currentUser.subscriptionEndDate === undefined) currentUser.subscriptionEndDate = null;
+        if (currentUser.lastFreeCreditsReset === undefined) currentUser.lastFreeCreditsReset = new Date().toISOString();
+        
+        await syncUserData();
+    }
+
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.body.setAttribute('data-theme', savedTheme);
+    updateThemeIcon(savedTheme);
+    updateConversationHistory(); // Cela créera également le bouton "Nouvelle discussion"
+
+
+    const inputContainer = document.querySelector('.input-container');
+    const userInput = document.getElementById('userInput');
+    const fileLabel = document.querySelector('.file-label');
+    const sendButton = inputContainer.querySelector('button');
+
+    function adjustInputWidth() {
+        const containerWidth = inputContainer.offsetWidth;
+        const fileLabelWidth = fileLabel.offsetWidth;
+        const sendButtonWidth = sendButton.offsetWidth;
+        const padding = 20;
+        userInput.style.width = `${containerWidth - fileLabelWidth - sendButtonWidth - padding}px`;
+    }
+
+    adjustInputWidth();
+    window.addEventListener('resize', adjustInputWidth);
+
+    userInput.addEventListener('input', adjustTextareaHeight);
+
+    document.getElementById('modelSelect').addEventListener('change', checkModelAccess);
+
+    if (window.innerWidth <= 768) {
+        document.querySelector('.sidebar').classList.remove('visible');
+        document.querySelector('.chat-container').classList.remove('sidebar-visible');
+    }
+
+    if (currentUser) {
+        const userRef = db.ref('users/' + currentUser.username);
+        userRef.on('value', (snapshot) => {
+            const userData = snapshot.val();
+            if (userData) {
+                currentUser = {
+                    ...currentUser,
+                    freeCredits: userData.freeCredits,
+                    paidCredits: userData.paidCredits,
+                    subscription: userData.subscription,
+                    subscriptionEndDate: userData.subscriptionEndDate,
+                    lastFreeCreditsReset: userData.lastFreeCreditsReset
+                };
+                updateUIForLoggedInUser();
+            }
+        });
+    }
+
+    if (currentUser) {
+        loadConversationHistory();
+    }
+
+    initModals();
+
+    loadSelectedModel();
+    document.getElementById('modelSelect').addEventListener('change', saveSelectedModel);
+
+    // Ajout de la nouvelle fonction pour restaurer l'état de l'application
+    restoreAppState();
+
+    document.body.classList.add('loaded');
+
+    // Initialisation de la vérification régulière de l'état de l'API
+    checkApiStatusRegularly();
+};
+    </script>
+    
 </body>
 </html>
