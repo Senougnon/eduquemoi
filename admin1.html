@@ -8,16 +8,22 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
+        /* Variables CSS (les mêmes que pour le site principal) */
         :root {
             --primary-color: #4a90e2;
             --secondary-color: #50c878;
             --background-color: #f5f7fa;
             --text-color: #333333;
+            --input-background: #ffffff;
+            --button-color: #4a90e2;
+            --hover-color: #3a7bc8;
             --sidebar-color: #2c3e50;
             --sidebar-text: #ecf0f1;
         }
 
+        /* Styles généraux */
         * {
             box-sizing: border-box;
         }
@@ -30,13 +36,15 @@
             color: var(--text-color);
         }
 
+        /* Conteneur principal */
         .container {
             display: flex;
             min-height: 100vh;
         }
 
+        /* Barre latérale (sidebar) */
         .sidebar {
-            width: 250px;
+            width: 260px; /* Même largeur que la sidebar du site principal */
             background-color: var(--sidebar-color);
             color: var(--sidebar-text);
             padding: 20px;
@@ -47,19 +55,28 @@
             z-index: 1000;
         }
 
+        /* Contenu principal */
         .content {
             flex: 1;
             padding: 30px;
-            margin-left: 250px;
+            margin-left: 260px; /* Même marge que la sidebar du site principal */
             overflow-y: auto;
         }
 
+        /* Titres */
         .sidebar h2 {
             margin-bottom: 30px;
             font-size: 24px;
             text-align: center;
         }
 
+        .content h1, 
+        .content h2 {
+            color: var(--primary-color);
+            margin-bottom: 20px;
+        }
+
+        /* Navigation de la sidebar */
         .sidebar ul {
             list-style-type: none;
             padding: 0;
@@ -88,11 +105,7 @@
             font-size: 18px;
         }
 
-        h1, h2 {
-            color: var(--primary-color);
-            margin-bottom: 20px;
-        }
-
+        /* Cartes (cards) */
         .card {
             background-color: white;
             border-radius: 8px;
@@ -101,6 +114,7 @@
             margin-bottom: 30px;
         }
 
+        /* Tableaux */
         table {
             width: 100%;
             border-collapse: collapse;
@@ -122,6 +136,7 @@
             background-color: #f5f5f5;
         }
 
+        /* Boutons */
         .button {
             background-color: var(--primary-color);
             color: white;
@@ -136,6 +151,7 @@
             background-color: #3a7bc8;
         }
 
+        /* Recherche */
         .search-container {
             display: flex;
             margin-bottom: 20px;
@@ -157,6 +173,7 @@
             cursor: pointer;
         }
 
+        /* Tri */
         .sort-button {
             background: none;
             border: none;
@@ -165,11 +182,13 @@
             margin-left: 5px;
         }
 
+        /* Graphiques */
         .chart-container {
             height: 300px;
             margin-top: 20px;
         }
 
+        /* Modals */
         .modal {
             display: none;
             position: fixed;
@@ -207,6 +226,7 @@
             cursor: pointer;
         }
 
+        /* Formulaires */
         .form-group {
             margin-bottom: 15px;
         }
@@ -225,6 +245,7 @@
             border-radius: 4px;
         }
 
+        /* Bouton de menu pour mobile */
         #menuToggle {
             display: none;
             cursor: pointer;
@@ -238,6 +259,7 @@
             border-radius: 5px;
         }
 
+        /* Media Queries pour le responsive design */
         @media (max-width: 768px) {
             .sidebar {
                 transform: translateX(-100%);
@@ -293,6 +315,7 @@
                 <li><a href="#prompts"><i class="fas fa-list"></i> Prompts</a></li>
                 <li><a href="#sales"><i class="fas fa-chart-line"></i> Ventes</a></li>
                 <li><a href="#analytics"><i class="fas fa-chart-bar"></i> Analyses</a></li>
+                <li><a href="#apiKeys"><i class="fas fa-key"></i> Clés API</a></li> 
             </ul>
         </div>
         <div class="content">
@@ -311,6 +334,7 @@
                             <th>Crédits gratuits <button class="sort-button" onclick="sortTable('userTable', 1)"><i class="fas fa-sort"></i></button></th>
                             <th>Crédits payants <button class="sort-button" onclick="sortTable('userTable', 2)"><i class="fas fa-sort"></i></button></th>
                             <th>Abonnement <button class="sort-button" onclick="sortTable('userTable', 3)"><i class="fas fa-sort"></i></button></th>
+                            <th>Date fin d'abonnement <button class="sort-button" onclick="sortTable('userTable', 4)"><i class="fas fa-sort"></i></button></th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -359,13 +383,33 @@
                     <canvas id="creditUsageChart"></canvas>
                 </div>
             </section>
+
+            <section id="apiKeys" class="card">
+                <h2>Gestion des Clés API</h2>
+                <div class="search-container">
+                    <input type="text" id="apiKeySearch" class="search-input" placeholder="Rechercher une clé API...">
+                    <button onclick="searchApiKeys()" class="search-button"><i class="fas fa-search"></i></button>
+                </div>
+                <table id="apiKeyTable">
+                    <thead>
+                        <tr>
+                            <th>Clé API <button class="sort-button" onclick="sortTable('apiKeyTable', 0)"><i class="fas fa-sort"></i></button></th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Les clés API seront ajoutées ici dynamiquement -->
+                    </tbody>
+                </table>
+                <button onclick="showAddApiKeyForm()" class="button">Ajouter une clé API</button>
+            </section>
         </div>
     </div>
 
     <!-- Modal pour l'ajout/édition d'utilisateur -->
     <div id="userModal" class="modal">
         <div class="modal-content">
-            <span class="close">&times;</span>
+            <span class="close" onclick="closeModal('userModal')">×</span>
             <h2 id="userModalTitle">Ajouter un utilisateur</h2>
             <form id="userForm">
                 <div class="form-group">
@@ -384,9 +428,16 @@
                     <label for="subscription">Abonnement</label>
                     <select id="subscription">
                         <option value="">Aucun</option>
-                        <option value="basic">Basic</option>
-                        <option value="premium">Premium</option>
+                        <option value="24h">24 heures</option>
+                        <option value="3d">3 jours</option>
+                        <option value="7d">7 jours</option>
+                        <option value="30d">30 jours</option>
+                        <option value="3m">3 mois</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label for="subscriptionEndDate">Date de fin d'abonnement</label>
+                    <input type="date" id="subscriptionEndDate">
                 </div>
                 <button type="submit" class="button">Sauvegarder</button>
             </form>
@@ -396,7 +447,7 @@
     <!-- Modal pour l'ajout/édition de prompt -->
     <div id="promptModal" class="modal">
         <div class="modal-content">
-            <span class="close">&times;</span>
+            <span class="close" onclick="closeModal('promptModal')">×</span>
             <h2 id="promptModalTitle">Ajouter un prompt</h2>
             <form id="promptForm">
                 <div class="form-group">
@@ -410,6 +461,21 @@
                 <div class="form-group">
                     <label for="promptContent">Contenu</label>
                     <textarea id="promptContent" rows="4" required></textarea>
+                </div>
+                <button type="submit" class="button">Sauvegarder</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal pour l'ajout de clé API -->
+    <div id="apiKeyModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('apiKeyModal')">×</span>
+            <h2 id="apiKeyModalTitle">Ajouter une clé API</h2>
+            <form id="apiKeyForm">
+                <div class="form-group">
+                    <label for="apiKey">Clé API</label>
+                    <input type="text" id="apiKey" required>
                 </div>
                 <button type="submit" class="button">Sauvegarder</button>
             </form>
@@ -433,28 +499,30 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-       // Fonction pour afficher les utilisateurs
-        function displayUsers() {
-            const userTable = document.getElementById('userTable').getElementsByTagName('tbody')[0];
-            userTable.innerHTML = '';
-            db.ref('users').on('value', (snapshot) => {
-                const users = snapshot.val();
-                for (let username in users) {
-                    const user = users[username];
-                    const row = userTable.insertRow();
-                    row.innerHTML = `
-                        <td>${username}</td>
-                        <td>${user.freeCredits || 0}</td>
-                        <td>${user.paidCredits || 0}</td>
-                        <td>${user.subscription || 'Aucun'}</td>
-                        <td>
-                            <button onclick="editUser('${username}')" class="button">Éditer</button>
-                            <button onclick="deleteUser('${username}')" class="button">Supprimer</button>
-                        </td>
-                    `;
-                }
-            });
+// Fonction pour afficher les utilisateurs
+function displayUsers() {
+    const userTable = document.getElementById('userTable').getElementsByTagName('tbody')[0];
+    userTable.innerHTML = '';
+    db.ref('users').on('value', (snapshot) => {
+        const users = snapshot.val();
+        for (let username in users) {
+            const user = users[username];
+            const row = userTable.insertRow();
+            row.innerHTML = `
+                <td>${username}</td>
+                <td>${user.freeCredits || 0}</td>
+                <td>${user.paidCredits || 0}</td>
+                <td>${user.subscription || 'Aucun'}</td>
+                
+                <td>${user.subscriptionEndDate ? new Date(user.subscriptionEndDate).toLocaleDateString() : 'N/A'}</td> 
+                <td>
+                    <button onclick="editUser('${username}')" class="button">Éditer</button>
+                    <button onclick="deleteUser('${username}')" class="button">Supprimer</button>
+                </td>
+            `;
         }
+    });
+}
 
         // Fonction pour afficher les prompts
         function displayPrompts() {
@@ -472,6 +540,24 @@
                         <td>
                             <button onclick="editPrompt('${id}')" class="button">Éditer</button>
                             <button onclick="deletePrompt('${id}')" class="button">Supprimer</button>
+                        </td>
+                    `;
+                }
+            });
+        }
+
+        // Fonction pour afficher les clés API
+        function displayApiKeys() {
+            const apiKeyTable = document.getElementById('apiKeyTable').getElementsByTagName('tbody')[0];
+            apiKeyTable.innerHTML = '';
+            db.ref('API').on('value', (snapshot) => {
+                const apiKeys = snapshot.val();
+                for (let key in apiKeys) {
+                    const row = apiKeyTable.insertRow();
+                    row.innerHTML = `
+                        <td>${apiKeys[key]}</td> 
+                        <td>
+                            <button onclick="deleteApiKey('${key}')" class="button">Supprimer</button>
                         </td>
                     `;
                 }
@@ -516,7 +602,7 @@
             }
         }
 
-        // Fonction de recherche pour les utilisateurs
+        // Fonctions de recherche 
         function searchUsers() {
             const input = document.getElementById("userSearch");
             const filter = input.value.toUpperCase();
@@ -536,7 +622,6 @@
             }
         }
 
-        // Fonction de recherche pour les prompts
         function searchPrompts() {
             const input = document.getElementById("promptSearch");
             const filter = input.value.toUpperCase();
@@ -545,6 +630,25 @@
 
             for (let i = 1; i < tr.length; i++) {
                 const td = tr[i].getElementsByTagName("td")[1]; // Recherche sur le titre du prompt
+                if (td) {
+                    const txtValue = td.textContent || td.innerText;
+                    if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                        tr[i].style.display = "";
+                    } else {
+                        tr[i].style.display = "none";
+                    }
+                }
+            }
+        }
+
+        function searchApiKeys() {
+            const input = document.getElementById("apiKeySearch");
+            const filter = input.value.toUpperCase();
+            const table = document.getElementById("apiKeyTable");
+            const tr = table.getElementsByTagName("tr");
+
+            for (let i = 1; i < tr.length; i++) {
+                const td = tr[i].getElementsByTagName("td")[0]; // Recherche sur la clé API
                 if (td) {
                     const txtValue = td.textContent || td.innerText;
                     if (txtValue.toUpperCase().indexOf(filter) > -1) {
@@ -572,17 +676,50 @@
             showModal('userModal');
         }
 
-        function editUser(username) {
-            document.getElementById('userModalTitle').textContent = "Éditer l'utilisateur";
-            db.ref('users/' + username).once('value', (snapshot) => {
-                const user = snapshot.val();
-                document.getElementById('username').value = username;
-                document.getElementById('freeCredits').value = user.freeCredits || 0;
-                document.getElementById('paidCredits').value = user.paidCredits || 0;
-                document.getElementById('subscription').value = user.subscription || '';
-            });
-            showModal('userModal');
+ // Fonction pour éditer un utilisateur
+function editUser(username) {
+    document.getElementById('userModalTitle').textContent = "Éditer l'utilisateur";
+    db.ref('users/' + username).once('value', (snapshot) => {
+        const user = snapshot.val();
+        document.getElementById('username').value = username;
+        document.getElementById('freeCredits').value = user.freeCredits || 0;
+        document.getElementById('paidCredits').value = user.paidCredits || 0;
+        document.getElementById('subscription').value = user.subscription || '';
+
+        // Convertir la date ISO 8601 au format "AAAA-MM-JJ" pour l'élément <input type="date">
+        if (user.subscriptionEndDate) {
+            const date = new Date(user.subscriptionEndDate);
+            const year = date.getFullYear();
+            const month = ('0' + (date.getMonth() + 1)).slice(-2); // Ajouter un zéro devant les mois < 10
+            const day = ('0' + date.getDate()).slice(-2); // Ajouter un zéro devant les jours < 10
+            document.getElementById('subscriptionEndDate').value = `${year}-${month}-${day}`;
+        } else {
+            document.getElementById('subscriptionEndDate').value = '';
         }
+    });
+    showModal('userModal');
+}
+
+// Gestion du formulaire utilisateur
+document.getElementById('userForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const username = document.getElementById('username').value;
+    const userData = {
+        freeCredits: parseInt(document.getElementById('freeCredits').value),
+        paidCredits: parseInt(document.getElementById('paidCredits').value),
+        subscription: document.getElementById('subscription').value,
+        // Convertir la date du formulaire au format ISO 8601 pour Firebase
+        subscriptionEndDate: document.getElementById('subscriptionEndDate').value
+            ? new Date(document.getElementById('subscriptionEndDate').value).toISOString()
+            : null
+    };
+    db.ref('users/' + username).update(userData) // Utilisez update() pour préserver le mot de passe
+        .then(() => {
+            alert('Utilisateur sauvegardé avec succès');
+            closeModal('userModal');
+        })
+        .catch((error) => alert('Erreur lors de la sauvegarde : ' + error.message));
+});
 
         function deleteUser(username) {
             if (confirm(`Êtes-vous sûr de vouloir supprimer l'utilisateur ${username} ?`)) {
@@ -618,22 +755,23 @@
             }
         }
 
-        // Gestion des formulaires
-        document.getElementById('userForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const username = document.getElementById('username').value;
-            const userData = {
-                freeCredits: parseInt(document.getElementById('freeCredits').value),
-                paidCredits: parseInt(document.getElementById('paidCredits').value),
-                subscription: document.getElementById('subscription').value
-            };
-            db.ref('users/' + username).set(userData)
-                .then(() => {
-                    alert('Utilisateur sauvegardé avec succès');
-                    closeModal('userModal');
-                })
-                .catch((error) => alert('Erreur lors de la sauvegarde : ' + error.message));
-        });
+        // Gestion des clés API
+        function showAddApiKeyForm() {
+            document.getElementById('apiKeyModalTitle').textContent = "Ajouter une clé API";
+            document.getElementById('apiKeyForm').reset();
+            showModal('apiKeyModal');
+        }
+
+        function deleteApiKey(key) {
+            if (confirm(`Êtes-vous sûr de vouloir supprimer cette clé API ?`)) {
+                db.ref('API/' + key).remove()
+                    .then(() => {
+                        alert('Clé API supprimée avec succès');
+                        displayApiKeys(); // Mettre à jour l'affichage des clés API
+                    })
+                    .catch((error) => alert('Erreur lors de la suppression : ' + error.message));
+            }
+        }
 
         document.getElementById('promptForm').addEventListener('submit', function(e) {
             e.preventDefault();
@@ -651,6 +789,20 @@
                 .catch((error) => alert('Erreur lors de la sauvegarde : ' + error.message));
         });
 
+        // Gestion du formulaire de clé API
+        document.getElementById('apiKeyForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const apiKey = document.getElementById('apiKey').value;
+            const newApiKeyRef = db.ref('API').push(); // Crée une nouvelle entrée dans la liste des clés API
+            newApiKeyRef.set(apiKey)
+                .then(() => {
+                    alert('Clé API sauvegardée avec succès');
+                    closeModal('apiKeyModal');
+                    displayApiKeys(); // Mettre à jour l'affichage des clés API
+                })
+                .catch((error) => alert('Erreur lors de la sauvegarde : ' + error.message));
+        });
+
         // Fermeture des modals
         document.querySelectorAll('.close').forEach(closeBtn => {
             closeBtn.onclick = function() {
@@ -664,83 +816,17 @@
             }
         }
 
-        // Création des graphiques
+        // Création des graphiques (à implémenter selon vos besoins)
         function createSalesChart() {
-            const ctx = document.getElementById('salesChart').getContext('2d');
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'],
-                    datasets: [{
-                        label: 'Ventes mensuelles',
-                        data: [12, 19, 3, 5, 2, 3],
-                        borderColor: 'rgb(75, 192, 192)',
-                        tension: 0.1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true
-                        }
-                    }
-                }
-            });
+            // ... (Votre code pour le graphique des ventes) ...
         }
 
         function createUserActivityChart() {
-            const ctx = document.getElementById('userActivityChart').getContext('2d');
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
-                    datasets: [{
-                        label: 'Activité quotidienne des utilisateurs',
-                        data: [65, 59, 80, 81, 56, 55, 40],
-                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                        borderColor: 'rgb(54, 162, 235)',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true
-                        }
-                    }
-                }
-            });
+            // ... (Votre code pour le graphique d'activité des utilisateurs) ...
         }
 
         function createCreditUsageChart() {
-            const ctx = document.getElementById('creditUsageChart').getContext('2d');
-            new Chart(ctx, {
-                type: 'pie',
-                data: {
-                    labels: ['Crédits utilisés', 'Crédits restants'],
-                    datasets: [{
-                        data: [300, 700],
-                        backgroundColor: [
-                            'rgb(255, 99, 132)',
-                            'rgb(54, 162, 235)'
-                        ]
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                        },
-                        title: {
-                            display: true,
-                            text: 'Utilisation des crédits'
-                        }
-                    }
-                }
-            });
+            // ... (Votre code pour le graphique d'utilisation des crédits) ...
         }
 
         // Gestion du menu pour mobile
@@ -774,6 +860,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             displayUsers();
             displayPrompts();
+            displayApiKeys(); // Afficher les clés API au chargement de la page
             createSalesChart();
             createUserActivityChart();
             createCreditUsageChart();
