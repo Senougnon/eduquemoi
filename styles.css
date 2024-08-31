@@ -1208,33 +1208,70 @@ button:hover {
         animation: spin 1s ease-in-out infinite;
         margin-right: 5px; /* Ajouter une marge à droite si nécessaire */
     }
-    .pinned-files-message {
-        background-color: rgba(0, 0, 0, 0.05);
-        border-radius: 8px;
-        padding: 10px;
-        margin-bottom: 10px;
-    }
-    
-    .pinned-file {
-        display: flex;
-        align-items: center;
-        margin-bottom: 5px;
-    }
-    
-    .file-icon {
-        font-size: 1.2em;
-        margin-right: 10px;
-    }
-    
-    .file-name {
-        font-size: 0.9em;
-        color: #555;
-    }
-    
-    [data-theme="dark"] .pinned-files-message {
-        background-color: rgba(255, 255, 255, 0.1);
-    }
-    
-    [data-theme="dark"] .file-name {
-        color: #ccc;
-    }
+/* Styles pour les éléments épinglés */
+.pinned-files-message,
+.pinned-responses-message,
+.pinned-prompt-message {
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.pinned-file,
+.pinned-response,
+.pinned-prompt {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.file-icon,
+.response-icon,
+.prompt-icon {
+  font-size: 1.2em;
+  margin-right: 10px;
+}
+
+.file-name,
+.response-text,
+.prompt-title {
+  font-size: 0.9em;
+  color: #555;
+}
+
+/* Styles pour le thème sombre */
+[data-theme="dark"] .pinned-files-message,
+[data-theme="dark"] .pinned-responses-message,
+[data-theme="dark"] .pinned-prompt-message {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .file-name,
+[data-theme="dark"] .response-text,
+[data-theme="dark"] .prompt-title {
+  color: #ccc;
+}
+/* ... (votre CSS existant) ... */
+
+/* Icône pour répondre à un message spécifique */
+.message-actions button.reply-button {
+    /* Styles pour le bouton de réponse */
+    background: none;
+    border: none;
+    color: var(--text-color);
+    cursor: pointer;
+    margin-right: 5px;
+    font-size: 0.9em;
+}
+
+.message-actions button.reply-button:hover {
+    /* Styles pour le bouton de réponse au survol */
+    color: var(--hover-color);
+}
+
+.message-actions button.reply-button i {
+    /* Styles pour l'icône de réponse */
+    transform: rotate(180deg); /* Rotation de 180 degrés pour un effet "retour" */
+    margin-right: 3px; /* Ajustez la marge si nécessaire */
+}
