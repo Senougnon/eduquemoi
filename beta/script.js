@@ -1,34 +1,33 @@
-
-
-        // Configuration Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyCvizcYorGDPN3GXqma0opp7wAiMkaCt64",
-            authDomain: "gemini-bb56e.firebaseapp.com",
-            databaseURL: "https://gemini-bb56e-default-rtdb.firebaseio.com",
-            projectId: "gemini-bb56e",
-            storageBucket: "gemini-bb56e.appspot.com",
-            messagingSenderId: "277143630015",
-            appId: "1:277143630015:web:78736f2cf52d29495d160a",
-            measurementId: "G-CSN292219J"
-        };
-
-        // Initialiser Firebase
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.database();
-
-        const API_KEY = 'AIzaSyB3umTE3n2d5gwKzOmJz4ss1pFZMR8_vOE';
+const API_KEY = 'AIzaSyB3umTE3n2d5gwKzOmJz4ss1pFZMR8_vOE';
 const API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models/';
 let currentUser = null;
 let pinnedFiles = [];
 let currentConversation = [];
 let conversations = {};
+
 const FREE_CREDITS_PER_DAY = 10;
 const FREE_MODEL_MAX_WORDS = 50;
 const FREE_MODEL_MAX_RESPONSE = 100;
 
+// Configuration Firebase
+const firebaseConfig = {
+    apiKey: "AIzaSyCvizcYorGDPN3GXqma0opp7wAiMkaCt64",
+    authDomain: "gemini-bb56e.firebaseapp.com",
+    databaseURL: "https://gemini-bb56e-default-rtdb.firebaseio.com",
+    projectId: "gemini-bb56e",
+    storageBucket: "gemini-bb56e.appspot.com",
+    messagingSenderId: "277143630015",
+    appId: "1:277143630015:web:78736f2cf52d29495d160a",
+    measurementId: "G-CSN292219J"
+};
+
+// Initialiser Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
 let prompts = {};
 let pinnedPrompt = null;
+let pinnedResponses = []; // Tableau pour stocker les réponses épinglées
 
 // Configuration de l'API Gemini
 let genAI;
@@ -70,88 +69,6 @@ function initializeGeminiAPI() {
         showNotification("Erreur : Impossible d'initialiser l'API. Aucune clé API disponible.", 'error');
     }
 }
-
-        // Fonction pour gérer l'authentification Google
-        function handleGoogleAuth() {
-            const provider = new firebase.auth.GoogleAuthProvider();
-            auth.signInWithPopup(provider)
-                .then((result) => {
-                    // L'utilisateur est connecté
-                    currentUser = result.user;
-                    onAuthStateChanged(currentUser);
-                }).catch((error) => {
-                    console.error("Erreur d'authentification Google:", error);
-                    showNotification("Erreur d'authentification Google. Veuillez réessayer.", 'error');
-                });
-        }
-
-    // Mettre à jour la fonction onAuthStateChanged
-    function onAuthStateChanged(user) {
-        console.log("État d'authentification changé:", user ? "Connecté" : "Déconnecté");
-        if (user) {
-            currentUser = user;
-            initializeUserData(user);
-        } else {
-            currentUser = null;
-            updateUIForLoggedOutUser();
-        }
-    }
-
-
-
-    // Fonction pour extraire le nom d'utilisateur de l'email
-    function getUsernameFromEmail(email) {
-        return email.split('@')[0];
-    }
-
-
-
-    // Fonction pour initialiser les données de l'utilisateur
-    async function initializeUserData(user) {
-        console.log("Initialisation des données utilisateur pour:", user.email);
-        const username = getUsernameFromEmail(user.email);
-        
-        const userRef = db.ref('users/' + username);
-        const snapshot = await userRef.once('value');
-        if (!snapshot.exists()) {
-            console.log("Nouvel utilisateur, initialisation des données");
-            await userRef.set({
-                uid: user.uid,
-                email: user.email,
-                freeCredits: 10,
-                paidCredits: 0,
-                subscription: null,
-                subscriptionEndDate: null,
-                lastFreeCreditsReset: new Date().toISOString()
-            });
-        } else {
-            console.log("Utilisateur existant, mise à jour des données si nécessaire");
-            // Ici, vous pouvez choisir de mettre à jour certaines données si nécessaire
-            // Par exemple, mettre à jour l'email si il a changé
-            await userRef.update({
-                email: user.email,
-                uid: user.uid
-            });
-        }
-        const userData = (await userRef.once('value')).val();
-        currentUser = { ...currentUser, ...userData, username };
-        updateUIForLoggedInUser();
-    }
-
-
-
-    function logout() {
-        console.log("Tentative de déconnexion...");
-        auth.signOut().then(() => {
-            console.log("Déconnexion réussie");
-            currentUser = null;
-            updateUIForLoggedOutUser();
-            showNotification('Déconnexion réussie.', 'success');
-        }).catch((error) => {
-            console.error("Erreur lors de la déconnexion:", error);
-            showNotification("Erreur lors de la déconnexion. Veuillez réessayer.", 'error');
-        });
-    }
 
 // Fonction pour vérifier et mettre à jour le statut de l'abonnement
 async function checkSubscriptionStatus() {
@@ -238,28 +155,25 @@ function closeModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
 }
 
-    // Mettre à jour la fonction updateUIForLoggedInUser
-    function updateUIForLoggedInUser() {
-        console.log("Mise à jour de l'UI pour l'utilisateur connecté");
-        document.getElementById('googleAuthBtn').classList.add('hidden');
-        document.getElementById('logoutBtn').classList.remove('hidden');
-        document.getElementById('userInfo').classList.remove('hidden');
-        document.getElementById('username').textContent = currentUser.username || getUsernameFromEmail(currentUser.email);
-        document.getElementById('freeCredits').textContent = currentUser.freeCredits;
-        document.getElementById('paidCredits').textContent = currentUser.paidCredits;
-        document.getElementById('subscription').textContent = currentUser.subscription || 'Aucun';
-        loadConversationHistory();
-    }
+function updateUIForLoggedInUser() {
+    document.getElementById('loginBtn').classList.add('hidden');
+    document.getElementById('registerBtn').classList.add('hidden');
+    document.getElementById('logoutBtn').classList.remove('hidden');
+    document.getElementById('userInfo').classList.remove('hidden');
+    document.getElementById('username').textContent = currentUser.username;
+    document.getElementById('freeCredits').textContent = currentUser.freeCredits;
+    document.getElementById('paidCredits').textContent = currentUser.paidCredits;
+    document.getElementById('subscription').textContent = currentUser.subscription || 'Aucun';
+    loadConversationHistory();
+}
 
-        // Mettre à jour l'interface utilisateur pour un utilisateur déconnecté
-        function updateUIForLoggedOutUser() {
-            document.getElementById('googleAuthBtn').classList.remove('hidden');
-            document.getElementById('logoutBtn').classList.add('hidden');
-            document.getElementById('userInfo').classList.add('hidden');
-            document.getElementById('conversationHistory').innerHTML = '<h3>Historique des conversations</h3>';
-        }
-
-
+function updateUIForLoggedOutUser() {
+    document.getElementById('loginBtn').classList.remove('hidden');
+    document.getElementById('registerBtn').classList.remove('hidden');
+    document.getElementById('logoutBtn').classList.add('hidden');
+    document.getElementById('userInfo').classList.add('hidden');
+    document.getElementById('conversationHistory').innerHTML = '<h3>Historique des conversations</h3>';
+}
 
 function storeLoginInfo(username, password) {
     localStorage.setItem('eduqueMoiUsername', username);
@@ -299,12 +213,15 @@ async function register() {
         const now = new Date();
         const userData = {
             password: password,
-            freeCredits: FREE_CREDITS_PER_DAY + 5, // 5 crédits supplémentaires pour le filleul
+            freeCredits: FREE_CREDITS_PER_DAY,
             paidCredits: 0,
             subscription: null,
             subscriptionEndDate: null,
             lastFreeCreditsReset: now.toISOString(),
-            referredBy: referralCode || null
+            referredBy: referralCode || null,
+            firstPurchase: false,
+            totalReferrals: 0,
+            activeReferrals: 0
         };
         
         await userRef.set(userData);
@@ -316,19 +233,22 @@ async function register() {
                 const referrerUsername = Object.keys(referrer)[0];
                 await db.ref(`users/${referrerUsername}/referrals/${username}`).set({
                     date: now.toISOString(),
-                    isActive: true
+                    isActive: false
                 });
                 
-                // Attribuer 5 crédits au parrain
+                // Mettre à jour uniquement le total des parrainages pour le parrain
                 const referrerRef = db.ref(`users/${referrerUsername}`);
                 await referrerRef.transaction((user) => {
                     if (user) {
-                        user.paidCredits = (user.paidCredits || 0) + 5;
+                        user.totalReferrals = (user.totalReferrals || 0) + 1;
                     }
                     return user;
                 });
                 
-                showNotification('Vous avez reçu 5 crédits grâce à votre parrain !', 'success');
+                // Mettre à jour les statistiques affichées si le parrain est l'utilisateur actuel
+                if (currentUser && currentUser.username === referrerUsername) {
+                    document.getElementById('totalReferrals').textContent = (parseInt(document.getElementById('totalReferrals').textContent) || 0) + 1;
+                }
             }
         }
         
@@ -379,6 +299,16 @@ async function login(username, password) {
         console.error('Erreur lors de la connexion:', error);
         showNotification('Erreur lors de la connexion. Veuillez réessayer.', 'error');
     }
+}
+
+function logout() {
+    if (currentUser) {
+        syncUserData();
+    }
+    currentUser = null;
+    updateUIForLoggedOutUser();
+    showNotification('Déconnexion réussie.', 'success');
+    clearLoginInfo();
 }
 
 async function resetFreeCreditsIfNeeded() {
@@ -464,137 +394,368 @@ function createPinnedFilesElement(files) {
     return pinnedFilesElement;
 }
 
-async function sendMessage() {
+// Fonction pour créer un élément pour les réponses épinglées (similaire à createPinnedFilesElement)
+function createPinnedResponsesElement(responses) {
+    const pinnedResponsesElement = document.createElement("div");
+    pinnedResponsesElement.className = "pinned-responses-message";
+  
+    responses.forEach((response) => {
+      const responseElement = document.createElement("div");
+      responseElement.className = "pinned-response";
+  
+      const iconElement = document.createElement("span");
+      iconElement.className = "response-icon";
+      iconElement.textContent = "💬";
+  
+      const textElement = document.createElement("span");
+      textElement.className = "response-text";
+      textElement.textContent = response.displayText;
+  
+      responseElement.appendChild(iconElement);
+      responseElement.appendChild(textElement);
+      pinnedResponsesElement.appendChild(responseElement);
+    });
+  
+    return pinnedResponsesElement;
+  }
+  
+  // Fonction pour créer un élément pour le prompt épinglé
+  function createPinnedPromptElement(prompt) {
+    const pinnedPromptElement = document.createElement("div");
+    pinnedPromptElement.className = "pinned-prompt-message";
+  
+    const promptElement = document.createElement("div");
+    promptElement.className = "pinned-prompt";
+  
+    const iconElement = document.createElement("span");
+    iconElement.className = "prompt-icon";
+    iconElement.textContent = "🤖";
+  
+    const titleElement = document.createElement("span");
+    titleElement.className = "prompt-title";
+    titleElement.textContent = prompt.title;
+  
+    promptElement.appendChild(iconElement);
+    promptElement.appendChild(titleElement);
+    pinnedPromptElement.appendChild(promptElement);
+  
+    return pinnedPromptElement;
+  }
+
+
+  async function sendMessage() {
     if (!currentUser) {
-        showNotification('Veuillez vous connecter pour envoyer des messages.', 'error');
-        return;
+      showNotification("Veuillez vous connecter pour envoyer des messages.", "error");
+      return;
     }
-
-    const userInput = document.getElementById('userInput').value.trim();
-    let model = document.getElementById('modelSelect').value;
-    const modelSelect = document.getElementById('modelSelect');
-
-    if (!userInput && pinnedFiles.length === 0 && !pinnedPrompt) {
-        showNotification('Veuillez entrer un message, joindre un fichier ou sélectionner un prompt.', 'error');
-        return;
+  
+    const userInput = document.getElementById("userInput").value.trim();
+    let model = document.getElementById("modelSelect").value;
+  
+    if (
+      !userInput &&
+      pinnedFiles.length === 0 &&
+      pinnedResponses.length === 0 &&
+      !pinnedPrompt
+    ) {
+      showNotification(
+        "Veuillez entrer un message, joindre un fichier, épingler une réponse ou sélectionner un prompt.",
+        "error"
+      );
+      return;
     }
-
-    const requiredCredits = pinnedFiles.length > 0 ? pinnedFiles.length : 1;
-
+  
+    // Calculer le nombre total de crédits requis pour les fichiers et les réponses épinglées
+    const requiredCredits =
+      pinnedFiles.length + pinnedResponses.length > 0
+        ? pinnedFiles.length + pinnedResponses.length
+        : 1;
+  
     // Vérification des crédits et sélection du modèle
     if (!hasValidSubscription()) {
-        if (model === 'gemini-1.5-flash') {
-            // Vérifier d'abord les crédits payants pour Gemini 1.5 Flash
-            if (currentUser.paidCredits >= requiredCredits) {
-                showNotification('Utilisation de crédits payants pour Gemini 1.5 Flash.', 'info');
-            } else if (currentUser.freeCredits >= requiredCredits) {
-                showNotification('Utilisation de crédits gratuits pour Gemini 1.5 Flash.', 'info');
-            } else {
-                showPaymentNotification('Vous n\'avez pas assez de crédits pour utiliser Gemini 1.5 Flash.');
-                return;
-            }
-        } else if (!['gemini-1.0-pro'].includes(model)) {
-            // Pour les autres modèles avancés
-            if (currentUser.paidCredits < requiredCredits) {
-                showPaymentNotification('Vous n\'avez pas assez de crédits payants pour ce modèle avancé.');
-                return;
-            }
+      if (model === "gemini-1.5-flash") {
+        if (currentUser.paidCredits >= requiredCredits) {
+          showNotification(
+            "Utilisation de crédits payants pour Gemini 1.5 Flash.",
+            "info"
+          );
+        } else if (currentUser.freeCredits >= requiredCredits) {
+          showNotification(
+            "Utilisation de crédits gratuits pour Gemini 1.5 Flash.",
+            "info"
+          );
         } else {
-            // Pour Gemini 1.0 Pro (modèle gratuit)
-            if (currentUser.freeCredits < requiredCredits && currentUser.paidCredits < requiredCredits) {
-                showPaymentNotification('Vous n\'avez pas assez de crédits pour envoyer ce message.');
-                return;
-            }
+          showPaymentNotification(
+            "Vous n'avez pas assez de crédits pour utiliser Gemini 1.5 Flash."
+          );
+          return;
         }
+      } else if (!["gemini-1.0-pro"].includes(model)) {
+        // Modèles avancés (hors Gemini 1.0 Pro)
+        if (currentUser.paidCredits < requiredCredits) {
+          showPaymentNotification(
+            "Vous n'avez pas assez de crédits payants pour ce modèle avancé."
+          );
+          return;
+        }
+      } else {
+        // Gemini 1.0 Pro (modèle gratuit)
+        if (
+          currentUser.freeCredits < requiredCredits &&
+          currentUser.paidCredits < requiredCredits
+        ) {
+          showPaymentNotification(
+            "Vous n'avez pas assez de crédits pour envoyer ce message."
+          );
+          return;
+        }
+      }
     }
-
+  
     let displayMessage = userInput;
     let fullMessage = userInput;
-
-    // Créer un élément de message avec les fichiers épinglés
-    const messageElement = document.createElement('div');
-    messageElement.className = 'message user-message';
-
-    // Ajouter les fichiers épinglés au début du message
-    if (pinnedFiles.length > 0) {
-        const pinnedFilesElement = createPinnedFilesElement(pinnedFiles);
-        messageElement.appendChild(pinnedFilesElement);
+  
+    // Stocker les éléments épinglés avant de les réinitialiser
+    const pinnedFilesToSend = pinnedFiles;
+    const pinnedResponsesToSend = pinnedResponses;
+    const pinnedPromptToSend = pinnedPrompt;
+  
+    // Réinitialiser les éléments épinglés dès que la requête est envoyée
+    pinnedFiles = [];
+    pinnedResponses = [];
+    pinnedPrompt = null;
+    updatePinnedItems();
+  
+    // Créer l'élément du message de l'utilisateur
+    const messageElement = document.createElement("div");
+    messageElement.className = "message user-message";
+  
+    // Ajouter les fichiers épinglés au message de l'utilisateur
+    if (pinnedFilesToSend.length > 0) {
+      const pinnedFilesElement = createPinnedFilesElement(pinnedFilesToSend);
+      messageElement.appendChild(pinnedFilesElement);
+  
+      fullMessage += "\n\n**Fichiers joints:**\n";
+      pinnedFilesToSend.forEach((file) => {
+        fullMessage += `- ${file.name} (${file.type})\n`;
+      });
     }
-
-    // Ajouter le texte du message
-    const textElement = document.createElement('p');
+  
+    // Ajouter les réponses épinglées au message de l'utilisateur
+    if (pinnedResponsesToSend.length > 0) {
+      const pinnedResponsesElement =
+        createPinnedResponsesElement(pinnedResponsesToSend);
+      messageElement.appendChild(pinnedResponsesElement);
+  
+      fullMessage += "\n\n**Réponses épinglées:**\n";
+      pinnedResponsesToSend.forEach((response) => {
+        fullMessage += `- ${response.displayText}\n`;
+      });
+    }
+  
+    // Ajouter le prompt épinglé au début du message
+    if (pinnedPromptToSend) {
+      const pinnedPromptElement =
+        createPinnedPromptElement(pinnedPromptToSend);
+      messageElement.appendChild(pinnedPromptElement);
+  
+      fullMessage = pinnedPromptToSend.content + "\n\n" + fullMessage;
+    }
+  
+    // Ajouter le texte du message de l'utilisateur
+    const textElement = document.createElement("p");
     textElement.textContent = displayMessage;
     messageElement.appendChild(textElement);
-
+  
     // Ajouter le message au conteneur
-    const messageContainer = document.getElementById('messageContainer');
+    const messageContainer = document.getElementById("messageContainer");
     messageContainer.appendChild(messageElement);
     messageContainer.scrollTop = messageContainer.scrollHeight;
-
-    document.getElementById('userInput').value = '';
+  
+    document.getElementById("userInput").value = "";
     resetTextareaHeight();
-
+  
     // Affiche l'animation de chargement et cache le bouton d'envoi
-    const sendButton = document.querySelector('.input-actions button:last-child');
-    sendButton.classList.add('loading');
+    const sendButton = document.querySelector(
+      ".input-actions button:last-child"
+    );
+    sendButton.classList.add("loading");
     sendButton.disabled = true;
-
+  
     try {
-        const parts = [];
-
-        if (fullMessage) {
-            parts.push({ text: fullMessage });
+      const parts = [];
+  
+      // Vérifier si des fichiers sont joints
+      if (pinnedFilesToSend.length > 0) {
+        // Traitement des fichiers : pas de contexte de conversation
+        fullMessage += "\n\n**Fichiers joints:**\n";
+        pinnedFilesToSend.forEach((file) => {
+          fullMessage += `- ${file.name} (${file.type})\n`;
+        });
+        parts.push({ text: fullMessage });
+  
+        // Ajouter les fichiers à la requête
+        for (const file of pinnedFilesToSend) {
+          const fileData = await readFileAsBase64(file);
+          parts.push({
+            inlineData: {
+              data: fileData,
+              mimeType: file.type,
+            },
+          });
         }
-
-        for (const file of pinnedFiles) {
-            const fileData = await readFileAsBase64(file);
-            parts.push({
-                inlineData: {
-                    data: fileData,
-                    mimeType: file.type
-                }
-            });
-        }
-
-        if (pinnedPrompt) {
-            parts.unshift({ text: pinnedPrompt.content });
-        }
-
-        const generativeModel = genAI.getGenerativeModel({ model: model });
-        const result = await generativeModel.generateContent(parts);
-        const response = await result.response;
-        let aiResponse = response.text();
-
-        let messageElement;
-        if (model === 'gemini-1.0-pro' || (model === 'gemini-1.5-flash' && currentUser.paidCredits < requiredCredits)) {
-            const words = aiResponse.split(/\s+/);
-            if (words.length > FREE_MODEL_MAX_RESPONSE) {
-                aiResponse = words.slice(0, FREE_MODEL_MAX_RESPONSE).join(' ') + '...(Utilisez un modèle avancé pour avoir la suite de ma réponse)';
-                showNotification(`La réponse a été tronquée à ${FREE_MODEL_MAX_RESPONSE} mots.`, 'info');
-                messageElement = addMessageToChat('ai', aiResponse);
-                showUpgradeButton(messageElement);
-            } else {
-                messageElement = addMessageToChat('ai', aiResponse);
-            }
+      } else {
+        // Traitement du texte seul : inclure le contexte de la conversation
+        let conversationContext = "";
+        const recentMessages = currentConversation.slice(-20);
+  
+        recentMessages.forEach((message) => {
+          if (message.sender === "user") {
+            conversationContext += `Utilisateur: ${message.content}\n`;
+          } else {
+            conversationContext += `Gemini: ${message.content}\n`;
+          }
+        });
+  
+        fullMessage = conversationContext + fullMessage;
+        parts.push({ text: fullMessage });
+      }
+  
+      // Générer la réponse avec le modèle sélectionné
+      const generativeModel = genAI.getGenerativeModel({ model: model });
+      const result = await generativeModel.generateContent(parts);
+      const response = await result.response;
+      let aiResponse = response.text();
+  
+      let aiMessageElement;
+      if (
+        model === "gemini-1.0-pro" ||
+        (model === "gemini-1.5-flash" &&
+          currentUser.paidCredits < requiredCredits)
+      ) {
+        const words = aiResponse.split(/\s+/);
+        if (words.length > FREE_MODEL_MAX_RESPONSE) {
+          aiResponse =
+            words.slice(0, FREE_MODEL_MAX_RESPONSE).join(" ") +
+            "...(Utilisez un modèle avancé pour avoir la suite de ma réponse)";
+          showNotification(
+            `La réponse a été tronquée à ${FREE_MODEL_MAX_RESPONSE} mots.`,
+            "info"
+          );
+          aiMessageElement = addMessageToChat("ai", aiResponse);
+          showUpgradeButton(aiMessageElement);
         } else {
-            messageElement = addMessageToChat('ai', aiResponse);
+          aiMessageElement = addMessageToChat("ai", aiResponse);
         }
+      } else {
+        aiMessageElement = addMessageToChat("ai", aiResponse);
+      }
 
-        await updateCredits(model, requiredCredits);
-        pinnedFiles = [];
-        updatePinnedFiles();
-        removePinnedPrompt();
-        saveConversation();
-
+      // Ajouter le message de l'utilisateur à l'historique de la conversation
+    currentConversation.push({ sender: "user", content: userInput }); 
+  
+      // Ajouter le message de Gemini à l'historique de la conversation (si pas de fichier)
+      if (pinnedFilesToSend.length === 0) {
+        currentConversation.push({ sender: "ai", content: aiResponse });
+      }
+  
+      await updateCredits(model, requiredCredits);
+      saveConversation(); // Sauvegarder la conversation mise à jour
     } catch (error) {
-        console.error('Erreur lors de la génération de la réponse:', error);
-        showNotification(`Erreur : ${error.message}. Veuillez réessayer.`, 'error');
-
+      console.error("Erreur lors de la génération de la réponse:", error);
+      showNotification(
+        `Erreur : ${error.message}. Veuillez réessayer.`,
+        "error"
+      );
     } finally {
-        // Cache l'animation de chargement et réactive le bouton d'envoi
-        sendButton.classList.remove('loading');
-        sendButton.disabled = false;
+      sendButton.classList.remove("loading");
+      sendButton.disabled = false;
     }
+  }
+
+// Fonction pour épingler une réponse à la barre de saisie
+function pinResponse(messageElement) {
+    const responseText = messageElement.querySelector('div:first-child').textContent;
+    const truncatedText = responseText.length > 50 ? responseText.substring(0, 50) + '...' : responseText;
+
+    pinnedResponses.push({
+        text: responseText,
+        displayText: truncatedText
+    });
+    updatePinnedItems();
+}
+
+// Fonction pour mettre à jour l'affichage des éléments épinglés (fichiers et réponses)
+function updatePinnedItems() {
+    const pinnedItems = document.getElementById('pinnedItems');
+    pinnedItems.innerHTML = '';
+
+    // Ajouter les fichiers épinglés
+    pinnedFiles.forEach((file, index) => {
+        const item = document.createElement('div');
+        item.className = 'pinned-item';
+        item.setAttribute('data-type', 'file');
+        item.innerHTML = `
+            <span class="icon">${file.type.startsWith('image/') ? '🖼️' : '📄'}</span>
+            <span class="name" title="${file.name}">${file.name}</span>
+            <span class="remove" onclick="removePinnedItem('file', ${index})">❌</span>
+        `;
+        pinnedItems.appendChild(item);
+    });
+
+    // Ajouter les réponses épinglées
+    pinnedResponses.forEach((response, index) => {
+        const item = document.createElement('div');
+        item.className = 'pinned-item';
+        item.setAttribute('data-type', 'response');
+        item.innerHTML = `
+            <span class="icon">💬</span>
+            <span class="name" title="${response.text}">${response.displayText}</span>
+            <span class="remove" onclick="removePinnedItem('response', ${index})">❌</span>
+        `;
+        pinnedItems.appendChild(item);
+    });
+
+    // Ajouter le prompt épinglé s'il existe
+    if (pinnedPrompt) {
+        const item = document.createElement('div');
+        item.className = 'pinned-item';
+        item.setAttribute('data-type', 'prompt');
+        item.innerHTML = `
+            <span class="icon">🤖</span>
+            <span class="name" title="${pinnedPrompt.title}">${pinnedPrompt.title}</span>
+            <span class="remove" onclick="removePinnedItem('prompt')">❌</span>
+        `;
+        pinnedItems.appendChild(item);
+    }
+}
+
+// Fonction pour supprimer un élément épinglé
+function removePinnedItem(type, index) {
+    if (type === 'file') {
+        pinnedFiles.splice(index, 1);
+    } else if (type === 'response') {
+        pinnedResponses.splice(index, 1);
+    } else if (type === 'prompt') {
+        pinnedPrompt = null;
+    }
+    updatePinnedItems();
+}
+
+
+
+// Fonction pour répondre à un message spécifique
+function replyToMessage(messageElement) {
+    // Récupérer le contenu du message auquel on répond
+    const messageToReplyTo = messageElement.querySelector('div:first-child').textContent;
+
+    // Ajouter le contenu du message cité dans la zone de saisie
+    const userInput = document.getElementById('userInput');
+    userInput.value = `> ${messageToReplyTo}\n\n`; // Vous pouvez personnaliser le format de la citation
+
+    // Placer le curseur à la fin du texte
+    userInput.focus();
+    userInput.setSelectionRange(userInput.value.length, userInput.value.length);
 }
 
 // Fonction pour lire un fichier en base64
@@ -651,10 +812,10 @@ function addMessageToChat(sender, message) {
     const messageContainer = document.getElementById('messageContainer');
     const messageElement = document.createElement('div');
     messageElement.classList.add('message', sender === 'user' ? 'user-message' : 'ai-message');
-    
+
     if (sender === 'ai') {
         message = message.replace(/\*\*/g, '\n');
-        
+
         const textElement = document.createElement('div');
         messageElement.appendChild(textElement);
 
@@ -664,9 +825,9 @@ function addMessageToChat(sender, message) {
         actionsElement.classList.add('message-actions');
         actionsElement.innerHTML = `
             <button onclick="copyResponse(this.parentNode.parentNode)"><i class="fas fa-copy"></i></button>
-            <button onclick="exportResponse(this.parentNode.parentNode, 'word')"><i class="fas fa-file-word"></i></button>
             <button onclick="exportResponse(this.parentNode.parentNode, 'pdf')"><i class="fas fa-file-pdf"></i></button>
             <button onclick="shareResponse(this.parentNode.parentNode)"><i class="fas fa-share-alt"></i></button>
+            <button class="reply-button" onclick="pinResponse(this.parentNode.parentNode)"><i class="fas fa-reply"></i></button> 
         `;
         messageElement.appendChild(actionsElement);
     } else {
@@ -807,8 +968,8 @@ function buySubscription() {
                 showInvoiceDetails(transaction);
                 showNotification(`Forfait ${subscriptionType} activé avec succès !`, 'success');
                 
-                // Récompenser le parrain
-                await rewardReferrer(currentUser.username, price);
+            // Vérifier si c'est le premier achat et récompenser le parrain
+            await checkFirstPurchaseAndRewardReferrer(currentUser.username, price);
             } else {
                 showNotification('Le paiement a été annulé ou a échoué.', 'error');
             }
@@ -864,8 +1025,8 @@ function buyCredits() {
                 showInvoiceDetails(transaction);
                 showNotification(`${creditAmount} crédits ont été ajoutés à votre compte.`, 'success');
                 
-                // Récompenser le parrain
-                await rewardReferrer(currentUser.username, price);
+            // Vérifier si c'est le premier achat et récompenser le parrain
+            await checkFirstPurchaseAndRewardReferrer(currentUser.username, price);
             } else {
                 showNotification('Le paiement a été annulé ou a échoué.', 'error');
             }
@@ -874,34 +1035,90 @@ function buyCredits() {
     fedaPayInstance.open();
 }
 
+// Fonction pour vérifier le premier achat et récompenser le parrain
+async function checkFirstPurchaseAndRewardReferrer(username, amount) {
+    const userRef = db.ref(`users/${username}`);
+    const snapshot = await userRef.once('value');
+    const userData = snapshot.val();
+    
+    if (userData && !userData.firstPurchase) {
+        // Marquer que l'utilisateur a effectué son premier achat
+        await userRef.update({ firstPurchase: true });
+        
+        // Récompenser le parrain si l'utilisateur a été parrainé
+        if (userData.referredBy) {
+            const referrerQuery = await db.ref('users').orderByChild('referralCode').equalTo(userData.referredBy).once('value');
+            const referrer = referrerQuery.val();
+            
+            if (referrer) {
+                const referrerUsername = Object.keys(referrer)[0];
+                const referrerRef = db.ref(`users/${referrerUsername}`);
+                
+                await referrerRef.transaction((user) => {
+                    if (user) {
+                        user.paidCredits = (user.paidCredits || 0) + 10;
+                        if (user.referrals && user.referrals[username]) {
+                            user.referrals[username].isActive = true;
+                        }
+                    }
+                    return user;
+                });
+                
+                // Mettre à jour les statistiques de parrainage
+                await updateReferralStats(referrerUsername);
+                
+                showNotification(`Le parrain de ${username} a reçu 10 crédits pour le premier achat de son filleul !`, 'success');
+            }
+        }
+    }
+}
+
 async function addCreditsToUser(amount) {
     currentUser.paidCredits += amount;
     await syncUserData();
     document.getElementById('paidCredits').textContent = currentUser.paidCredits;
 }
 
+function getShareMessage(referralLink) {
+    return encodeURIComponent(`🚀 Découvrez le secret pour booster votre apprentissage ! 🧠✨
+
+J'ai trouvé une pépite et je ne peux pas garder ça pour moi. Imaginez avoir un assistant personnel ultra-intelligent, disponible 24/7, pour répondre à toutes vos questions... C'est ce que j'ai avec Eduque moi !
+
+Curieux ? Cliquez sur ce lien magique et embarquez pour une aventure intellectuelle incroyable :
+${referralLink}
+
+PS : En utilisant mon lien, vous me donnez un petit coup de pouce. Mais chut, c'est notre secret ! 😉`);
+}
+
 function shareOnFacebook() {
-    const url = encodeURIComponent(document.getElementById('referralLink').value);
-    const message = encodeURIComponent("Rejoignez-moi sur Eduque moi et apprenons ensemble ! Utilisez mon lien de parrainage pour obtenir des bonus :");
+    const url = document.getElementById('referralLink').value;
+    const message = getShareMessage(url);
     window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${message}`, '_blank');
 }
 
 function shareOnTwitter() {
-    const url = encodeURIComponent(document.getElementById('referralLink').value);
-    const message = encodeURIComponent("Découvrez Eduque moi avec moi ! Utilisez mon lien de parrainage pour commencer votre voyage d'apprentissage :");
+    const url = document.getElementById('referralLink').value;
+    const message = getShareMessage(url);
     window.open(`https://twitter.com/intent/tweet?url=${url}&text=${message}`, '_blank');
 }
 
 function shareOnLinkedIn() {
-    const url = encodeURIComponent(document.getElementById('referralLink').value);
-    const message = encodeURIComponent("Je vous recommande Eduque moi pour améliorer vos connaissances. Utilisez mon lien de parrainage :");
-    window.open(`https://www.linkedin.com/shareArticle?mini=true&url=${url}&title=Rejoignez Eduque moi&summary=${message}`, '_blank');
+    const url = document.getElementById('referralLink').value;
+    const message = getShareMessage(url);
+    window.open(`https://www.linkedin.com/shareArticle?mini=true&url=${url}&title=Boostez votre apprentissage avec Eduque moi&summary=${message}`, '_blank');
 }
 
 function shareOnWhatsApp() {
-    const url = encodeURIComponent(document.getElementById('referralLink').value);
-    const message = encodeURIComponent("Hé ! J'utilise Eduque moi pour apprendre. Rejoins-moi avec ce lien de parrainage : ");
-    window.open(`https://wa.me/?text=${message}${url}`, '_blank');
+    const url = document.getElementById('referralLink').value;
+    const message = getShareMessage(url);
+    window.open(`https://wa.me/?text=${message}`, '_blank');
+}
+
+function copyReferralLink() {
+    const linkInput = document.getElementById('referralLink');
+    linkInput.select();
+    document.execCommand('copy');
+    showNotification('Lien de partage copié !', 'success');
 }
 
 function showNotification(message, type) {
@@ -1271,7 +1488,7 @@ function removePinnedPrompt() {
     updatePinnedPrompt();
 }
 
-// Fonction pour afficher la modal de parrainage
+// Fonction pour afficher la modal de parrainage (mise à jour)
 async function showReferralModal() {
     const modal = document.getElementById('referralModal');
     modal.style.display = 'block';
@@ -1290,7 +1507,8 @@ async function showReferralModal() {
         document.getElementById('referralLink').value = "Erreur lors de la récupération du code de parrainage.";
     }
     
-    updateReferralStats();
+    // Mettre à jour les statistiques de parrainage
+    await updateReferralStats(currentUser.username);
 }
 
 // Fonction pour générer un code de parrainage unique
@@ -1315,18 +1533,10 @@ async function getOrCreateReferralCode() {
     }
 }
 
-function copyReferralLink() {
-    const linkInput = document.getElementById('referralLink');
-    linkInput.select();
-    document.execCommand('copy');
-    showNotification('Lien de parrainage copié !', 'success');
-}
 
 // Fonction pour mettre à jour les statistiques de parrainage
-async function updateReferralStats() {
-    if (!currentUser) return;
-    
-    const userRef = db.ref('users/' + currentUser.username);
+async function updateReferralStats(referrerUsername) {
+    const userRef = db.ref(`users/${referrerUsername}`);
     const snapshot = await userRef.once('value');
     const userData = snapshot.val();
     
@@ -1335,35 +1545,15 @@ async function updateReferralStats() {
         const totalReferrals = Object.keys(referrals).length;
         const activeReferrals = Object.values(referrals).filter(r => r.isActive).length;
         
-        document.getElementById('totalReferrals').textContent = totalReferrals;
-        document.getElementById('activeReferrals').textContent = activeReferrals;
-    } else {
-        document.getElementById('totalReferrals').textContent = '0';
-        document.getElementById('activeReferrals').textContent = '0';
-    }
-}
+        await userRef.update({
+            totalReferrals: totalReferrals,
+            activeReferrals: activeReferrals
+        });
 
-async function rewardReferrer(username, amount) {
-    const userRef = db.ref(`users/${username}`);
-    const snapshot = await userRef.once('value');
-    const userData = snapshot.val();
-    
-    if (userData && userData.referredBy) {
-        const referrerQuery = await db.ref('users').orderByChild('referralCode').equalTo(userData.referredBy).once('value');
-        const referrer = referrerQuery.val();
-        
-        if (referrer) {
-            const referrerUsername = Object.keys(referrer)[0];
-            const referrerRef = db.ref(`users/${referrerUsername}`);
-            
-            await referrerRef.transaction((user) => {
-                if (user) {
-                    user.paidCredits = (user.paidCredits || 0) + 2;
-                }
-                return user;
-            });
-            
-            showNotification(`Votre parrain a reçu 2 crédits grâce à votre achat !`, 'success');
+        // Si l'utilisateur courant est le parrain, mettre à jour l'interface
+        if (currentUser && currentUser.username === referrerUsername) {
+            document.getElementById('totalReferrals').textContent = totalReferrals;
+            document.getElementById('activeReferrals').textContent = activeReferrals;
         }
     }
 }
@@ -1567,9 +1757,6 @@ setInterval(updateUI, 300000);
 
 // Initialisation
 checkApiStatusRegularly();
-
-        // Écouter les changements d'état d'authentification
-        auth.onAuthStateChanged(onAuthStateChanged);
 
 // Exportation des fonctions et variables nécessaires
 window.showLoginModal = showLoginModal;

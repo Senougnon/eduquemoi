@@ -19,7 +19,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.29.0/docxtemplater.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PizZip/3.0.6/pizzip.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script type="importmap">
         {
             "imports": {
@@ -41,15 +40,15 @@
             <div class="logo">Eduque moi</div>
         </div>
         <div class="auth-buttons">
-            <button id="googleAuthBtn" onclick="handleGoogleAuth()">
-                <i class="fab fa-google"></i> Se connecter avec Google
-            </button>
+            <button id="loginBtn" onclick="showLoginModal()">Se connecter</button>
+            <button id="registerBtn" onclick="showRegisterModal()">S'inscrire</button>
             <button id="logoutBtn" onclick="logout()" class="hidden">Se déconnecter</button>
             <button class="theme-toggle" onclick="toggleTheme()">
                 <i class="fas fa-moon"></i>
             </button>
         </div>
     </div>
+
     <div class="main-container">
         <div class="sidebar">
             <div id="userInfo" class="user-info-card">
@@ -95,7 +94,7 @@
             <button onclick="buyCredits()">Acheter des crédits</button>
 
             <button id="referralBtn" class="full-width-button" onclick="showReferralModal()">
-                <i class="fas fa-user-plus"></i> Parrainage
+                <i class="fas fa-user-plus"></i> Récompense
             </button>
 
             <div id="conversationHistory">
@@ -133,7 +132,7 @@
 
     <div id="promptListModal" class="modal">
         <div class="modal-content prompt-modal">
-            <span class="close" onclick="closePromptModal()">&times;</span>
+            <span class="close" onclick="closePromptModal()">×</span>
             <h2>Sélectionnez un Prompt</h2>
             <div class="prompt-container">
                 <div class="prompt-categories">
@@ -150,7 +149,7 @@
 
     <div id="loginModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeModal('loginModal')">&times;</span>
+            <span class="close" onclick="closeModal('loginModal')">×</span>
             <h2>Connexion</h2>
             <input type="text" id="loginUsername" placeholder="Nom d'utilisateur">
             <input type="password" id="loginPassword" placeholder="Mot de passe">
@@ -160,7 +159,7 @@
 
     <div id="registerModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeModal('registerModal')">&times;</span>
+            <span class="close" onclick="closeModal('registerModal')">×</span>
             <h2>Inscription</h2>
             <input type="text" id="registerUsername" placeholder="Nom d'utilisateur">
             <input type="password" id="registerPassword" placeholder="Mot de passe">
@@ -170,9 +169,19 @@
 
     <div id="referralModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeModal('referralModal')">&times;</span>
-            <h2>Programme de Parrainage</h2>
-            <p>Partagez votre lien unique et gagnez des récompenses pour chaque nouvel utilisateur inscrit !</p>
+            <span class="close" onclick="closeModal('referralModal')">×</span>
+            <h2>Programme de Récompense Eduque moi</h2>
+            
+            <div class="referral-info">
+                <p>Invitez vos amis et gagnez des récompenses !</p>
+                <ul>
+                    <li><strong>Votre récompense :</strong> 10 crédits gratuits pour chaque ami(e) qui effectue son premier achat</li>
+                    <li><strong>Condition :</strong> La récompense vous est accordée après le premier achat de votre ami(e) (abonnement ou crédits)</li>
+                    <li><strong>Pour votre ami(e) :</strong> 10 crédits offerts dès l'inscription</li>
+                </ul>
+                <p>Partagez votre lien unique et commencez à gagner des crédits dès maintenant !</p>
+            </div>
+    
             <input type="text" id="referralLink" readonly>
             <div class="share-buttons">
                 <button onclick="copyReferralLink()" class="copy-share" title="Copier le lien"><i class="fas fa-copy"></i></button>
