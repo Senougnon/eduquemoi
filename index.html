@@ -94,7 +94,7 @@
             <button onclick="buyCredits()">Acheter des crédits</button>
 
             <button id="referralBtn" class="full-width-button" onclick="showReferralModal()">
-                <i class="fas fa-user-plus"></i> Parrainage
+                <i class="fas fa-user-plus"></i> Récompense
             </button>
 
             <div id="conversationHistory">
@@ -170,8 +170,18 @@
     <div id="referralModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeModal('referralModal')">&times;</span>
-            <h2>Programme de Parrainage</h2>
-            <p>Partagez votre lien unique et gagnez des récompenses pour chaque nouvel utilisateur inscrit !</p>
+            <h2>Programme de Récompense Eduque moi</h2>
+            
+            <div class="referral-info">
+                <p>Invitez vos amis et gagnez des récompenses !</p>
+                <ul>
+                    <li><strong>Votre récompense :</strong> 10 crédits gratuits pour chaque ami(e) qui effectue son premier achat</li>
+                    <li><strong>Condition :</strong> La récompense vous est accordée après le premier achat de votre ami(e) (abonnement ou crédits)</li>
+                    <li><strong>Pour votre ami(e) :</strong> 10 crédits offerts dès l'inscription</li>
+                </ul>
+                <p>Partagez votre lien unique et commencez à gagner des crédits dès maintenant !</p>
+            </div>
+    
             <input type="text" id="referralLink" readonly>
             <div class="share-buttons">
                 <button onclick="copyReferralLink()" class="copy-share" title="Copier le lien"><i class="fas fa-copy"></i></button>

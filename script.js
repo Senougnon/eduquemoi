@@ -211,12 +211,15 @@ async function register() {
         const now = new Date();
         const userData = {
             password: password,
-            freeCredits: FREE_CREDITS_PER_DAY + 5, // 5 crédits supplémentaires pour le filleul
+            freeCredits: FREE_CREDITS_PER_DAY,
             paidCredits: 0,
             subscription: null,
             subscriptionEndDate: null,
             lastFreeCreditsReset: now.toISOString(),
-            referredBy: referralCode || null
+            referredBy: referralCode || null,
+            firstPurchase: false,
+            totalReferrals: 0,
+            activeReferrals: 0
         };
         
         await userRef.set(userData);
@@ -228,19 +231,22 @@ async function register() {
                 const referrerUsername = Object.keys(referrer)[0];
                 await db.ref(`users/${referrerUsername}/referrals/${username}`).set({
                     date: now.toISOString(),
-                    isActive: true
+                    isActive: false
                 });
                 
-                // Attribuer 5 crédits au parrain
+                // Mettre à jour uniquement le total des parrainages pour le parrain
                 const referrerRef = db.ref(`users/${referrerUsername}`);
                 await referrerRef.transaction((user) => {
                     if (user) {
-                        user.paidCredits = (user.paidCredits || 0) + 5;
+                        user.totalReferrals = (user.totalReferrals || 0) + 1;
                     }
                     return user;
                 });
                 
-                showNotification('Vous avez reçu 5 crédits grâce à votre parrain !', 'success');
+                // Mettre à jour les statistiques affichées si le parrain est l'utilisateur actuel
+                if (currentUser && currentUser.username === referrerUsername) {
+                    document.getElementById('totalReferrals').textContent = (parseInt(document.getElementById('totalReferrals').textContent) || 0) + 1;
+                }
             }
         }
         
@@ -729,8 +735,8 @@ function buySubscription() {
                 showInvoiceDetails(transaction);
                 showNotification(`Forfait ${subscriptionType} activé avec succès !`, 'success');
                 
-                // Récompenser le parrain
-                await rewardReferrer(currentUser.username, price);
+            // Vérifier si c'est le premier achat et récompenser le parrain
+            await checkFirstPurchaseAndRewardReferrer(currentUser.username, price);
             } else {
                 showNotification('Le paiement a été annulé ou a échoué.', 'error');
             }
@@ -786,8 +792,8 @@ function buyCredits() {
                 showInvoiceDetails(transaction);
                 showNotification(`${creditAmount} crédits ont été ajoutés à votre compte.`, 'success');
                 
-                // Récompenser le parrain
-                await rewardReferrer(currentUser.username, price);
+            // Vérifier si c'est le premier achat et récompenser le parrain
+            await checkFirstPurchaseAndRewardReferrer(currentUser.username, price);
             } else {
                 showNotification('Le paiement a été annulé ou a échoué.', 'error');
             }
@@ -796,34 +802,90 @@ function buyCredits() {
     fedaPayInstance.open();
 }
 
+// Fonction pour vérifier le premier achat et récompenser le parrain
+async function checkFirstPurchaseAndRewardReferrer(username, amount) {
+    const userRef = db.ref(`users/${username}`);
+    const snapshot = await userRef.once('value');
+    const userData = snapshot.val();
+    
+    if (userData && !userData.firstPurchase) {
+        // Marquer que l'utilisateur a effectué son premier achat
+        await userRef.update({ firstPurchase: true });
+        
+        // Récompenser le parrain si l'utilisateur a été parrainé
+        if (userData.referredBy) {
+            const referrerQuery = await db.ref('users').orderByChild('referralCode').equalTo(userData.referredBy).once('value');
+            const referrer = referrerQuery.val();
+            
+            if (referrer) {
+                const referrerUsername = Object.keys(referrer)[0];
+                const referrerRef = db.ref(`users/${referrerUsername}`);
+                
+                await referrerRef.transaction((user) => {
+                    if (user) {
+                        user.paidCredits = (user.paidCredits || 0) + 5;
+                        if (user.referrals && user.referrals[username]) {
+                            user.referrals[username].isActive = true;
+                        }
+                    }
+                    return user;
+                });
+                
+                // Mettre à jour les statistiques de parrainage
+                await updateReferralStats(referrerUsername);
+                
+                showNotification(`Le parrain de ${username} a reçu 5 crédits pour le premier achat de son filleul !`, 'success');
+            }
+        }
+    }
+}
+
 async function addCreditsToUser(amount) {
     currentUser.paidCredits += amount;
     await syncUserData();
     document.getElementById('paidCredits').textContent = currentUser.paidCredits;
 }
 
+function getShareMessage(referralLink) {
+    return encodeURIComponent(`🚀 Découvrez le secret pour booster votre apprentissage ! 🧠✨
+
+J'ai trouvé une pépite et je ne peux pas garder ça pour moi. Imaginez avoir un assistant personnel ultra-intelligent, disponible 24/7, pour répondre à toutes vos questions... C'est ce que j'ai avec Eduque moi !
+
+Curieux ? Cliquez sur ce lien magique et embarquez pour une aventure intellectuelle incroyable :
+${referralLink}
+
+PS : En utilisant mon lien, vous me donnez un petit coup de pouce. Mais chut, c'est notre secret ! 😉`);
+}
+
 function shareOnFacebook() {
-    const url = encodeURIComponent(document.getElementById('referralLink').value);
-    const message = encodeURIComponent("Rejoignez-moi sur Eduque moi et apprenons ensemble ! Utilisez mon lien de parrainage pour obtenir des bonus :");
+    const url = document.getElementById('referralLink').value;
+    const message = getShareMessage(url);
     window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${message}`, '_blank');
 }
 
 function shareOnTwitter() {
-    const url = encodeURIComponent(document.getElementById('referralLink').value);
-    const message = encodeURIComponent("Découvrez Eduque moi avec moi ! Utilisez mon lien de parrainage pour commencer votre voyage d'apprentissage :");
+    const url = document.getElementById('referralLink').value;
+    const message = getShareMessage(url);
     window.open(`https://twitter.com/intent/tweet?url=${url}&text=${message}`, '_blank');
 }
 
 function shareOnLinkedIn() {
-    const url = encodeURIComponent(document.getElementById('referralLink').value);
-    const message = encodeURIComponent("Je vous recommande Eduque moi pour améliorer vos connaissances. Utilisez mon lien de parrainage :");
-    window.open(`https://www.linkedin.com/shareArticle?mini=true&url=${url}&title=Rejoignez Eduque moi&summary=${message}`, '_blank');
+    const url = document.getElementById('referralLink').value;
+    const message = getShareMessage(url);
+    window.open(`https://www.linkedin.com/shareArticle?mini=true&url=${url}&title=Boostez votre apprentissage avec Eduque moi&summary=${message}`, '_blank');
 }
 
 function shareOnWhatsApp() {
-    const url = encodeURIComponent(document.getElementById('referralLink').value);
-    const message = encodeURIComponent("Hé ! J'utilise Eduque moi pour apprendre. Rejoins-moi avec ce lien de parrainage : ");
-    window.open(`https://wa.me/?text=${message}${url}`, '_blank');
+    const url = document.getElementById('referralLink').value;
+    const message = getShareMessage(url);
+    window.open(`https://wa.me/?text=${message}`, '_blank');
+}
+
+function copyReferralLink() {
+    const linkInput = document.getElementById('referralLink');
+    linkInput.select();
+    document.execCommand('copy');
+    showNotification('Lien de partage copié !', 'success');
 }
 
 function showNotification(message, type) {
@@ -1193,7 +1255,7 @@ function removePinnedPrompt() {
     updatePinnedPrompt();
 }
 
-// Fonction pour afficher la modal de parrainage
+// Fonction pour afficher la modal de parrainage (mise à jour)
 async function showReferralModal() {
     const modal = document.getElementById('referralModal');
     modal.style.display = 'block';
@@ -1212,7 +1274,8 @@ async function showReferralModal() {
         document.getElementById('referralLink').value = "Erreur lors de la récupération du code de parrainage.";
     }
     
-    updateReferralStats();
+    // Mettre à jour les statistiques de parrainage
+    await updateReferralStats(currentUser.username);
 }
 
 // Fonction pour générer un code de parrainage unique
@@ -1237,18 +1300,10 @@ async function getOrCreateReferralCode() {
     }
 }
 
-function copyReferralLink() {
-    const linkInput = document.getElementById('referralLink');
-    linkInput.select();
-    document.execCommand('copy');
-    showNotification('Lien de parrainage copié !', 'success');
-}
 
 // Fonction pour mettre à jour les statistiques de parrainage
-async function updateReferralStats() {
-    if (!currentUser) return;
-    
-    const userRef = db.ref('users/' + currentUser.username);
+async function updateReferralStats(referrerUsername) {
+    const userRef = db.ref(`users/${referrerUsername}`);
     const snapshot = await userRef.once('value');
     const userData = snapshot.val();
     
@@ -1257,35 +1312,15 @@ async function updateReferralStats() {
         const totalReferrals = Object.keys(referrals).length;
         const activeReferrals = Object.values(referrals).filter(r => r.isActive).length;
         
-        document.getElementById('totalReferrals').textContent = totalReferrals;
-        document.getElementById('activeReferrals').textContent = activeReferrals;
-    } else {
-        document.getElementById('totalReferrals').textContent = '0';
-        document.getElementById('activeReferrals').textContent = '0';
-    }
-}
+        await userRef.update({
+            totalReferrals: totalReferrals,
+            activeReferrals: activeReferrals
+        });
 
-async function rewardReferrer(username, amount) {
-    const userRef = db.ref(`users/${username}`);
-    const snapshot = await userRef.once('value');
-    const userData = snapshot.val();
-    
-    if (userData && userData.referredBy) {
-        const referrerQuery = await db.ref('users').orderByChild('referralCode').equalTo(userData.referredBy).once('value');
-        const referrer = referrerQuery.val();
-        
-        if (referrer) {
-            const referrerUsername = Object.keys(referrer)[0];
-            const referrerRef = db.ref(`users/${referrerUsername}`);
-            
-            await referrerRef.transaction((user) => {
-                if (user) {
-                    user.paidCredits = (user.paidCredits || 0) + 2;
-                }
-                return user;
-            });
-            
-            showNotification(`Votre parrain a reçu 2 crédits grâce à votre achat !`, 'success');
+        // Si l'utilisateur courant est le parrain, mettre à jour l'interface
+        if (currentUser && currentUser.username === referrerUsername) {
+            document.getElementById('totalReferrals').textContent = totalReferrals;
+            document.getElementById('activeReferrals').textContent = activeReferrals;
         }
     }
 }
