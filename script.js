@@ -823,7 +823,7 @@ async function checkFirstPurchaseAndRewardReferrer(username, amount) {
                 
                 await referrerRef.transaction((user) => {
                     if (user) {
-                        user.paidCredits = (user.paidCredits || 0) + 5;
+                        user.paidCredits = (user.paidCredits || 0) + 10;
                         if (user.referrals && user.referrals[username]) {
                             user.referrals[username].isActive = true;
                         }
@@ -834,7 +834,7 @@ async function checkFirstPurchaseAndRewardReferrer(username, amount) {
                 // Mettre à jour les statistiques de parrainage
                 await updateReferralStats(referrerUsername);
                 
-                showNotification(`Le parrain de ${username} a reçu 5 crédits pour le premier achat de son filleul !`, 'success');
+                showNotification(`Le parrain de ${username} a reçu 10 crédits pour le premier achat de son filleul !`, 'success');
             }
         }
     }
