@@ -1,5 +1,3 @@
-console.log("Chargement de la page bibliothèque");
-
 // Configuration Firebase (à remplacer par vos propres informations)
 const firebaseConfig = {
     apiKey: "AIzaSyCvizcYorGDPN3GXqma0opp7wAiMkaCt64",
@@ -22,57 +20,225 @@ let documents = [];
 let currentPage = 1;
 const documentsPerPage = 12;
 
-// Fonction pour acheter un document
-function purchaseDocument() {
-    const docId = document.getElementById('modalTitle').textContent;
-    const credits = parseInt(document.getElementById('modalCredits').textContent);
+function loadUserInfo() {
+    const userData = JSON.parse(localStorage.getItem('eduqueMoiUserData'));
+    if (userData && userData.username) {
+        // Récupérer les données les plus récentes depuis Firebase
+        db.ref(`users/${userData.username}`).once('value', (snapshot) => {
+            const firebaseUserData = snapshot.val();
+            if (firebaseUserData) {
+                currentUser = {
+                    ...userData,
+                    freeCredits: firebaseUserData.freeCredits,
+                    paidCredits: firebaseUserData.paidCredits
+                };
+                document.getElementById('username').textContent = currentUser.username;
+                document.getElementById('availableCredits').textContent = currentUser.freeCredits + currentUser.paidCredits;
+                document.getElementById('logoutBtn').classList.remove('hidden');
+
+                // Mettre à jour le localStorage avec les données les plus récentes
+                localStorage.setItem('eduqueMoiUserData', JSON.stringify(currentUser));
+            } else {
+                // Rediriger vers la page principale si l'utilisateur n'est pas trouvé dans Firebase
+                window.location.href = 'index.html';
+            }
+        });
+    } else {
+        // Rediriger vers la page principale si l'utilisateur n'est pas connecté
+        window.location.href = 'index.html';
+    }
+}
+
+function purchaseDocument(doc) {
+    console.log("Début de la fonction purchaseDocument");
+    const docId = doc.id;
+    const docTitle = doc.title;
+    const credits = doc.price;
+    console.log(`Tentative d'achat du document ID: ${docId}, Titre: ${docTitle} pour ${credits} crédits`);
 
     if (currentUser.freeCredits + currentUser.paidCredits >= credits) {
-        // Déduire les crédits
-        if (currentUser.freeCredits >= credits) {
-            currentUser.freeCredits -= credits;
-        } else {
-            const remainingCredits = credits - currentUser.freeCredits;
-            currentUser.freeCredits = 0;
-            currentUser.paidCredits -= remainingCredits;
-        }
+        console.log("L'utilisateur a suffisamment de crédits");
+        const userRef = db.ref(`users/${currentUser.username}`);
 
-        // Mettre à jour l'affichage des crédits
-        document.getElementById('availableCredits').textContent = currentUser.freeCredits + currentUser.paidCredits;
+        userRef.transaction((userData) => {
+            console.log("Début de la transaction", userData);
+            if (userData) {
+                if (userData.freeCredits >= credits) {
+                    userData.freeCredits -= credits;
+                } else {
+                    const remainingCredits = credits - userData.freeCredits;
+                    userData.freeCredits = 0;
+                    userData.paidCredits -= remainingCredits;
+                }
+                console.log("Données utilisateur après mise à jour", userData);
+                return userData;
+            }
+            return null;
+        }, (error, committed, snapshot) => {
+            if (error) {
+                console.error('Erreur lors de la mise à jour des crédits:', error);
+                alert("Une erreur s'est produite lors de l'achat. Veuillez réessayer.");
+                return;
+            }
 
-        // Mettre à jour les données utilisateur dans le localStorage
-        localStorage.setItem('eduqueMoiUserData', JSON.stringify(currentUser));
+            if (!committed) {
+                console.log("La transaction n'a pas été appliquée");
+                alert("L'achat n'a pas pu être effectué. Veuillez réessayer.");
+                return;
+            }
 
-        // Ajouter le document à la bibliothèque de l'utilisateur
-        db.ref(`userLibraries/${currentUser.username}/${docId}`).set(true)
-            .then(() => {
-                alert(`Vous avez acheté le document "${docId}" pour ${credits} crédits.`);
-                // Fermeture de la modale
+            console.log("Transaction réussie, enregistrement de la vente");
+            const updatedUserData = snapshot.val();
+            console.log("Données utilisateur mises à jour", updatedUserData);
+
+            currentUser.freeCredits = updatedUserData.freeCredits;
+            currentUser.paidCredits = updatedUserData.paidCredits;
+
+            document.getElementById('availableCredits').textContent = currentUser.freeCredits + currentUser.paidCredits;
+
+            localStorage.setItem('eduqueMoiUserData', JSON.stringify(currentUser));
+
+            const salesRef = db.ref('sales').push();
+            salesRef.set({
+                documentId: docId,
+                documentTitle: docTitle,
+                price: credits,
+                buyerUsername: currentUser.username,
+                date: firebase.database.ServerValue.TIMESTAMP
+            }).then(() => {
+                console.log("Vente enregistrée avec succès");
+                alert(`Vous avez acheté le document "${docTitle}" pour ${credits} crédits.`);
+                
                 closeModal('documentModal');
 
-                // Ajout à l'historique
-                addToHistory('Achat du document : ' + docId);
+                addToHistory('Achat du document : ' + docTitle);
 
-                // Mise à jour de l'historique des ventes
-                const salesRef = db.ref('sales').push();
-                salesRef.set({
-                    documentTitle: docId,
-                    price: credits,
-                    buyerUsername: currentUser.username,
-                    date: firebase.database.ServerValue.TIMESTAMP
-                });
+                // Mise à jour de l'affichage du document
+                openDocumentModal(doc);
 
-                // Recharger le document pour afficher toutes les pages
-                const docIndex = documents.findIndex(doc => doc.title === docId);
-                if (docIndex !== -1) {
-                    openDocumentModal(documents[docIndex]);
-                }
+                // Rafraîchir l'affichage des documents
+                loadDocuments();
+            }).catch(error => {
+                console.error("Erreur lors de l'enregistrement de la vente:", error);
+                alert("Une erreur s'est produite lors de l'enregistrement de l'achat. Veuillez contacter le support.");
             });
+        });
     } else {
+        console.log("L'utilisateur n'a pas assez de crédits");
         alert("Vous n'avez pas assez de crédits pour acheter ce document.");
     }
 }
 
+function checkDocumentPurchaseStatus(docId, docTitle) {
+    console.log(`Vérification du statut d'achat pour le document ID: ${docId}, Titre: ${docTitle}`);
+    return db.ref('sales')
+        .orderByChild('buyerUsername')
+        .equalTo(currentUser.username)
+        .once('value')
+        .then((snapshot) => {
+            console.log("Données de vente récupérées", snapshot.val());
+            let isPurchased = false;
+            snapshot.forEach((childSnapshot) => {
+                const sale = childSnapshot.val();
+                console.log("Vérification de la vente", sale);
+                if (sale.documentId === docId || sale.documentId === docTitle || 
+                    sale.documentTitle === docId || sale.documentTitle === docTitle) {
+                    isPurchased = true;
+                    console.log("Document trouvé comme acheté");
+                    return true; // Sortir de la boucle forEach
+                }
+            });
+            console.log(`Statut d'achat final pour ID: ${docId}, Titre: ${docTitle}:`, isPurchased);
+            return isPurchased;
+        }).catch(error => {
+            console.error("Erreur lors de la vérification du statut d'achat:", error);
+            return false;
+        });
+}
+
+function openDocumentModal(doc) {
+    console.log("Ouverture de la modal pour le document", doc);
+    const modal = document.getElementById('documentModal');
+    document.getElementById('modalTitle').textContent = doc.title;
+    document.getElementById('modalDescription').textContent = doc.description || 'Aucune description disponible.';
+    document.getElementById('modalCredits').textContent = `${doc.price} crédits`;
+
+    const documentPreview = document.getElementById('documentPreview');
+    documentPreview.innerHTML = '';
+
+    checkDocumentPurchaseStatus(doc.id, doc.title).then(isPurchased => {
+        console.log(`Le document ${doc.id} (${doc.title}) est-il acheté?`, isPurchased);
+        if (isPurchased) {
+            console.log("Affichage du document acheté");
+            doc.imageUrls.forEach(imageUrl => {
+                const img = document.createElement('img');
+                img.src = imageUrl;
+                img.alt = doc.title;
+                img.style.maxWidth = '100%';
+                img.style.height = 'auto';
+                documentPreview.appendChild(img);
+            });
+
+            document.getElementById('purchaseBtn').style.display = 'none';
+            document.getElementById('offlineBtn').style.display = 'block';
+        } else {
+            console.log("Affichage du document non acheté");
+            const firstPageImg = document.createElement('img');
+            firstPageImg.src = doc.imageUrls[0];
+            firstPageImg.alt = doc.title;
+            firstPageImg.style.maxWidth = '100%';
+            firstPageImg.style.height = 'auto';
+            documentPreview.appendChild(firstPageImg);
+
+            if (doc.imageUrls.length > 1) {
+                for (let i = 1; i < doc.imageUrls.length; i++) {
+                    const blurredPageDiv = document.createElement('div');
+                    blurredPageDiv.className = 'blurred-page';
+
+                    const payButton = document.createElement('button');
+                    payButton.className = 'pay-button';
+                    payButton.textContent = `Payer ce document pour avoir accès à son contenu`;
+                    payButton.onclick = () => purchaseDocument(doc);
+
+                    const blurredImg = document.createElement('img');
+                    blurredImg.src = doc.imageUrls[i];
+                    blurredImg.alt = doc.title;
+                    blurredImg.style.maxWidth = '100%';
+                    blurredImg.style.height = 'auto';
+                    blurredImg.style.filter = 'blur(5px)';
+
+                    blurredPageDiv.appendChild(payButton);
+                    blurredPageDiv.appendChild(blurredImg);
+                    documentPreview.appendChild(blurredPageDiv);
+                }
+            }
+
+            document.getElementById('purchaseBtn').style.display = 'block';
+            document.getElementById('offlineBtn').style.display = 'none';
+        }
+    }).catch(error => {
+        console.error("Erreur lors de l'ouverture de la modal:", error);
+    });
+
+    modal.style.display = 'block';
+
+    loadComments(doc.id);
+    initializeRating(doc.id);
+}
+function setupCreditListener() {
+    if (currentUser && currentUser.username) {
+        const userCreditsRef = db.ref(`users/${currentUser.username}`);
+        userCreditsRef.on('value', (snapshot) => {
+            const userData = snapshot.val();
+            if (userData) {
+                currentUser.freeCredits = userData.freeCredits;
+                currentUser.paidCredits = userData.paidCredits;
+                document.getElementById('availableCredits').textContent = currentUser.freeCredits + currentUser.paidCredits;
+                localStorage.setItem('eduqueMoiUserData', JSON.stringify(currentUser));
+            }
+        });
+    }
+}
 
 // Fonction pour ouvrir le document en plein écran 
 function openFullscreen() {
@@ -217,86 +383,19 @@ function searchDocuments() {
     displayDocuments();
 }
 
-// Fonction pour ouvrir la modale d'un document
-function openDocumentModal(doc) {
-    const modal = document.getElementById('documentModal');
-    document.getElementById('modalTitle').textContent = doc.title;
-    document.getElementById('modalDescription').textContent = doc.description || 'Aucune description disponible.';
-    document.getElementById('modalCredits').textContent = `${doc.price} crédits`;
 
-    // Afficher les images du document dans un conteneur avec défilement vertical
-    const documentPreview = document.getElementById('documentPreview');
-    documentPreview.innerHTML = ''; // Vider le conteneur
 
-    db.ref(`userLibraries/${currentUser.username}/${doc.id}`).once('value', (snapshot) => {
-        const isPurchased = snapshot.val();
-
-        if (isPurchased) {
-            // Afficher toutes les pages non floues
-            doc.imageUrls.forEach(imageUrl => {
-                const img = document.createElement('img');
-                img.src = imageUrl;
-                img.alt = doc.title;
-                img.style.maxWidth = '100%'; 
-                img.style.height = 'auto'; 
-                documentPreview.appendChild(img);
-            });
-        } else {
-            // Afficher la première page non floue
-            const firstPageImg = document.createElement('img');
-            firstPageImg.src = doc.imageUrls[0];
-            firstPageImg.alt = doc.title;
-            firstPageImg.style.maxWidth = '100%';
-            firstPageImg.style.height = 'auto';
-            documentPreview.appendChild(firstPageImg);
-
-            // Afficher les autres pages floues avec le bouton "Payer"
-            if (doc.imageUrls.length > 1) {
-                for (let i = 1; i < doc.imageUrls.length; i++) {
-                    const blurredPageDiv = document.createElement('div');
-                    blurredPageDiv.className = 'blurred-page';
-
-                    const payButton = document.createElement('button');
-                    payButton.className = 'pay-button';
-                    payButton.textContent = `Payer ce document pour avoir accès à son contenu`;
-                    payButton.onclick = purchaseDocument; // Appeler purchaseDocument() lorsque le bouton est cliqué
-
-                    const blurredImg = document.createElement('img');
-                    blurredImg.src = doc.imageUrls[i];
-                    blurredImg.alt = doc.title;
-                    blurredImg.style.maxWidth = '100%';
-                    blurredImg.style.height = 'auto';
-                    blurredImg.style.filter = 'blur(5px)';
-
-                    blurredPageDiv.appendChild(payButton); // Ajouter le bouton "Payer" avant l'image floue
-                    blurredPageDiv.appendChild(blurredImg);
-                    documentPreview.appendChild(blurredPageDiv);
-                }
+function refreshDocument(docId) {
+    db.ref(`documents/${docId}`).once('value', (snapshot) => {
+        const updatedDoc = snapshot.val();
+        if (updatedDoc) {
+            const index = documents.findIndex(doc => doc.id === docId);
+            if (index !== -1) {
+                documents[index] = { id: docId, ...updatedDoc };
+                displayDocuments();
             }
         }
     });
-
-
-    // Afficher/masquer les boutons en fonction de l'état du document (acheté ou non)
-    const purchaseBtn = document.getElementById('purchaseBtn');
-    const offlineBtn = document.getElementById('offlineBtn'); 
-
-    // Vérifier si le document est déjà acheté
-    db.ref(`userLibraries/${currentUser.username}/${doc.id}`).once('value', (snapshot) => {
-        const isPurchased = snapshot.val();
-        if (isPurchased) {
-            purchaseBtn.style.display = 'none';
-            offlineBtn.style.display = 'block'; 
-        } else {
-            purchaseBtn.style.display = 'block';
-            offlineBtn.style.display = 'none';
-        }
-    });
-
-    modal.style.display = 'block';
-
-    loadComments(doc.id);
-    initializeRating(doc.id);
 }
 
 // Fonction pour charger les commentaires d'un document
@@ -331,18 +430,6 @@ function useOffline() {
     // 3. Afficher le document hors ligne (par exemple, dans une nouvelle page ou une iframe)
     alert('Fonctionnalité hors ligne en cours de développement.');
 }
-
-
-// Initialisation
-window.onload = function () {
-    loadUserInfo();
-    loadCategories();
-    loadDocuments();
-
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    document.body.setAttribute('data-theme', savedTheme);
-    updateThemeIcon(savedTheme);
-};
 
 // Fonction pour ajouter un commentaire
 function addComment() {
@@ -516,15 +603,14 @@ window.onclick = function (event) {
         event.target.style.display = 'none';
     }
 };
-function loadUserInfo() {
-    const userData = JSON.parse(localStorage.getItem('eduqueMoiUserData'));
-    if (userData && userData.username) {
-        currentUser = userData;
-        document.getElementById('username').textContent = currentUser.username;
-        document.getElementById('availableCredits').textContent = currentUser.freeCredits + currentUser.paidCredits;
-        document.getElementById('logoutBtn').classList.remove('hidden');
-    } else {
-        // Rediriger vers la page principale si l'utilisateur n'est pas connecté
-        window.location.href = 'index.html';
-    }
-}
+
+window.onload = function () {
+    loadUserInfo();
+    loadCategories();
+    loadDocuments();
+    setupCreditListener();
+
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.body.setAttribute('data-theme', savedTheme);
+    updateThemeIcon(savedTheme);
+};
