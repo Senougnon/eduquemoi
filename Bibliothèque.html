@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <title>Bibliothèque Eduque moi</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/assets/owl.carousel.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/assets/owl.theme.default.min.css">
+    <link rel="stylesheet" href="b.css">
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/owl.carousel.min.js"></script>
+
+</head>
+
+<body>
+    <div class="header">
+        <div class="logo-container">
+            <button class="toggle-sidebar" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+            <div class="logo">Bibliothèque Eduque moi</div>
+        </div>
+        <div class="auth-buttons">
+            <button id="backToMainBtn" onclick="backToMain()">Retour à l'accueil</button>
+            <button id="logoutBtn" onclick="logout()" class="hidden">Se déconnecter</button>
+            <button class="theme-toggle" onclick="toggleTheme()">
+                <i class="fas fa-moon"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="sidebar">
+            <div id="userInfo" class="user-info-card">
+                <h3>Informations utilisateur</h3>
+                <div class="user-details">
+                    <p><i class="fas fa-user"></i> <span id="username">Utilisateur</span></p>
+                    <p><i class="fas fa-coins"></i> Crédits disponibles: <span id="availableCredits">0</span></p>
+                </div>
+            </div>
+
+            <h3>Mes Documents</h3>
+            <ul class="user-docs-list">
+                <li onclick="showMyLibrary()"><i class="fas fa-book"></i> Ma bibliothèque</li>
+                <li onclick="showMyFavorites()"><i class="fas fa-star"></i> Mes favoris</li>
+                <li onclick="showOfflineDocs()"><i class="fas fa-download"></i> Mes doc hors ligne</li>
+            </ul>
+
+            <h3>Catégories</h3>
+            <ul id="categoryList" class="category-list">
+                <!-- Les catégories seront ajoutées dynamiquement ici -->
+            </ul>
+
+            <h3>Historique</h3>
+            <ul id="historyList" class="history-list">
+                <!-- L'historique sera ajouté dynamiquement ici -->
+            </ul>
+        </div>
+
+        <div class="content-container">
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="Rechercher un document...">
+                <button onclick="searchDocuments()"><i class="fas fa-search"></i></button>
+            </div>
+
+            <div id="documentContainer" class="document-container">
+                <!-- Les documents seront ajoutés dynamiquement ici -->
+            </div>
+
+            <div class="pagination">
+                <button id="prevPage" onclick="changePage(-1)" disabled>Précédent</button>
+                <span id="currentPage">Page 1</span>
+                <button id="nextPage" onclick="changePage(1)">Suivant</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="documentModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('documentModal')">×</span>
+            <h2 id="modalTitle"></h2>
+            <p id="modalDescription"></p>
+            <span id="modalCredits"></span>
+            <div id="documentPreview">
+                <!-- Les images du document seront ajoutées dynamiquement ici -->
+            </div>
+            <div class="document-actions">
+                <button id="purchaseBtn" onclick="purchaseDocument()">Acheter</button>
+                <button id="fullscreenBtn" onclick="openFullscreen()">Afficher en plein écran</button>
+                <button id="shareBtn" onclick="shareDocument()">Partager</button>
+                <button id="offlineBtn" onclick="useOffline()" style="display: none;">Hors ligne</button>
+                <div class="rating">
+                    <span>Note : </span>
+                    <i class="far fa-star" data-rating="1"></i>
+                    <i class="far fa-star" data-rating="2"></i>
+                    <i class="far fa-star" data-rating="3"></i>
+                    <i class="far fa-star" data-rating="4"></i>
+                    <i class="far fa-star" data-rating="5"></i>
+                </div>
+            </div>
+            <div class="comments-section">
+                <h3>Commentaires</h3>
+                <textarea id="commentInput" placeholder="Ajoutez votre commentaire..."></textarea>
+                <button onclick="addComment()">Envoyer</button>
+                <div id="commentsContainer">
+                    <!-- Les commentaires seront ajoutés dynamiquement ici -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="b.js"></script>
+
+</body>
+
+</html>

@@ -1488,6 +1488,25 @@ function removePinnedPrompt() {
     updatePinnedPrompt();
 }
 
+function openLibrary() {
+    console.log("Tentative d'ouverture de la bibliothèque");
+    if (currentUser) {
+        console.log("Utilisateur connecté:", currentUser);
+        const userData = {
+            username: currentUser.username,
+            freeCredits: currentUser.freeCredits,
+            paidCredits: currentUser.paidCredits,
+            subscription: currentUser.subscription
+        };
+        localStorage.setItem('eduqueMoiUserData', JSON.stringify(userData));
+        console.log("Données utilisateur enregistrées dans localStorage");
+        window.location.href = 'Bibliothèque.html';
+    } else {
+        console.log("Utilisateur non connecté");
+        alert("Veuillez vous connecter pour accéder à la bibliothèque.");
+    }
+}
+
 // Fonction pour afficher la modal de parrainage (mise à jour)
 async function showReferralModal() {
     const modal = document.getElementById('referralModal');
@@ -1751,6 +1770,7 @@ function updateUI() {
         document.getElementById('subscription').textContent = currentUser.subscription || 'Aucun';
     }
 }
+
 
 // Appel de updateUI toutes les 5 minutes
 setInterval(updateUI, 300000);

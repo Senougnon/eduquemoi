@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administration - Bibliothèque Eduque moi</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/assets/owl.carousel.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/assets/owl.theme.default.min.css">
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/owl.carousel.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #50c878;
+            --background-color: #f5f7fa;
+            --text-color: #333333;
+            --card-background: #ffffff;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+        }
+
+        h1, h2 {
+            margin: 0;
+        }
+
+        .admin-panel {
+            display: flex;
+            margin-top: 20px;
+        }
+
+        .sidebar {
+            width: 200px;
+            background-color: var(--card-background);
+            padding: 20px;
+            border-radius: 5px;
+        }
+
+        .content {
+            flex-grow: 1;
+            margin-left: 20px;
+            background-color: var(--card-background);
+            padding: 20px;
+            border-radius: 5px;
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #45b768;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+
+        th {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .action-btn {
+            padding: 5px 10px;
+            margin-right: 5px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .delete-btn {
+            background-color: #e74c3c;
+        }
+
+        .auth-container {
+            display: flex;
+            justify-content: space-between;
+            max-width: 600px;
+            margin: 100px auto;
+        }
+        
+        .auth-form {
+            width: 45%;
+            background-color: var(--card-background);
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .auth-form h2 {
+            margin-bottom: 20px;
+        }
+
+        .subcategory {
+            margin-left: 20px;
+        }
+
+        .tag {
+            display: inline-block;
+            background-color: #e0e0e0;
+            padding: 5px 10px;
+            margin: 2px;
+            border-radius: 3px;
+        }
+
+        #tagContainer {
+            margin-top: 10px;
+        }
+
+        .image-upload {
+            margin-top: 20px;
+        }
+
+        .image-preview-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .image-preview {
+            max-width: 100px;
+            max-height: 100px;
+            object-fit: cover;
+        }
+
+        .owl-carousel .item img {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
+        .user-management {
+            margin-top: 20px;
+        }
+
+        .user-list {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .user-list li {
+            background-color: var(--card-background);
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        .user-details {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .user-actions button {
+            padding: 5px 10px;
+            margin-left: 10px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .delete-user-btn {
+            background-color: #e74c3c;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Administration - Bibliothèque Eduque moi</h1>
+    </header>
+
+    <div class="auth-container" id="authContainer">
+        <div class="auth-form" id="loginForm">
+            <h2>Connexion Administrateur</h2>
+            <input type="text" id="adminUsername" placeholder="Nom d'utilisateur" required>
+            <input type="password" id="adminPassword" placeholder="Mot de passe" required>
+            <button onclick="login()">Se connecter</button>
+        </div>
+        
+        <div class="auth-form" id="registerForm">
+            <h2>Inscription Administrateur</h2>
+            <input type="text" id="newAdminUsername" placeholder="Nom d'utilisateur" required>
+            <input type="password" id="newAdminPassword" placeholder="Mot de passe" required>
+            <input type="password" id="confirmAdminPassword" placeholder="Confirmer le mot de passe" required>
+            <button onclick="register()">S'inscrire</button>
+        </div>
+    </div>
+
+    <div class="container" id="adminContainer" style="display: none;">
+        <div class="admin-panel">
+            <div class="sidebar">
+                <button onclick="showDocuments()">Gérer les documents</button>
+                <button onclick="showCategories()">Gérer les catégories</button>
+                <button onclick="showSales()">Voir les ventes</button>
+                <button onclick="showComments()">Gérer les commentaires</button>
+                <button onclick="showUsers()">Gérer les utilisateurs</button>
+                <button onclick="showStats()">Statistiques</button>
+                <button onclick="logout()">Déconnexion</button>
+            </div>
+            <div class="content" id="content">
+                <!-- Le contenu sera chargé dynamiquement ici -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyCvizcYorGDPN3GXqma0opp7wAiMkaCt64",
+            authDomain: "gemini-bb56e.firebaseapp.com",
+            databaseURL: "https://gemini-bb56e-default-rtdb.firebaseio.com",
+            projectId: "gemini-bb56e",
+            storageBucket: "gemini-bb56e.appspot.com",
+            messagingSenderId: "277143630015",
+            appId: "1:277143630015:web:78736f2cf52d29495d160a",
+            measurementId: "G-CSN292219J"
+        };
+
+        // Initialiser Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const storage = firebase.storage();
+
+        let currentUser = null;
+
+        // Fonction d'inscription
+        function register() {
+            const username = document.getElementById('newAdminUsername').value;
+            const password = document.getElementById('newAdminPassword').value;
+            const confirmPassword = document.getElementById('confirmAdminPassword').value;
+
+            if (!username || !password || !confirmPassword) {
+                alert("Veuillez remplir tous les champs.");
+                return;
+            }
+
+            if (password !== confirmPassword) {
+                alert("Les mots de passe ne correspondent pas.");
+                return;
+            }
+
+            db.ref('users/' + username).once('value')
+                .then((snapshot) => {
+                    if (snapshot.exists()) {
+                        alert("Ce nom d'utilisateur existe déjà.");
+                    } else {
+                        return db.ref('users/' + username).set({
+                            password: password,
+                            isAdmin: true,
+                            freeCredits: 0,
+                            paidCredits: 0
+                        });
+                    }
+                })
+                .then(() => {
+                    alert("Inscription réussie !");
+                    document.getElementById('adminUsername').value = username;
+                    document.getElementById('adminPassword').value = password;
+                    login();
+                })
+                .catch((error) => {
+                    console.error("Erreur lors de l'inscription:", error);
+                    alert("Erreur lors de l'inscription. Veuillez réessayer.");
+                });
+        }
+
+        // Fonction de connexion
+        function login() {
+            const username = document.getElementById('adminUsername').value;
+            const password = document.getElementById('adminPassword').value;
+
+            if (!username || !password) {
+                alert("Veuillez remplir tous les champs.");
+                return;
+            }
+
+            db.ref('users/' + username).once('value')
+                .then((snapshot) => {
+                    const userData = snapshot.val();
+                    if (userData && userData.password === password && userData.isAdmin) {
+                        currentUser = { username, ...userData };
+                        document.getElementById('authContainer').style.display = 'none';
+                        document.getElementById('adminContainer').style.display = 'block';
+                        showDocuments();
+                    } else {
+                        alert("Nom d'utilisateur ou mot de passe incorrect, ou vous n'avez pas les droits d'administrateur.");
+                    }
+                })
+                .catch((error) => {
+                    console.error("Erreur lors de la connexion:", error);
+                    alert("Erreur lors de la connexion. Veuillez réessayer.");
+                });
+        }
+
+        // Fonction de déconnexion
+        function logout() {
+            currentUser = null;
+            document.getElementById('authContainer').style.display = 'flex';
+            document.getElementById('adminContainer').style.display = 'none';
+        }
+
+        // Fonction pour afficher la liste des documents
+        function showDocuments() {
+            const content = document.getElementById('content');
+            content.innerHTML = `
+                <h2>Gestion des Documents</h2>
+                <button onclick="showAddDocumentForm()">Ajouter un document</button>
+                <table id="documentsTable">
+                    <tr>
+                        <th>Aperçu</th>
+                        <th>Titre</th>
+                        <th>Catégorie</th>
+                        <th>Sous-catégorie</th>
+                        <th>Tags</th>
+                        <th>Prix</th>
+                        <th>Actions</th>
+                    </tr>
+                </table>
+            `;
+
+            db.ref('documents').once('value', (snapshot) => {
+                const documents = snapshot.val() || {};
+                const table = document.getElementById('documentsTable');
+                
+                for (let id in documents) {
+                    const doc = documents[id];
+                    const row = table.insertRow(-1);
+                    row.innerHTML = `
+                        <td><img src="${doc.imageUrls[0]}" alt="${doc.title}" style="max-width: 100px; max-height: 100px;"></td>
+                        <td>${doc.title}</td>
+                        <td>${doc.category}</td>
+                        <td>${doc.subcategory || 'N/A'}</td>
+                        <td>${(doc.tags || []).join(', ')}</td>
+                        <td>${doc.price} crédits</td>
+                        <td>
+                            <button class="action-btn" onclick="editDocument('${id}')">Modifier</button>
+                            <button class="action-btn delete-btn" onclick="deleteDocument('${id}')">Supprimer</button>
+                        </td>
+                    `;
+                }
+            });
+        }
+
+        // Fonction pour afficher le formulaire d'ajout de document
+        function showAddDocumentForm() {
+            const content = document.getElementById('content');
+            content.innerHTML = `
+                <h2>Ajouter un Document</h2>
+                <input type="text" id="docTitle" placeholder="Titre du document">
+                <textarea id="docDescription" placeholder="Description du document"></textarea>
+                <select id="docCategory" onchange="loadSubcategories()">
+                    <option value="">Sélectionnez une catégorie</option>
+                </select>
+                <select id="docSubcategory">
+        <option value="">Sélectionnez une sous-catégorie</option>
+                </select>
+                <input type="number" id="docPrice" placeholder="Prix en crédits">
+                <div class="image-upload">
+                    <input type="file" id="docImages" accept="image/*" multiple>
+                    <div id="imagePreviewContainer" class="image-preview-container"></div>
+                </div>
+                <input type="text" id="docTags" placeholder="Tags (séparés par des virgules)">
+                <div id="tagContainer"></div>
+                <button onclick="addDocument()">Ajouter le document</button>
+            `;
+
+            loadCategories();
+
+            // Écouteur d'événement pour les tags
+            document.getElementById('docTags').addEventListener('input', updateTagDisplay);
+
+            // Écouteur d'événement pour la prévisualisation des images
+            document.getElementById('docImages').addEventListener('change', previewImages);
+        }
+
+        // Fonction pour prévisualiser les images
+        function previewImages(event) {
+            const container = document.getElementById('imagePreviewContainer');
+            container.innerHTML = '';
+            const files = event.target.files;
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const reader = new FileReader();
+
+                reader.onload = function(e) {
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.className = 'image-preview';
+                    container.appendChild(img);
+                }
+
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Fonction pour mettre à jour l'affichage des tags
+        function updateTagDisplay() {
+            const tagInput = document.getElementById('docTags');
+            const tagContainer = document.getElementById('tagContainer');
+            const tags = tagInput.value.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+
+            tagContainer.innerHTML = '';
+            tags.forEach(tag => {
+                const tagElement = document.createElement('span');
+                tagElement.className = 'tag';
+                tagElement.textContent = tag;
+                tagContainer.appendChild(tagElement);
+            });
+        }
+
+        // Fonction pour charger les catégories
+        function loadCategories() {
+            const select = document.getElementById('docCategory');
+            select.innerHTML = '<option value="">Sélectionnez une catégorie</option>';
+            
+            db.ref('categories').once('value', (snapshot) => {
+                const categories = snapshot.val() || {};
+                for (let category in categories) {
+                    const option = document.createElement('option');
+                    option.value = category;
+                    option.textContent = categories[category].name;
+                    select.appendChild(option);
+                }
+            });
+        }
+
+        // Fonction pour charger les sous-catégories
+        function loadSubcategories() {
+            const category = document.getElementById('docCategory').value;
+            const subcategorySelect = document.getElementById('docSubcategory');
+            subcategorySelect.innerHTML = '<option value="">Sélectionnez une sous-catégorie</option>';
+
+            if (category) {
+                db.ref('categories/' + category).once('value', (snapshot) => {
+                    const subcategories = snapshot.val() || {};
+                    for (let key in subcategories) {
+                        if (key !== 'name') {
+                            const option = document.createElement('option');
+                            option.value = subcategories[key];
+                            option.textContent = subcategories[key];
+                            subcategorySelect.appendChild(option);
+                        }
+                    }
+                });
+            }
+        }
+
+        // Fonction pour ajouter un document
+        function addDocument() {
+            const title = document.getElementById('docTitle').value;
+            const description = document.getElementById('docDescription').value;
+            const category = document.getElementById('docCategory').value;
+            const subcategory = document.getElementById('docSubcategory').value;
+            const price = document.getElementById('docPrice').value;
+            const files = document.getElementById('docImages').files;
+            const tags = document.getElementById('docTags').value.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+
+            if (!title || !category || !price || files.length === 0) {
+                alert("Veuillez remplir tous les champs obligatoires et sélectionner au moins une image");
+                return;
+            }
+
+            const docRef = db.ref('documents').push();
+
+            const uploadPromises = Array.from(files).map(file => {
+                const storageRef = storage.ref('documents/' + docRef.key + '/' + file.name);
+                return storageRef.put(file).then(() => storageRef.getDownloadURL());
+            });
+
+            Promise.all(uploadPromises).then(urls => {
+                return docRef.set({
+                    title: title,
+                    description: description,
+                    category: category,
+                    subcategory: subcategory,
+                    price: parseInt(price),
+                    imageUrls: urls,
+                    tags: tags,
+                    uploadedBy: currentUser.username
+                });
+            }).then(() => {
+                alert("Document ajouté avec succès");
+                showDocuments();
+            }).catch((error) => {
+                console.error("Erreur lors de l'ajout du document:", error);
+                alert("Erreur lors de l'ajout du document: " + error.message);
+            });
+        }
+
+        // Fonction pour éditer un document
+        function editDocument(id) {
+            db.ref('documents/' + id).once('value', (snapshot) => {
+                const doc = snapshot.val();
+                const content = document.getElementById('content');
+                content.innerHTML = `
+                    <h2>Modifier le Document</h2>
+                    <input type="text" id="docTitle" value="${doc.title}">
+                    <textarea id="docDescription" placeholder="Description du document">${doc.description || ''}</textarea>
+                    <select id="docCategory" onchange="loadSubcategories()">
+                        <option value="">Sélectionnez une catégorie</option>
+                    </select>
+                    <select id="docSubcategory">
+                        <option value="">Sélectionnez une sous-catégorie</option>
+                    </select>
+                    <input type="number" id="docPrice" value="${doc.price}">
+                    <div class="image-upload">
+                        <input type="file" id="docImages" accept="image/*" multiple>
+                        <div id="imagePreviewContainer" class="image-preview-container">
+                            ${doc.imageUrls.map(url => `<img src="${url}" class="image-preview">`).join('')}
+                        </div>
+                    </div>
+                    <input type="text" id="docTags" value="${(doc.tags || []).join(', ')}" placeholder="Tags (séparés par des virgules)">
+                    <div id="tagContainer"></div>
+                    <button onclick="updateDocument('${id}')">Mettre à jour le document</button>
+                `;
+
+                loadCategories();
+                setTimeout(() => {
+                    document.getElementById('docCategory').value = doc.category;
+                    loadSubcategories();
+                    setTimeout(() => {
+                        document.getElementById('docSubcategory').value = doc.subcategory || '';
+                    }, 100);
+                }, 100);
+
+                updateTagDisplay();
+
+                // Écouteur d'événement pour les tags
+                document.getElementById('docTags').addEventListener('input', updateTagDisplay);
+
+                // Écouteur d'événement pour la prévisualisation des nouvelles images
+                document.getElementById('docImages').addEventListener('change', previewImages);
+            });
+        }
+
+        // Fonction pour mettre à jour un document
+        function updateDocument(id) {
+            const title = document.getElementById('docTitle').value;
+            const description = document.getElementById('docDescription').value;
+            const category = document.getElementById('docCategory').value;
+            const subcategory = document.getElementById('docSubcategory').value;
+            const price = document.getElementById('docPrice').value;
+            const files = document.getElementById('docImages').files;
+            const tags = document.getElementById('docTags').value.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+
+            if (!title || !category || !price) {
+                alert("Veuillez remplir tous les champs obligatoires");
+                return;
+            }
+
+            const docRef = db.ref('documents/' + id);
+            const updates = {
+                title: title,
+                description: description,
+                category: category,
+                subcategory: subcategory,
+                price: parseInt(price),
+                tags: tags
+            };
+
+            let updatePromise = Promise.resolve();
+
+            if (files.length > 0) {
+                const uploadPromises = Array.from(files).map(file => {
+                    const storageRef = storage.ref('documents/' + id + '/' + file.name);
+                    return storageRef.put(file).then(() => storageRef.getDownloadURL());
+                });
+
+                updatePromise = Promise.all(uploadPromises).then(urls => {
+                    updates.imageUrls = urls;
+                });
+            }
+
+            updatePromise
+                .then(() => docRef.update(updates))
+                .then(() => {
+                    alert("Document mis à jour avec succès");
+                    showDocuments();
+                })
+                .catch((error) => {
+                    console.error("Erreur lors de la mise à jour du document:", error);
+                    alert("Erreur lors de la mise à jour du document");
+                });
+        }
+
+        // Fonction pour supprimer un document
+        function deleteDocument(id) {
+            if (confirm("Êtes-vous sûr de vouloir supprimer ce document ?")) {
+                const docRef = db.ref('documents/' + id);
+                const storageRef = storage.ref('documents/' + id);
+
+                storageRef.listAll().then(result => {
+                    const deletePromises = result.items.map(itemRef => itemRef.delete());
+                    return Promise.all(deletePromises);
+                }).then(() => {
+                    return docRef.remove();
+                }).then(() => {
+                    alert("Document supprimé avec succès");
+                    showDocuments();
+                }).catch((error) => {
+                    console.error("Erreur lors de la suppression du document:", error);
+                    alert("Erreur lors de la suppression du document");
+                });
+            }
+        }
+
+        // Fonction pour afficher la liste des catégories
+        function showCategories() {
+            const content = document.getElementById('content');
+            content.innerHTML = `
+                <h2>Gestion des Catégories</h2>
+                <input type="text" id="newCategory" placeholder="Nouvelle catégorie">
+                <button onclick="addCategory()">Ajouter une catégorie</button>
+                <div id="categoriesContainer"></div>
+            `;
+
+            loadAndDisplayCategories();
+        }
+
+        // Fonction pour charger et afficher les catégories
+        function loadAndDisplayCategories() {
+            db.ref('categories').once('value', (snapshot) => {
+                const categories = snapshot.val() || {};
+                const container = document.getElementById('categoriesContainer');
+                container.innerHTML = '';
+                
+                for (let category in categories) {
+                    const categoryDiv = document.createElement('div');
+                    categoryDiv.innerHTML = `
+                        <h3>${categories[category].name}</h3>
+                        <button onclick="editCategory('${category}')">Modifier</button>
+                        <button onclick="deleteCategory('${category}')">Supprimer</button>
+                        <div class="subcategories">
+                            ${Object.entries(categories[category])
+                                .filter(([key]) => key !== 'name')
+                                .map(([key, value]) => `
+                                    <div class="subcategory">
+                                        ${value}
+                                        <button onclick="editSubcategory('${category}', '${key}')">Modifier</button>
+                                        <button onclick="deleteSubcategory('${category}', '${key}')">Supprimer</button>
+                                    </div>
+                                `).join('')}
+                        </div>
+                        <input type="text" id="newSubcategory_${category}" placeholder="Nouvelle sous-catégorie">
+                        <button onclick="addSubcategory('${category}')">Ajouter une sous-catégorie</button>
+                    `;
+                    container.appendChild(categoryDiv);
+                }
+            });
+        }
+
+        // Fonction pour ajouter une catégorie
+        function addCategory() {
+            const newCategory = document.getElementById('newCategory').value;
+            if (!newCategory) {
+                alert("Veuillez entrer un nom de catégorie");
+                return;
+            }
+
+            db.ref('categories/' + newCategory).set({ name: newCategory })
+                .then(() => {
+                    alert("Catégorie ajoutée avec succès");
+                    loadAndDisplayCategories();
+                })
+                .catch((error) => {
+                    console.error("Erreur lors de l'ajout de la catégorie:", error);
+                    alert("Erreur lors de l'ajout de la catégorie");
+                });
+        }
+
+        // Fonction pour éditer une catégorie
+        function editCategory(category) {
+            const newName = prompt("Entrez le nouveau nom de la catégorie:", category);
+            if (newName && newName !== category) {
+                const updates = {};
+                updates['/categories/' + newName] = db.ref('categories/' + category);
+                updates['/categories/' + category] = null;
+
+                db.ref().update(updates)
+                    .then(() => {
+                        alert("Catégorie mise à jour avec succès");
+                        loadAndDisplayCategories();
+                    })
+                    .catch((error) => {
+                        console.error("Erreur lors de la mise à jour de la catégorie:", error);
+                        alert("Erreur lors de la mise à jour de la catégorie");
+                    });
+            }
+        }
+
+        // Fonction pour supprimer une catégorie
+        function deleteCategory(category) {
+            if (confirm("Êtes-vous sûr de vouloir supprimer cette catégorie ?")) {
+                db.ref('categories/' + category).remove()
+                    .then(() => {
+                        alert("Catégorie supprimée avec succès");
+                        loadAndDisplayCategories();
+                    })
+                    .catch((error) => {
+                        console.error("Erreur lors de la suppression de la catégorie:", error);
+                        alert("Erreur lors de la suppression de la catégorie");
+                    });
+            }
+        }
+
+        // Fonction pour ajouter une sous-catégorie
+        function addSubcategory(category) {
+            const newSubcategory = document.getElementById(`newSubcategory_${category}`).value;
+            if (!newSubcategory) {
+                alert("Veuillez entrer un nom de sous-catégorie");
+                return;
+            }
+
+            db.ref('categories/' + category).once('value', (snapshot) => {
+                const categoryData = snapshot.val() || {};
+                const subcategories = Object.values(categoryData).filter(value => typeof value === 'string');
+                
+                if (subcategories.length >= 5) {
+                    alert("Vous avez atteint la limite de 5 sous-catégories");
+                    return;
+                }
+
+                const newSubcategoryKey = db.ref('categories/' + category).push().key;
+                db.ref('categories/' + category + '/' + newSubcategoryKey).set(newSubcategory)
+                    .then(() => {
+                        alert("Sous-catégorie ajoutée avec succès");
+                        loadAndDisplayCategories();
+                    })
+                    .catch((error) => {
+                        console.error("Erreur lors de l'ajout de la sous-catégorie:", error);
+                        alert("Erreur lors de l'ajout de la sous-catégorie");
+                    });
+            });
+        }
+
+        // Fonction pour éditer une sous-catégorie
+        function editSubcategory(category, subcategoryKey) {
+            db.ref('categories/' + category + '/' + subcategoryKey).once('value', (snapshot) => {
+                const currentName = snapshot.val();
+                const newName = prompt("Entrez le nouveau nom de la sous-catégorie:", currentName);
+                if (newName && newName !== currentName) {
+                    db.ref('categories/' + category + '/' + subcategoryKey).set(newName)
+                        .then(() => {
+                            alert("Sous-catégorie mise à jour avec succès");
+                            loadAndDisplayCategories();
+                        })
+                        .catch((error) => {
+                            console.error("Erreur lors de la mise à jour de la sous-catégorie:", error);
+                            alert("Erreur lors de la mise à jour de la sous-catégorie");
+                        });
+                }
+            });
+        }
+
+        // Fonction pour supprimer une sous-catégorie
+        function deleteSubcategory(category, subcategoryKey) {
+            if (confirm("Êtes-vous sûr de vouloir supprimer cette sous-catégorie ?")) {
+                db.ref('categories/' + category + '/' + subcategoryKey).remove()
+                    .then(() => {
+                        alert("Sous-catégorie supprimée avec succès");
+                        loadAndDisplayCategories();
+                    })
+                    .catch((error) => {
+                        console.error("Erreur lors de la suppression de la sous-catégorie:", error);
+                        alert("Erreur lors de la suppression de la sous-catégorie");
+                    });
+            }
+        }
+
+        // Fonction pour afficher les ventes
+        function showSales() {
+            const content = document.getElementById('content');
+            content.innerHTML = `
+                <h2>Ventes de Documents</h2>
+                <table id="salesTable">
+                    <tr>
+                        <th>Document</th>
+                        <th>Prix</th>
+                        <th>Acheteur</th>
+                        <th>Date</th>
+                    </tr>
+                </table>
+            `;
+
+            db.ref('sales').once('value', (snapshot) => {
+                const sales = snapshot.val() || {};
+                const table = document.getElementById('salesTable');
+                
+                for (let id in sales) {
+                    const sale = sales[id];
+                    const row = table.insertRow(-1);
+                    row.innerHTML = `
+                        <td>${sale.documentTitle}</td>
+                        <td>${sale.price} crédits</td>
+                        <td>${sale.buyerUsername}</td>
+                        <td>${new Date(sale.date).toLocaleString()}</td>
+                    `;
+                }
+            });
+        }
+
+        // Fonction pour gérer les commentaires
+        function showComments() {
+            const content = document.getElementById('content');
+            content.innerHTML = '<h2>Gestion des Commentaires</h2>';
+
+            db.ref('comments').once('value', (snapshot) => {
+                const comments = snapshot.val() || {};
+                for (let docId in comments) {
+                    const docComments = comments[docId];
+                    content.innerHTML += `
+                        <h3>Document: ${docId}</h3>
+                        <ul>
+                            ${Object.entries(docComments).map(([commentId, comment]) => `
+                                <li>
+                                    ${comment.text}
+                                    <small>(${comment.username}, ${new Date(comment.timestamp).toLocaleString()})</small>
+                                    <button onclick="deleteComment('${docId}', '${commentId}')">Supprimer</button>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    `;
+                }
+            });
+        }
+
+        // Fonction pour supprimer un commentaire
+        function deleteComment(docId, commentId) {
+            if (confirm("Êtes-vous sûr de vouloir supprimer ce commentaire ?")) {
+                db.ref(`comments/${docId}/${commentId}`).remove()
+                    .then(() => {
+                        alert("Commentaire supprimé avec succès");
+                        showComments();
+                    })
+                    .catch((error) => {
+                        console.error("Erreur lors de la suppression du commentaire:", error);
+                        alert("Erreur lors de la suppression du commentaire");
+                    });
+            }
+        }
+
+        // Fonction pour afficher la liste des utilisateurs
+        function showUsers() {
+            const content = document.getElementById('content');
+            content.innerHTML = `
+                <h2>Gestion des Utilisateurs</h2>
+                <div class="user-management">
+                    <ul id="userList" class="user-list"></ul>
+                </div>
+            `;
+
+            db.ref('users').once('value', (snapshot) => {
+                const users = snapshot.val() || {};
+                const userList = document.getElementById('userList');
+
+                for (let userId in users) {
+                    const user = users[userId];
+                    const listItem = document.createElement('li');
+                    listItem.innerHTML = `
+                        <div class="user-details">
+                            <span>${user.username}</span>
+                            <div class="user-actions">
+                                <button onclick="editUser('${userId}')">Modifier</button>
+                                <button class="delete-user-btn" onclick="deleteUser('${userId}')">Supprimer</button>
+                            </div>
+                        </div>
+                        <p>Crédits gratuits: ${user.freeCredits}</p>
+                        <p>Crédits payants: ${user.paidCredits}</p>
+                        <p>Abonnement: ${user.subscription || 'Aucun'}</p>
+                    `;
+                    userList.appendChild(listItem);
+                }
+            });
+        }
+
+        // Fonction pour éditer un utilisateur
+        function editUser(userId) {
+            db.ref('users/' + userId).once('value', (snapshot) => {
+                const user = snapshot.val();
+                let newFreeCredits = prompt("Nouveaux crédits gratuits pour " + user.username + ":", user.freeCredits);
+                let newPaidCredits = prompt("Nouveaux crédits payants pour " + user.username + ":", user.paidCredits);
+
+                // Valider les entrées : s'assurer que ce sont des nombres
+                newFreeCredits = parseInt(newFreeCredits) || user.freeCredits;
+                newPaidCredits = parseInt(newPaidCredits) || user.paidCredits;
+
+                db.ref('users/' + userId).update({
+                    freeCredits: newFreeCredits,
+                    paidCredits: newPaidCredits
+                }).then(() => {
+                    alert("Utilisateur mis à jour avec succès");
+                    showUsers(); // Rafraîchir la liste des utilisateurs
+                }).catch((error) => {
+                    console.error("Erreur lors de la mise à jour de l'utilisateur:", error);
+                    alert("Erreur lors de la mise à jour de l'utilisateur");
+                });
+            });
+        }
+
+        // Fonction pour supprimer un utilisateur
+        function deleteUser(userId) {
+            if (confirm("Êtes-vous sûr de vouloir supprimer cet utilisateur ?")) {
+                db.ref('users/' + userId).remove()
+                    .then(() => {
+                        alert("Utilisateur supprimé avec succès");
+                        showUsers(); // Rafraîchir la liste des utilisateurs
+                    })
+                    .catch((error) => {
+                        console.error("Erreur lors de la suppression de l'utilisateur:", error);
+                        alert("Erreur lors de la suppression de l'utilisateur");
+                    });
+            }
+        }
+
+        // Fonction pour afficher les statistiques
+        function showStats() {
+            const content = document.getElementById('content');
+            content.innerHTML = '<h2>Statistiques</h2>';
+
+            Promise.all([
+                db.ref('documents').once('value'),
+                db.ref('users').once('value'),
+                db.ref('sales').once('value'),
+                db.ref('categories').once('value')
+            ]).then(([documentsSnapshot, usersSnapshot, salesSnapshot, categoriesSnapshot]) => {
+                const totalDocuments = documentsSnapshot.numChildren();
+                const totalUsers = usersSnapshot.numChildren();
+                const totalSales = salesSnapshot.numChildren();
+                
+                const categories = {};
+                documentsSnapshot.forEach((childSnapshot) => {
+                    const category = childSnapshot.val().category;
+                    categories[category] = (categories[category] || 0) + 1;
+                });
+                const mostPopularCategory = Object.keys(categories).reduce((a, b) => categories[a] > categories[b] ? a : b);
+
+                content.innerHTML += `
+                    <p>Nombre total de documents : ${totalDocuments}</p>
+                    <p>Nombre total d'utilisateurs : ${totalUsers}</p>
+                    <p>Nombre total de ventes : ${totalSales}</p>
+                    <p>Catégorie la plus populaire : ${mostPopularCategory}</p>
+                `;
+
+                // Graphique des ventes mensuelles
+                const salesByMonth = {};
+                salesSnapshot.forEach((childSnapshot) => {
+                    const sale = childSnapshot.val();
+                    const date = new Date(sale.date);
+                    const monthYear = `${date.getMonth() + 1}/${date.getFullYear()}`;
+                    salesByMonth[monthYear] = (salesByMonth[monthYear] || 0) + 1;
+                });
+
+                content.innerHTML += '<h3>Ventes mensuelles</h3>';
+                content.innerHTML += '<div id="salesChart"></div>';
+
+                // Utiliser une bibliothèque de graphiques comme Chart.js pour afficher le graphique
+                // Ceci est un exemple simplifié
+                let chartHtml = '<table><tr><th>Mois/Année</th><th>Nombre de ventes</th></tr>';
+                for (let monthYear in salesByMonth) {
+                    chartHtml += `<tr><td>${monthYear}</td><td>${salesByMonth[monthYear]}</td></tr>`;
+                }
+                chartHtml += '</table>';
+                document.getElementById('salesChart').innerHTML = chartHtml;
+            }).catch((error) => {
+                console.error("Erreur lors du chargement des statistiques:", error);
+                content.innerHTML += '<p>Erreur lors du chargement des statistiques.</p>';
+            });
+        }
+
+        // Initialisation
+        window.onload = function() {
+            const storedUsername = localStorage.getItem('eduqueMoiUsername');
+            const storedPassword = localStorage.getItem('eduqueMoiPassword');
+
+            if (storedUsername && storedPassword) {
+                document.getElementById('adminUsername').value = storedUsername;
+                document.getElementById('adminPassword').value = storedPassword;
+                login();
+            }
+        };
+    </script>
+</body>
+</html>
