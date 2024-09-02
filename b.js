@@ -179,6 +179,12 @@ function openDocumentModal(doc) {
     // Vérification du statut d'achat du document
     checkDocumentPurchaseStatus(doc.id, doc.title).then(isPurchased => {
       console.log(`Le document ${doc.id} (${doc.title}) est-il acheté ?`, isPurchased);
+  
+      // Afficher/masquer le bouton "Pleine fenêtre" en fonction du statut d'achat
+      const fullscreenBtn = document.getElementById('fullscreenBtn');
+      fullscreenBtn.onclick = () => openFullWindow(doc);
+      fullscreenBtn.style.display = isPurchased ? 'block' : 'none';
+  
       if (isPurchased) {
         console.log("Affichage du document acheté");
         doc.imageUrls.forEach(imageUrl => {
@@ -233,10 +239,6 @@ function openDocumentModal(doc) {
         // Masquer le bouton "Hors ligne" car le document n'est pas encore acheté
         document.getElementById('offlineBtn').style.display = 'none';
       }
-  
-      // Attacher la fonction openFullWindow au bouton "Afficher en plein écran"
-      const fullscreenBtn = document.getElementById('fullscreenBtn');
-      fullscreenBtn.onclick = () => openFullWindow(doc);
   
       // Attacher la fonction useOffline au bouton "Hors ligne"
       const offlineBtn = document.getElementById('offlineBtn');
