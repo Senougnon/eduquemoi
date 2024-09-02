@@ -20,6 +20,7 @@ let documents = [];
 let currentPage = 1;
 const documentsPerPage = 12;
 
+// Fonction pour charger les informations de l'utilisateur
 function loadUserInfo() {
     const userData = JSON.parse(localStorage.getItem('eduqueMoiUserData'));
     if (userData && userData.username) {
@@ -29,11 +30,11 @@ function loadUserInfo() {
             if (firebaseUserData) {
                 currentUser = {
                     ...userData,
-                    freeCredits: firebaseUserData.freeCredits,
+                    freeCredits: firebaseUserData.freeCredits, // On récupère toujours les crédits gratuits, mais on n'affiche que les payants
                     paidCredits: firebaseUserData.paidCredits
                 };
                 document.getElementById('username').textContent = currentUser.username;
-                document.getElementById('availableCredits').textContent = currentUser.freeCredits + currentUser.paidCredits;
+                document.getElementById('availableCredits').textContent = currentUser.paidCredits; // Afficher uniquement les crédits payants
                 document.getElementById('logoutBtn').classList.remove('hidden');
 
                 // Mettre à jour le localStorage avec les données les plus récentes
@@ -49,6 +50,7 @@ function loadUserInfo() {
     }
 }
 
+// Fonction pour acheter un document
 function purchaseDocument(doc) {
     console.log("Début de la fonction purchaseDocument");
     const docId = doc.id;
@@ -56,20 +58,14 @@ function purchaseDocument(doc) {
     const credits = doc.price;
     console.log(`Tentative d'achat du document ID: ${docId}, Titre: ${docTitle} pour ${credits} crédits`);
 
-    if (currentUser.freeCredits + currentUser.paidCredits >= credits) {
-        console.log("L'utilisateur a suffisamment de crédits");
+    if (currentUser.paidCredits >= credits) {
+        console.log("L'utilisateur a suffisamment de crédits payants");
         const userRef = db.ref(`users/${currentUser.username}`);
 
         userRef.transaction((userData) => {
             console.log("Début de la transaction", userData);
             if (userData) {
-                if (userData.freeCredits >= credits) {
-                    userData.freeCredits -= credits;
-                } else {
-                    const remainingCredits = credits - userData.freeCredits;
-                    userData.freeCredits = 0;
-                    userData.paidCredits -= remainingCredits;
-                }
+                userData.paidCredits -= credits; // Déduire des crédits payants
                 console.log("Données utilisateur après mise à jour", userData);
                 return userData;
             }
@@ -91,10 +87,9 @@ function purchaseDocument(doc) {
             const updatedUserData = snapshot.val();
             console.log("Données utilisateur mises à jour", updatedUserData);
 
-            currentUser.freeCredits = updatedUserData.freeCredits;
-            currentUser.paidCredits = updatedUserData.paidCredits;
+            currentUser.paidCredits = updatedUserData.paidCredits; // Mettre à jour le solde des crédits payants
 
-            document.getElementById('availableCredits').textContent = currentUser.freeCredits + currentUser.paidCredits;
+            document.getElementById('availableCredits').textContent = currentUser.paidCredits; // Afficher les crédits payants
 
             localStorage.setItem('eduqueMoiUserData', JSON.stringify(currentUser));
 
@@ -124,8 +119,23 @@ function purchaseDocument(doc) {
             });
         });
     } else {
-        console.log("L'utilisateur n'a pas assez de crédits");
-        alert("Vous n'avez pas assez de crédits pour acheter ce document.");
+        console.log("L'utilisateur n'a pas assez de crédits payants");
+        alert("Vous n'avez pas assez de crédits payants pour acheter ce document.");
+    }
+}
+
+// Fonction pour écouter les changements de crédits
+function setupCreditListener() {
+    if (currentUser && currentUser.username) {
+        const userCreditsRef = db.ref(`users/${currentUser.username}`);
+        userCreditsRef.on('value', (snapshot) => {
+            const userData = snapshot.val();
+            if (userData) {
+                currentUser.paidCredits = userData.paidCredits; // Mettre à jour uniquement les crédits payants
+                document.getElementById('availableCredits').textContent = currentUser.paidCredits; // Afficher les crédits payants
+                localStorage.setItem('eduqueMoiUserData', JSON.stringify(currentUser));
+            }
+        });
     }
 }
 
@@ -162,143 +172,247 @@ function openDocumentModal(doc) {
     document.getElementById('modalTitle').textContent = doc.title;
     document.getElementById('modalDescription').textContent = doc.description || 'Aucune description disponible.';
     document.getElementById('modalCredits').textContent = `${doc.price} crédits`;
-
+  
     const documentPreview = document.getElementById('documentPreview');
     documentPreview.innerHTML = '';
-
+  
+    // Vérification du statut d'achat du document
     checkDocumentPurchaseStatus(doc.id, doc.title).then(isPurchased => {
-        console.log(`Le document ${doc.id} (${doc.title}) est-il acheté?`, isPurchased);
-        if (isPurchased) {
-            console.log("Affichage du document acheté");
-            doc.imageUrls.forEach(imageUrl => {
-                const img = document.createElement('img');
-                img.src = imageUrl;
-                img.alt = doc.title;
-                img.style.maxWidth = '100%';
-                img.style.height = 'auto';
-                documentPreview.appendChild(img);
-            });
-
-            document.getElementById('purchaseBtn').style.display = 'none';
-            document.getElementById('offlineBtn').style.display = 'block';
-        } else {
-            console.log("Affichage du document non acheté");
-            const firstPageImg = document.createElement('img');
-            firstPageImg.src = doc.imageUrls[0];
-            firstPageImg.alt = doc.title;
-            firstPageImg.style.maxWidth = '100%';
-            firstPageImg.style.height = 'auto';
-            documentPreview.appendChild(firstPageImg);
-
-            if (doc.imageUrls.length > 1) {
-                for (let i = 1; i < doc.imageUrls.length; i++) {
-                    const blurredPageDiv = document.createElement('div');
-                    blurredPageDiv.className = 'blurred-page';
-
-                    const payButton = document.createElement('button');
-                    payButton.className = 'pay-button';
-                    payButton.textContent = `Payer ce document pour avoir accès à son contenu`;
-                    payButton.onclick = () => purchaseDocument(doc);
-
-                    const blurredImg = document.createElement('img');
-                    blurredImg.src = doc.imageUrls[i];
-                    blurredImg.alt = doc.title;
-                    blurredImg.style.maxWidth = '100%';
-                    blurredImg.style.height = 'auto';
-                    blurredImg.style.filter = 'blur(5px)';
-
-                    blurredPageDiv.appendChild(payButton);
-                    blurredPageDiv.appendChild(blurredImg);
-                    documentPreview.appendChild(blurredPageDiv);
-                }
-            }
-
-            document.getElementById('purchaseBtn').style.display = 'block';
-            document.getElementById('offlineBtn').style.display = 'none';
+      console.log(`Le document ${doc.id} (${doc.title}) est-il acheté ?`, isPurchased);
+      if (isPurchased) {
+        console.log("Affichage du document acheté");
+        doc.imageUrls.forEach(imageUrl => {
+          const img = document.createElement('img');
+          img.src = imageUrl;
+          img.alt = doc.title;
+          img.style.maxWidth = '100%';
+          img.style.height = 'auto';
+          documentPreview.appendChild(img);
+        });
+  
+        // Masquer le bouton "Acheter" car le document est déjà acheté
+        document.getElementById('purchaseBtn').style.display = 'none';
+        // Afficher le bouton "Hors ligne" car le document peut être téléchargé
+        document.getElementById('offlineBtn').style.display = 'block';
+      } else {
+        console.log("Affichage du document non acheté");
+        const firstPageImg = document.createElement('img');
+        firstPageImg.src = doc.imageUrls[0];
+        firstPageImg.alt = doc.title;
+        firstPageImg.style.maxWidth = '100%';
+        firstPageImg.style.height = 'auto';
+        documentPreview.appendChild(firstPageImg);
+  
+        if (doc.imageUrls.length > 1) {
+          for (let i = 1; i < doc.imageUrls.length; i++) {
+            const blurredPageDiv = document.createElement('div');
+            blurredPageDiv.className = 'blurred-page';
+  
+            const payButton = document.createElement('button');
+            payButton.className = 'pay-button';
+            payButton.textContent = `Payer ce document pour avoir accès à son contenu`;
+            payButton.onclick = () => purchaseDocument(doc);
+  
+            const blurredImg = document.createElement('img');
+            blurredImg.src = doc.imageUrls[i];
+            blurredImg.alt = doc.title;
+            blurredImg.style.maxWidth = '100%';
+            blurredImg.style.height = 'auto';
+            blurredImg.style.filter = 'blur(5px)';
+  
+            blurredPageDiv.appendChild(payButton);
+            blurredPageDiv.appendChild(blurredImg);
+            documentPreview.appendChild(blurredPageDiv);
+          }
         }
+  
+        // Afficher le bouton "Acheter" pour permettre l'achat du document
+        const purchaseBtn = document.getElementById('purchaseBtn');
+        purchaseBtn.onclick = () => purchaseDocument(doc);
+        purchaseBtn.style.display = 'block';
+        // Masquer le bouton "Hors ligne" car le document n'est pas encore acheté
+        document.getElementById('offlineBtn').style.display = 'none';
+      }
+  
+      // Attacher la fonction openFullWindow au bouton "Afficher en plein écran"
+      const fullscreenBtn = document.getElementById('fullscreenBtn');
+      fullscreenBtn.onclick = () => openFullWindow(doc);
+  
+      // Attacher la fonction useOffline au bouton "Hors ligne"
+      const offlineBtn = document.getElementById('offlineBtn');
+      offlineBtn.onclick = () => useOffline(doc);
+  
     }).catch(error => {
-        console.error("Erreur lors de l'ouverture de la modal:", error);
+      console.error("Erreur lors de l'ouverture de la modal :", error);
     });
-
+  
     modal.style.display = 'block';
-
+  
     loadComments(doc.id);
     initializeRating(doc.id);
-}
-function setupCreditListener() {
-    if (currentUser && currentUser.username) {
-        const userCreditsRef = db.ref(`users/${currentUser.username}`);
-        userCreditsRef.on('value', (snapshot) => {
-            const userData = snapshot.val();
-            if (userData) {
-                currentUser.freeCredits = userData.freeCredits;
-                currentUser.paidCredits = userData.paidCredits;
-                document.getElementById('availableCredits').textContent = currentUser.freeCredits + currentUser.paidCredits;
-                localStorage.setItem('eduqueMoiUserData', JSON.stringify(currentUser));
-            }
-        });
-    }
-}
+  }
 
-// Fonction pour ouvrir le document en plein écran 
-function openFullscreen() {
-    const docId = document.getElementById('modalTitle').textContent;
-    db.ref(`documents/${docId}/imageUrls`).once('value', (snapshot) => {
-        const imageUrls = snapshot.val();
-
-        if (imageUrls) {
-            const fullscreenContainer = document.createElement('div');
-            fullscreenContainer.id = 'fullscreenContainer';
-            fullscreenContainer.style.position = 'fixed';
-            fullscreenContainer.style.top = '0';
-            fullscreenContainer.style.left = '0';
-            fullscreenContainer.style.width = '100%';
-            fullscreenContainer.style.height = '100%';
-            fullscreenContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
-            fullscreenContainer.style.zIndex = '10000';
-            fullscreenContainer.style.display = 'flex';
-            fullscreenContainer.style.justifyContent = 'center';
-            fullscreenContainer.style.alignItems = 'center';
-
-            const carouselContainer = document.createElement('div');
-            carouselContainer.style.maxWidth = '90%';
-            carouselContainer.style.maxHeight = '90%';
-
-            const carousel = document.createElement('div');
-            carousel.className = 'owl-carousel owl-theme';
-
-            imageUrls.forEach(imageUrl => {
-                const item = document.createElement('div');
-                item.className = 'item';
-                const img = document.createElement('img');
-                img.src = imageUrl;
-                img.style.maxWidth = '100%';
-                img.style.maxHeight = '100%';
-                item.appendChild(img);
-                carousel.appendChild(item);
-            });
-
-            carouselContainer.appendChild(carousel);
-            fullscreenContainer.appendChild(carouselContainer);
-            document.body.appendChild(fullscreenContainer);
-
-            $('.owl-carousel').owlCarousel({
-                items: 1,
-                loop: false,
-                nav: true,
-                dots: true
-            });
-
-            fullscreenContainer.addEventListener('click', () => {
-                document.body.removeChild(fullscreenContainer);
-                $('.owl-carousel').owlCarousel('destroy');
-            });
-        } else {
-            alert('Aucune image trouvée pour ce document.');
-        }
+// Fonction pour ouvrir le document en pleine fenêtre
+function openFullWindow(doc) {
+    console.log("Ouverture en pleine fenêtre du document :", doc.title);
+  
+    // Créer un conteneur pour le mode pleine fenêtre
+    const fullWindowContainer = document.createElement('div');
+    fullWindowContainer.id = 'fullWindowContainer';
+    fullWindowContainer.style.position = 'fixed';
+    fullWindowContainer.style.top = '0';
+    fullWindowContainer.style.left = '0';
+    fullWindowContainer.style.width = '100%';
+    fullWindowContainer.style.height = '100%';
+    fullWindowContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+    fullWindowContainer.style.zIndex = '10000';
+    fullWindowContainer.style.display = 'flex';
+    fullWindowContainer.style.justifyContent = 'center';
+    fullWindowContainer.style.alignItems = 'center';
+    fullWindowContainer.style.overflowY = 'auto'; 
+    fullWindowContainer.style.opacity = '0';
+    fullWindowContainer.style.transition = 'opacity 0.3s ease-in-out';
+  
+    // Créer le conteneur du carrousel
+    const carouselContainer = document.createElement('div');
+    carouselContainer.style.width = '100%';
+    carouselContainer.style.maxWidth = '100vw'; 
+    carouselContainer.style.maxHeight = '100vh';
+    carouselContainer.style.display = 'flex';
+    carouselContainer.style.flexDirection = 'column';
+    carouselContainer.style.alignItems = 'center';
+  
+    // Créer le carrousel Owl Carousel
+    const carousel = document.createElement('div');
+    carousel.className = 'owl-carousel owl-theme';
+  
+    doc.imageUrls.forEach((imageUrl, index) => {
+      const item = document.createElement('div');
+      item.className = 'item';
+      item.style.width = '100%';
+      item.style.textAlign = 'center';
+  
+      const img = document.createElement('img');
+      img.src = imageUrl;
+      img.alt = `${doc.title} - Page ${index + 1}`;
+      img.style.maxWidth = '100%';
+      img.style.maxHeight = '100%';
+      img.style.userSelect = 'none';
+      img.onload = () => {
+        item.style.height = 'auto'; 
+      };
+  
+      item.appendChild(img);
+      carousel.appendChild(item);
     });
-}
-
+  
+    carouselContainer.appendChild(carousel);
+    fullWindowContainer.appendChild(carouselContainer);
+    document.body.appendChild(fullWindowContainer);
+  
+    // Initialiser Owl Carousel
+    const owl = $(carousel).owlCarousel({
+      items: 1,
+      loop: false,
+      nav: true,
+      dots: true,
+      autoplay: true,
+      autoplayTimeout: 5000,
+      autoplayHoverPause: true,
+      navText: ['<i class="fas fa-chevron-left"></i>', '<i class="fas fa-chevron-right"></i>'],
+      onInitialized: () => {
+        fullWindowContainer.style.opacity = '1';
+        addFullWindowControls(fullWindowContainer, carousel, owl);
+      }
+    });
+  
+    // Fermer la pleine fenêtre en cliquant sur le bouton de fermeture
+    fullWindowContainer.querySelector('.close-full-window').addEventListener('click', () => {
+      owl.trigger('destroy.owl.carousel');
+      document.body.removeChild(fullWindowContainer);
+    });
+  
+    // Ajouter les contrôles de zoom
+    addZoomControls(fullWindowContainer, carousel);
+  }
+  
+  // Fonction pour ajouter les contrôles du mode pleine fenêtre
+  function addFullWindowControls(container, carousel, owl) {
+    // ... (code pour créer le conteneur des contrôles et le bouton de fermeture) ...
+  }
+  
+  // Fonction pour ajouter les contrôles de zoom
+  function addZoomControls(container, carousel) {
+    const controlsContainer = document.createElement('div');
+    controlsContainer.style.position = 'absolute';
+    controlsContainer.style.top = '10px';
+    controlsContainer.style.right = '10px';
+    controlsContainer.style.zIndex = '10';
+  
+    // Fonction pour créer un bouton d'icône
+    const createIconButton = (iconClass, title, clickHandler) => {
+      const button = document.createElement('button');
+      button.innerHTML = `<i class="${iconClass}"></i>`;
+      button.title = title;
+      button.style.margin = '0 5px';
+      button.style.padding = '8px';
+      button.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+      button.style.border = 'none';
+      button.style.borderRadius = '5px';
+      button.style.color = 'white';
+      button.style.cursor = 'pointer';
+      button.onclick = clickHandler;
+      return button;
+    };
+  
+    // Ajouter les boutons de zoom
+    controlsContainer.appendChild(createIconButton('fas fa-search-plus', 'Zoomer', () => zoomImage(carousel, 1.2)));
+    controlsContainer.appendChild(createIconButton('fas fa-search-minus', 'Dézoomer', () => zoomImage(carousel, 0.8)));
+  
+    // Ajouter le bouton de fermeture
+    controlsContainer.appendChild(createIconButton('fas fa-times', 'Fermer', () => {
+      owl.trigger('destroy.owl.carousel');
+      document.body.removeChild(container);
+    }));
+  
+    container.appendChild(controlsContainer);
+  }
+  
+  // Fonction pour zoomer/dézoomer l'image
+  function zoomImage(carousel, zoomFactor) {
+    const currentImg = carousel.querySelector('.owl-item.active img');
+    const currentScale = parseFloat(currentImg.style.transform.replace('scale(', '').replace(')', '')) || 1;
+    const newScale = currentScale * zoomFactor;
+    currentImg.style.transform = `scale(${newScale})`;
+  }
+  
+  // ... (vos autres fonctions) ...
+  
+  // Fonction pour ajouter les contrôles du mode pleine fenêtre
+  function addFullWindowControls(container, carousel, owl) {
+    const controlsContainer = document.createElement('div');
+    controlsContainer.style.position = 'absolute';
+    controlsContainer.style.top = '10px';
+    controlsContainer.style.right = '10px';
+    controlsContainer.style.zIndex = '10';
+  
+    // Bouton de fermeture
+    const closeButton = document.createElement('button');
+    closeButton.className = 'close-full-window';
+    closeButton.innerHTML = '<i class="fas fa-times"></i>';
+    closeButton.title = 'Fermer';
+    closeButton.style.margin = '0 5px';
+    closeButton.style.padding = '8px';
+    closeButton.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    closeButton.style.border = 'none';
+    closeButton.style.borderRadius = '5px';
+    closeButton.style.color = 'white';
+    closeButton.style.cursor = 'pointer';
+  
+    controlsContainer.appendChild(closeButton);
+    container.appendChild(controlsContainer);
+  }
+  
 
 
 // Fonction pour charger les catégories
@@ -423,32 +537,52 @@ function loadComments(docId) {
 }
 
 
-// Fonction pour utiliser un document hors ligne (à implémenter)
-function useOffline() {
-    // 1. Vérifier si le document est déjà téléchargé (localStorage ou IndexedDB)
-    // 2. Si non, télécharger les images du document et les stocker localement
-    // 3. Afficher le document hors ligne (par exemple, dans une nouvelle page ou une iframe)
-    alert('Fonctionnalité hors ligne en cours de développement.');
-}
-
-// Fonction pour ajouter un commentaire
-function addComment() {
-    const docId = document.getElementById('modalTitle').textContent;
-    const commentText = document.getElementById('commentInput').value;
-
-    if (!commentText.trim()) return;
-
-    const newCommentRef = db.ref(`comments/${docId}`).push();
-    newCommentRef.set({
-        username: currentUser.username,
-        text: commentText,
-        timestamp: firebase.database.ServerValue.TIMESTAMP
-    }).then(() => {
-        document.getElementById('commentInput').value = '';
-        loadComments(docId); // Recharger les commentaires
-        addToHistory('Ajout d\'un commentaire sur le document : ' + docId);
-    });
-}
+// Fonction pour utiliser un document hors ligne
+async function useOffline(doc) {
+    console.log("Utilisation hors ligne du document :", doc.title);
+    try {
+      // Vérifier si le document est déjà téléchargé
+      const storedDoc = localStorage.getItem(`offlineDoc_${doc.id}`);
+      if (storedDoc) {
+        console.log("Document déjà téléchargé :", doc.title);
+        // Ouvrir le document hors ligne
+        openOfflineDocument(JSON.parse(storedDoc));
+      } else {
+        console.log("Téléchargement du document :", doc.title);
+  
+        // Obtenir les URL absolues des images
+        const imageUrls = await Promise.all(
+          doc.imageUrls.map(imageUrl => storage.refFromURL(imageUrl).getDownloadURL())
+        );
+  
+        // Stocker le document avec les URL d'images locales dans localStorage
+        const offlineDoc = { ...doc, imageUrls };
+        localStorage.setItem(`offlineDoc_${doc.id}`, JSON.stringify(offlineDoc));
+  
+        // Ouvrir le document hors ligne
+        openOfflineDocument(offlineDoc);
+      }
+    } catch (error) {
+      console.error("Erreur lors du téléchargement du document :", error);
+      // Appeler showNotification depuis script.js
+      window.showNotification(
+        "Erreur lors du téléchargement du document pour une utilisation hors ligne.",
+        "error"
+      );
+    }
+  }  
+  
+  // Fonction pour ouvrir un document hors ligne
+  function openOfflineDocument(doc) {
+    console.log("Ouverture du document hors ligne :", doc.title);
+  
+    // Ouvrir le document dans la même modal que pour les documents en ligne
+    openDocumentModal(doc);
+  
+    // Masquer le bouton "Acheter" et le bouton "Hors ligne"
+    document.getElementById('purchaseBtn').style.display = 'none';
+    document.getElementById('offlineBtn').style.display = 'none';
+  }
 
 // Fonction pour initialiser les étoiles de notation
 function initializeRating(docId) {
@@ -516,17 +650,43 @@ function shareDocument() {
         });
 }
 
+
 // Fonction pour afficher la bibliothèque de l'utilisateur
 function showMyLibrary() {
-    // Charger les documents de la bibliothèque de l'utilisateur
-    db.ref(`userLibraries/${currentUser.username}`).once('value', (snapshot) => {
-        const userLibrary = snapshot.val() || {};
-        const docIds = Object.keys(userLibrary);
-        documents = documents.filter(doc => docIds.includes(doc.id));
-        currentPage = 1;
-        displayDocuments();
-    });
+    console.log("Affichage de Ma bibliothèque");
+    if (currentUser) {
+        console.log("Utilisateur connecté:", currentUser.username);
+
+        // Récupérer les ID des documents achetés par l'utilisateur
+        db.ref('sales')
+            .orderByChild('buyerUsername')
+            .equalTo(currentUser.username)
+            .once('value')
+            .then((snapshot) => {
+                const purchasedDocIds = [];
+                snapshot.forEach((childSnapshot) => {
+                    const sale = childSnapshot.val();
+                    purchasedDocIds.push(sale.documentId); // Stocker l'ID du document
+                });
+                console.log("Documents achetés par l'utilisateur:", purchasedDocIds);
+
+                // Filtrer les documents en fonction des ID achetés
+                documents = documents.filter(doc => purchasedDocIds.includes(doc.id));
+                console.log("Documents filtrés:", documents);
+
+                currentPage = 1; // Réinitialiser la pagination
+                displayDocuments();
+            })
+            .catch((error) => {
+                console.error("Erreur lors de la récupération des achats:", error);
+                showNotification("Erreur lors du chargement de la bibliothèque.", 'error');
+            });
+    } else {
+        console.log("Utilisateur non connecté");
+        alert("Veuillez vous connecter pour accéder à votre bibliothèque.");
+    }
 }
+
 
 // Fonction pour afficher les favoris de l'utilisateur
 function showMyFavorites() {
@@ -542,9 +702,25 @@ function showMyFavorites() {
 
 // Fonction pour afficher les documents hors ligne
 function showOfflineDocs() {
-    // Charger les documents hors ligne de l'utilisateur (non implémenté dans cet exemple)
-    alert('La fonctionnalité "Mes doc hors ligne" n\'est pas encore disponible.');
-}
+    console.log("Affichage des documents hors ligne");
+    const offlineDocs = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key.startsWith("offlineDoc_")) {
+        const doc = JSON.parse(localStorage.getItem(key));
+        // Remplacer les imageUrls par les URL locales stockées dans le document hors ligne
+        doc.imageUrls = doc.imageUrls.map(imageUrl => {
+          // Si l'URL est un blob URL (data:image/...), la garder, sinon utiliser l'URL d'origine
+          return imageUrl.startsWith('blob:') ? imageUrl : storage.refFromURL(imageUrl).toString();
+        });
+        offlineDocs.push(doc);
+      }
+    }
+  
+    documents = offlineDocs;
+    currentPage = 1;
+    displayDocuments();
+  }
 
 // Fonction pour ajouter une action à l'historique
 function addToHistory(action) {
