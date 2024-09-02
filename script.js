@@ -814,7 +814,10 @@ function addMessageToChat(sender, message) {
     messageElement.classList.add('message', sender === 'user' ? 'user-message' : 'ai-message');
 
     if (sender === 'ai') {
-        message = message.replace(/\*\*/g, '\n');
+// Remplacer les ** en début de ligne par des sauts de ligne
+message = message.replace(/^\*\*/gm, '\n'); 
+// Supprimer les autres ** dans le texte
+message = message.replace(/\*\*/g, '');
 
         const textElement = document.createElement('div');
         messageElement.appendChild(textElement);
