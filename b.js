@@ -540,37 +540,11 @@ function loadComments(docId) {
 // Fonction pour utiliser un document hors ligne
 async function useOffline(doc) {
     console.log("Utilisation hors ligne du document :", doc.title);
-    try {
-      // Vérifier si le document est déjà téléchargé
-      const storedDoc = localStorage.getItem(`offlineDoc_${doc.id}`);
-      if (storedDoc) {
-        console.log("Document déjà téléchargé :", doc.title);
-        // Ouvrir le document hors ligne
-        openOfflineDocument(JSON.parse(storedDoc));
-      } else {
-        console.log("Téléchargement du document :", doc.title);
-  
-        // Obtenir les URL absolues des images
-        const imageUrls = await Promise.all(
-          doc.imageUrls.map(imageUrl => storage.refFromURL(imageUrl).getDownloadURL())
-        );
-  
-        // Stocker le document avec les URL d'images locales dans localStorage
-        const offlineDoc = { ...doc, imageUrls };
-        localStorage.setItem(`offlineDoc_${doc.id}`, JSON.stringify(offlineDoc));
-  
-        // Ouvrir le document hors ligne
-        openOfflineDocument(offlineDoc);
-      }
-    } catch (error) {
-      console.error("Erreur lors du téléchargement du document :", error);
-      // Appeler showNotification depuis script.js
-      window.showNotification(
-        "Erreur lors du téléchargement du document pour une utilisation hors ligne.",
+    window.showNotification(
+        "Fonctionnalité en developpement.",
         "error"
       );
-    }
-  }  
+    } 
   
   // Fonction pour ouvrir un document hors ligne
   function openOfflineDocument(doc) {
@@ -700,27 +674,6 @@ function showMyFavorites() {
     });
 }
 
-// Fonction pour afficher les documents hors ligne
-function showOfflineDocs() {
-    console.log("Affichage des documents hors ligne");
-    const offlineDocs = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key.startsWith("offlineDoc_")) {
-        const doc = JSON.parse(localStorage.getItem(key));
-        // Remplacer les imageUrls par les URL locales stockées dans le document hors ligne
-        doc.imageUrls = doc.imageUrls.map(imageUrl => {
-          // Si l'URL est un blob URL (data:image/...), la garder, sinon utiliser l'URL d'origine
-          return imageUrl.startsWith('blob:') ? imageUrl : storage.refFromURL(imageUrl).toString();
-        });
-        offlineDocs.push(doc);
-      }
-    }
-  
-    documents = offlineDocs;
-    currentPage = 1;
-    displayDocuments();
-  }
 
 // Fonction pour ajouter une action à l'historique
 function addToHistory(action) {
