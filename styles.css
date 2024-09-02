@@ -223,28 +223,7 @@ button:hover {
     background-color: var(--hover-color);
 }
 
-.message {
-    margin-bottom: 15px;
-    padding: 15px;
-    border-radius: 10px;
-    max-width: 80%;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    word-wrap: break-word;
-}
 
-.user-message {
-    background-color: var(--user-message-color);
-    color: var(--text-color);
-    align-self: flex-end;
-    border-bottom-right-radius: 0;
-}
-
-.ai-message {
-    background-color: var(--ai-message-color);
-    color: var(--text-color);
-    align-self: flex-start;
-    border-bottom-left-radius: 0;
-}
 
 #modelSelect, #subscriptionSelect, #creditSelect {
     width: 100%;
@@ -1274,4 +1253,76 @@ button:hover {
     /* Styles pour l'icône de réponse */
     transform: rotate(180deg); /* Rotation de 180 degrés pour un effet "retour" */
     margin-right: 3px; /* Ajustez la marge si nécessaire */
+}
+
+
+
+/* Styles pour formater les messages comme dans un document web/Word */
+.message {
+    margin-bottom: 15px;
+    padding: 15px;
+    border-radius: 10px;
+    max-width: 80%;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    word-wrap: break-word;
+    white-space: pre-wrap; /* Permet les sauts de ligne automatiques et préserve les espaces */
+}
+
+.user-message, .ai-message {
+    /* Styles communs aux messages utilisateur et AI */
+    font-size: 16px; /* Taille de police standard */
+    line-height: 1.5; /* Interligne standard */
+}
+
+.user-message {
+    /* Styles spécifiques aux messages utilisateur */
+    background-color: var(--user-message-color);
+    color: var(--text-color);
+    align-self: flex-end;
+    border-bottom-right-radius: 0;
+}
+
+.ai-message {
+    /* Styles spécifiques aux messages AI */
+    background-color: var(--ai-message-color);
+    color: var(--text-color);
+    align-self: flex-start;
+    border-bottom-left-radius: 0;
+}
+
+.message p {
+    /* Styles pour les paragraphes dans les messages */
+    margin: 0; /* Supprimer les marges par défaut des paragraphes */
+}
+
+.message strong {
+    /* Styles pour le texte en gras dans les messages */
+    font-weight: bold;
+}
+
+.message em {
+    /* Styles pour le texte en italique dans les messages */
+    font-style: italic;
+}
+
+.message ul, .message ol {
+    /* Styles pour les listes dans les messages */
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-left: 20px;
+}
+
+.message-actions {
+    margin-top: 5px;
+    display: flex; /* Utilisez flexbox pour aligner les icônes */
+    justify-content: flex-end; /* Alignez les icônes à droite */
+}
+
+.message-actions button {
+    background: none;
+    border: none;
+    color: var(--text-color);
+    cursor: pointer;
+    margin-left: 5px; /* Ajoutez une marge à gauche pour espacer les icônes */
+    font-size: 0.9em;
 }
