@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test de l'API Gemini avec Vision, PDF et Sélection de Modèle (Mise à jour v7)</title>
+    <script type="importmap">
+        {
+            "imports": {
+                "@google/generative-ai": "https://esm.run/@google/generative-ai@latest"
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        textarea, input[type="text"] {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        textarea {
+            height: 100px;
+        }
+        #response, #error {
+            white-space: pre-wrap;
+            padding: 10px;
+            margin-top: 20px;
+        }
+        #response {
+            background-color: #e6f3ff;
+        }
+        #error {
+            background-color: #ffe6e6;
+            display: none;
+        }
+        #imagePreview, #pdfPreview {
+            max-width: 100%;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test de l'API Gemini avec Vision, PDF et Sélection de Modèle (Mise à jour v7)</h1>
+    <p>Entrez votre clé API Gemini :</p>
+    <input type="text" id="apiKey" placeholder="Votre clé API">
+    <p>Choisissez le modèle d'API :</p>
+    <input type="text" id="modelName" value="gemini-1.5-pro" placeholder="Nom du modèle">
+    <p>Téléchargez une image (optionnel) :</p>
+    <input type="file" id="imageUpload" accept="image/*">
+    <img id="imagePreview" style="display: none;">
+    <p>Téléchargez un PDF (optionnel) :</p>
+    <input type="file" id="pdfUpload" accept="application/pdf">
+    <div id="pdfPreview"></div>
+    <p>Entrez votre prompt :</p>
+    <textarea id="prompt" placeholder="Écrivez votre prompt ici..."></textarea>
+    <br>
+    <button onclick="runGemini()">Générer</button>
+    <div id="response"></div>
+    <div id="error"></div>
+
+    <script type="module">
+        import { GoogleGenerativeAI } from "@google/generative-ai";
+
+        let selectedImage = null;
+        let selectedPdf = null;
+
+        document.getElementById('imageUpload').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('imagePreview').src = e.target.result;
+                    document.getElementById('imagePreview').style.display = 'block';
+                    selectedImage = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        document.getElementById('pdfUpload').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                selectedPdf = file;
+                document.getElementById('pdfPreview').textContent = `PDF chargé : ${file.name}`;
+            }
+        });
+
+        window.runGemini = async function() {
+            const apiKey = document.getElementById('apiKey').value;
+            const modelName = document.getElementById('modelName').value;
+            const prompt = document.getElementById('prompt').value;
+            const responseElement = document.getElementById('response');
+            const errorElement = document.getElementById('error');
+
+            responseElement.textContent = "";
+            errorElement.style.display = "none";
+
+            if (!apiKey) {
+                showError("Veuillez entrer votre clé API Gemini.");
+                return;
+            }
+
+            if (!modelName) {
+                showError("Veuillez entrer un nom de modèle.");
+                return;
+            }
+
+            if (!prompt && !selectedImage && !selectedPdf) {
+                showError("Veuillez entrer un prompt, sélectionner une image ou télécharger un PDF.");
+                return;
+            }
+
+            responseElement.textContent = "Génération en cours...";
+
+            try {
+                const genAI = new GoogleGenerativeAI(apiKey);
+                const model = genAI.getGenerativeModel({ model: modelName });
+
+                const parts = [];
+
+                if (prompt) {
+                    parts.push({ text: prompt });
+                }
+
+                if (selectedImage) {
+                    parts.push({
+                        inlineData: {
+                            data: selectedImage.split(',')[1],
+                            mimeType: "image/jpeg"
+                        }
+                    });
+                }
+
+                if (selectedPdf) {
+                    const pdfData = await selectedPdf.arrayBuffer();
+                    const base64Pdf = btoa(String.fromCharCode.apply(null, new Uint8Array(pdfData)));
+                    parts.push({
+                        inlineData: {
+                            data: base64Pdf,
+                            mimeType: "application/pdf"
+                        }
+                    });
+                }
+
+                const result = await model.generateContent(parts);
+                const response = await result.response;
+                const text = response.text();
+
+                responseElement.textContent = text;
+            } catch (error) {
+                showError(`Erreur : ${error.message}`);
+                console.error("Détails de l'erreur:", error);
+            }
+        };
+
+        function showError(message) {
+            const errorElement = document.getElementById('error');
+            errorElement.textContent = message;
+            errorElement.style.display = "block";
+        }
+    </script>
+</body>
+</html>

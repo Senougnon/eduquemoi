@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test d'intégration Google Drive</title>
+  <script src="https://apis.google.com/js/api.js"></script>
+  <script>
+    // ID client de votre application Google
+    const CLIENT_ID = '277143630015-ngrjab0fe0l6q7t77e7jt9ukbmrm9hfk.apps.googleusercontent.com';
+
+    // URI de redirection autorisée pour votre application
+    const REDIRECT_URI = 'https://eduquemoi.netlify.app/oauth2callback'; 
+
+    // Portée des autorisations demandées
+    const SCOPE = 'https://www.googleapis.com/auth/drive';
+
+    // Fonction pour charger l'API Google Drive et initialiser l'authentification
+    function handleClientLoad() {
+      gapi.load('client:auth2', initClient);
+    }
+
+    // Fonction pour initialiser l'API Google Drive et gérer l'authentification
+    function initClient() {
+      gapi.client.init({
+        clientId: CLIENT_ID,
+        discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+        scope: SCOPE
+      }).then(function () {
+        // Écouteur d'événements pour les changements d'état d'authentification
+        gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
+
+        // Mettre à jour l'état de connexion initial
+        updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
+
+        // Attacher des gestionnaires d'événements aux boutons
+        document.getElementById('signin-button').onclick = handleAuthClick;
+        document.getElementById('signout-button').onclick = handleSignoutClick;
+        document.getElementById('create-file-button').onclick = createFile;
+      });
+    }
+
+    // Fonction pour mettre à jour l'interface utilisateur en fonction de l'état de connexion
+    function updateSigninStatus(isSignedIn) {
+      if (isSignedIn) {
+        document.getElementById('signin-button').style.display = 'none';
+        document.getElementById('signout-button').style.display = 'block';
+        document.getElementById('create-file-button').style.display = 'block';
+      } else {
+        document.getElementById('signin-button').style.display = 'block';
+        document.getElementById('signout-button').style.display = 'none';
+        document.getElementById('create-file-button').style.display = 'none';
+      }
+    }
+
+    // Fonction pour gérer le clic sur le bouton de connexion
+    function handleAuthClick(event) {
+      gapi.auth2.getAuthInstance().signIn();
+    }
+
+    // Fonction pour gérer le clic sur le bouton de déconnexion
+    function handleSignoutClick(event) {
+      gapi.auth2.getAuthInstance().signOut();
+    }
+
+    // Fonction pour créer un nouveau fichier dans Google Drive
+    function createFile() {
+      gapi.client.drive.files.create({
+        resource: {
+          name: 'Nouveau fichier',
+          mimeType: 'text/plain'
+        }
+      }).then(function(response) {
+        console.log('Fichier créé avec succès :', response);
+        alert('Fichier créé avec succès !');
+      }, function(reason) {
+        console.error('Erreur lors de la création du fichier :', reason);
+        alert('Erreur lors de la création du fichier.');
+      });
+    }
+  </script>
+</head>
+<body>
+  <h1>Test d'intégration Google Drive</h1>
+
+  <button id="signin-button">Se connecter avec Google</button>
+  <button id="signout-button" style="display: none;">Se déconnecter</button>
+  <button id="create-file-button" style="display: none;">Créer un fichier</button>
+
+  <script async defer src="https://apis.google.com/js/api.js"
+    onload="this.onload=function(){};handleClientLoad()"
+    onreadystatechange="if (this.readyState === 'complete') this.onload()">
+  </script>
+</body>
+</html>

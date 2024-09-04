@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inscription et Connexion</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h2 {
+            text-align: center;
+            color: #333;
+        }
+        input {
+            display: block;
+            width: 100%;
+            padding: 0.5rem;
+            margin-bottom: 1rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            width: 100%;
+            padding: 0.5rem;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 0.5rem;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .toggle {
+            text-align: center;
+            margin-top: 1rem;
+        }
+        .toggle a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        #googleSignIn {
+            background-color: #4285F4;
+        }
+        #googleSignIn:hover {
+            background-color: #357ae8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="authForm">
+            <h2 id="authTitle">Inscription</h2>
+            <input type="email" id="email" placeholder="Email" required>
+            <input type="password" id="password" placeholder="Mot de passe" required>
+            <button id="authButton">S'inscrire</button>
+            <button id="googleSignIn">Se connecter avec Google</button>
+            <div class="toggle">
+                <a href="#" id="toggleAuth">Déjà un compte ? Se connecter</a>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCvizcYorGDPN3GXqma0opp7wAiMkaCt64",
+            authDomain: "gemini-bb56e.firebaseapp.com",
+            databaseURL: "https://gemini-bb56e-default-rtdb.firebaseio.com",
+            projectId: "gemini-bb56e",
+            storageBucket: "gemini-bb56e.appspot.com",
+            messagingSenderId: "277143630015",
+            appId: "1:277143630015:web:78736f2cf52d29495d160a",
+            measurementId: "G-CSN292219J"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+
+        const authTitle = document.getElementById('authTitle');
+        const authButton = document.getElementById('authButton');
+        const googleSignIn = document.getElementById('googleSignIn');
+        const toggleAuth = document.getElementById('toggleAuth');
+        const email = document.getElementById('email');
+        const password = document.getElementById('password');
+
+        let isSignUp = true;
+
+        toggleAuth.addEventListener('click', (e) => {
+            e.preventDefault();
+            isSignUp = !isSignUp;
+            if (isSignUp) {
+                authTitle.textContent = 'Inscription';
+                authButton.textContent = 'S\'inscrire';
+                toggleAuth.textContent = 'Déjà un compte ? Se connecter';
+            } else {
+                authTitle.textContent = 'Connexion';
+                authButton.textContent = 'Se connecter';
+                toggleAuth.textContent = 'Pas de compte ? S\'inscrire';
+            }
+        });
+
+        authButton.addEventListener('click', () => {
+            const emailValue = email.value;
+            const passwordValue = password.value;
+
+            if (isSignUp) {
+                createUserWithEmailAndPassword(auth, emailValue, passwordValue)
+                    .then((userCredential) => {
+                        console.log('Utilisateur inscrit:', userCredential.user);
+                        alert('Inscription réussie !');
+                    })
+                    .catch((error) => {
+                        console.error('Erreur d\'inscription:', error.message);
+                        alert('Erreur d\'inscription: ' + error.message);
+                    });
+            } else {
+                signInWithEmailAndPassword(auth, emailValue, passwordValue)
+                    .then((userCredential) => {
+                        console.log('Utilisateur connecté:', userCredential.user);
+                        alert('Connexion réussie !');
+                    })
+                    .catch((error) => {
+                        console.error('Erreur de connexion:', error.message);
+                        alert('Erreur de connexion: ' + error.message);
+                    });
+            }
+        });
+
+        googleSignIn.addEventListener('click', () => {
+            signInWithPopup(auth, provider)
+                .then((result) => {
+                    const user = result.user;
+                    console.log('Utilisateur connecté avec Google:', user);
+                    alert('Connexion avec Google réussie !');
+                }).catch((error) => {
+                    console.error('Erreur de connexion avec Google:', error.message);
+                    alert('Erreur de connexion avec Google: ' + error.message);
+                });
+        });
+    </script>
+</body>
+</html>

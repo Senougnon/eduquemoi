@@ -62,15 +62,22 @@
             </div>
 
             <h3>Modèles</h3>
+
             <select id="modelSelect" onchange="checkModelAccess()">
                 <optgroup label="Modèles gratuits">
                     <option value="gemini-1.5-flash" selected>Gemini 1.5 Flash</option>
                     <option value="gemini-1.0-pro">Gemini 1.0 Pro</option>
                 </optgroup>
                 <optgroup label="Modèles avancés">
+                    <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
                     <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
                     <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro Latest</option>
-                    <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                </optgroup>
+                <optgroup label="Modèles expérimentaux">
+                    <option value="gemini-1.5-pro-exp-0801">Gemini 1.5 Pro Exp 0801</option>
+                    <option value="gemini-1.5-pro-exp-0827">Gemini 1.5 Pro Exp 0827</option>
+                    <option value="gemini-1.5-flash-exp-0827">Gemini 1.5 Flash Exp 0827</option>
+                    <option value="gemini-1.5-flash-8b-exp-0827">Gemini 1.5 Flash 8B Exp 0827</option>
                 </optgroup>
             </select>
 
@@ -123,10 +130,9 @@
                 <div class="input-container">
                     <textarea id="userInput" placeholder="Tapez votre message ici..." rows="1"></textarea>
                     <div class="input-actions">
-                        <input type="file" id="fileInput" class="file-input" accept=".pdf,.jpg,.jpeg,.png,.mp3,.wav" onchange="handleFileUpload(event)" multiple>
+                        <input type="file" id="fileInput" class="file-input" accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileUpload(event)" multiple>
                         <label for="fileInput" class="file-label"><i class="fas fa-paperclip"></i></label>
                         <button id="promptListButton" onclick="togglePromptList()"><i class="fas fa-list"></i></button>
-                        <button id="voiceCommandButton" onmousedown="startVoiceRecognition()" onmouseup="stopVoiceRecognition()" ontouchstart="startVoiceRecognition()" ontouchend="stopVoiceRecognition()"><i class="fas fa-microphone"></i></button>
                         <button onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
                     </div>
                 </div>
