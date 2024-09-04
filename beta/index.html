@@ -92,7 +92,10 @@
                 <option value="1000">1000 crédits</option>
             </select>
             <button onclick="buyCredits()">Acheter des crédits</button>
-
+    <!-- Ajout du bouton Bibliothèque -->
+    <button id="libraryBtn" class="full-width-button" onclick="openLibrary()">
+        <i class="fas fa-book"></i> Bibliothèque
+    </button>
             <button id="referralBtn" class="full-width-button" onclick="showReferralModal()">
                 <i class="fas fa-user-plus"></i> Récompense
             </button>
@@ -120,9 +123,10 @@
                 <div class="input-container">
                     <textarea id="userInput" placeholder="Tapez votre message ici..." rows="1"></textarea>
                     <div class="input-actions">
-                        <input type="file" id="fileInput" class="file-input" accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileUpload(event)" multiple>
+                        <input type="file" id="fileInput" class="file-input" accept=".pdf,.jpg,.jpeg,.png,.mp3,.wav" onchange="handleFileUpload(event)" multiple>
                         <label for="fileInput" class="file-label"><i class="fas fa-paperclip"></i></label>
                         <button id="promptListButton" onclick="togglePromptList()"><i class="fas fa-list"></i></button>
+                        <button id="voiceCommandButton" onmousedown="startVoiceRecognition()" onmouseup="stopVoiceRecognition()" ontouchstart="startVoiceRecognition()" ontouchend="stopVoiceRecognition()"><i class="fas fa-microphone"></i></button>
                         <button onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
                     </div>
                 </div>
