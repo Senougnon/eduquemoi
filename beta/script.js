@@ -9,6 +9,9 @@ const FREE_CREDITS_PER_DAY = 10;
 const FREE_MODEL_MAX_WORDS = 50;
 const FREE_MODEL_MAX_RESPONSE = 100;
 
+// Message système à définir
+const SYSTEM_INSTRUCTION = "Tu es un assistant IA nommé Eduque moi crée par Evisions. language par defaut : Français. Tu voir et analyser travailler avec des fichiers (un ou plusieurs fichiers sous differents formats), rediger un memoire , corriger une epreuve , resumer un cours et bien plus encore. tu peux repondre et comprendre dans n'importe quel autre langue en dehors du Français";
+
 // Configuration Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyCvizcYorGDPN3GXqma0opp7wAiMkaCt64",
@@ -33,6 +36,7 @@ let pinnedResponses = []; // Tableau pour stocker les réponses épinglées
 let genAI;
 const API_KEY_LIST_REF = db.ref('API');
 let apiKeyList = [];
+
 
 // Fonction pour charger la liste des clés API au chargement de la page
 async function loadApiKeyList() {
@@ -61,9 +65,14 @@ function getRandomApiKey() {
 
 // Fonction pour initialiser l'API Gemini (modifiée)
 function initializeGeminiAPI() {
-    const apiKey = getRandomApiKey(); // Obtenir une clé aléatoire
+    const apiKey = getRandomApiKey(); 
     if (apiKey) {
         genAI = new GoogleGenerativeAI(apiKey);
+        // Définir le message système ici
+        model = genAI.getGenerativeModel({
+            model: document.getElementById('modelSelect').value, // Obtenir le modèle sélectionné
+            systemInstruction: SYSTEM_INSTRUCTION 
+        });
     } else {
         // Gérer le cas où aucune clé API n'est disponible
         showNotification("Erreur : Impossible d'initialiser l'API. Aucune clé API disponible.", 'error');
@@ -336,16 +345,61 @@ function checkModelAccess() {
     }
 }
 
-// Fonction pour gérer l'ajout de fichiers
-function handleFileUpload(event) {
+
+// Fonction pour gérer l'importation de fichiers (docx, doc)
+async function handleFileUpload(event) {
     const files = event.target.files;
+
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        if (file.type.startsWith('image/') || file.type === 'application/pdf') {
+
+        if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.type === 'application/msword') {
+
+            try {
+                const textContent = await convertWordToText(file);
+                
+                // Ajouter le contenu texte aux fichiers épinglés
+                pinnedFiles.push({
+                    name: file.name.replace(/\.[^/.]+$/, "") + '.txt', // Remplace l'extension par .txt
+                    type: 'text/plain',
+                    content: textContent
+                });
+                updatePinnedFiles();
+                
+                // Incrémenter le compteur de fichiers importés et mettre à jour la base de données
+                importedFilesCount++;
+                await db.ref('users/' + currentUser.username).update({
+                    importedFilesCount: importedFilesCount
+                });
+
+            } catch (error) {
+                console.error('Erreur lors de la conversion du fichier Word :', error);
+                showNotification('Erreur lors de la conversion du fichier Word.', 'error');
+            }
+        } else if (file.type.startsWith('image/') || file.type === 'application/pdf') {
+            // Gestion des fichiers image et PDF comme avant
             pinnedFiles.push(file);
             updatePinnedFiles();
         }
     }
+}
+
+// Fonction pour convertir un fichier Word en texte
+function convertWordToText(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const arrayBuffer = e.target.result;
+            mammoth.extractRawText({ arrayBuffer: arrayBuffer })
+                .then(function (result) {
+                    resolve(result.value);
+                })
+                .catch(function (error) {
+                    reject(error);
+                });
+        };
+        reader.readAsArrayBuffer(file);
+    });
 }
 
 // Fonction pour mettre à jour l'affichage des fichiers épinglés
@@ -450,7 +504,7 @@ function createPinnedResponsesElement(responses) {
     }
   
     const userInput = document.getElementById("userInput").value.trim();
-    let model = document.getElementById("modelSelect").value;
+    const selectedModel = document.getElementById("modelSelect").value;
   
     if (
       !userInput &&
@@ -465,48 +519,32 @@ function createPinnedResponsesElement(responses) {
       return;
     }
   
-    // Calculer le nombre total de crédits requis pour les fichiers et les réponses épinglées
-    const requiredCredits =
-      pinnedFiles.length + pinnedResponses.length > 0
-        ? pinnedFiles.length + pinnedResponses.length
-        : 1;
+    // Calculer le nombre total de crédits requis
+    let requiredCredits = 1; // Crédit de base pour le message texte
+    requiredCredits += pinnedFiles.filter(file => file.type !== 'text/plain').length; // Ajouter des crédits pour les images et les PDF
+    requiredCredits += pinnedResponses.length;
   
     // Vérification des crédits et sélection du modèle
     if (!hasValidSubscription()) {
-      if (model === "gemini-1.5-flash") {
+      if (selectedModel === "gemini-1.5-flash") {
         if (currentUser.paidCredits >= requiredCredits) {
-          showNotification(
-            "Utilisation de crédits payants pour Gemini 1.5 Flash.",
-            "info"
-          );
+          showNotification("Utilisation de crédits payants pour Gemini 1.5 Flash.", "info");
         } else if (currentUser.freeCredits >= requiredCredits) {
-          showNotification(
-            "Utilisation de crédits gratuits pour Gemini 1.5 Flash.",
-            "info"
-          );
+          showNotification("Utilisation de crédits gratuits pour Gemini 1.5 Flash.", "info");
         } else {
-          showPaymentNotification(
-            "Vous n'avez pas assez de crédits pour utiliser Gemini 1.5 Flash."
-          );
+          showPaymentNotification("Vous n'avez pas assez de crédits pour utiliser Gemini 1.5 Flash.");
           return;
         }
-      } else if (!["gemini-1.0-pro"].includes(model)) {
+      } else if (!["gemini-1.0-pro"].includes(selectedModel)) {
         // Modèles avancés (hors Gemini 1.0 Pro)
         if (currentUser.paidCredits < requiredCredits) {
-          showPaymentNotification(
-            "Vous n'avez pas assez de crédits payants pour ce modèle avancé."
-          );
+          showPaymentNotification("Vous n'avez pas assez de crédits payants pour ce modèle avancé.");
           return;
         }
       } else {
         // Gemini 1.0 Pro (modèle gratuit)
-        if (
-          currentUser.freeCredits < requiredCredits &&
-          currentUser.paidCredits < requiredCredits
-        ) {
-          showPaymentNotification(
-            "Vous n'avez pas assez de crédits pour envoyer ce message."
-          );
+        if (currentUser.freeCredits < requiredCredits && currentUser.paidCredits < requiredCredits) {
+          showPaymentNotification("Vous n'avez pas assez de crédits pour envoyer ce message.");
           return;
         }
       }
@@ -543,8 +581,7 @@ function createPinnedResponsesElement(responses) {
   
     // Ajouter les réponses épinglées au message de l'utilisateur
     if (pinnedResponsesToSend.length > 0) {
-      const pinnedResponsesElement =
-        createPinnedResponsesElement(pinnedResponsesToSend);
+      const pinnedResponsesElement = createPinnedResponsesElement(pinnedResponsesToSend);
       messageElement.appendChild(pinnedResponsesElement);
   
       fullMessage += "\n\n**Réponses épinglées:**\n";
@@ -555,8 +592,7 @@ function createPinnedResponsesElement(responses) {
   
     // Ajouter le prompt épinglé au début du message
     if (pinnedPromptToSend) {
-      const pinnedPromptElement =
-        createPinnedPromptElement(pinnedPromptToSend);
+      const pinnedPromptElement = createPinnedPromptElement(pinnedPromptToSend);
       messageElement.appendChild(pinnedPromptElement);
   
       fullMessage = pinnedPromptToSend.content + "\n\n" + fullMessage;
@@ -576,34 +612,30 @@ function createPinnedResponsesElement(responses) {
     resetTextareaHeight();
   
     // Affiche l'animation de chargement et cache le bouton d'envoi
-    const sendButton = document.querySelector(
-      ".input-actions button:last-child"
-    );
+    const sendButton = document.querySelector(".input-actions button:last-child");
     sendButton.classList.add("loading");
     sendButton.disabled = true;
   
     try {
-      const parts = [];
-  
-      // Vérifier si des fichiers sont joints
-      if (pinnedFilesToSend.length > 0) {
-        // Traitement des fichiers : pas de contexte de conversation
-        fullMessage += "\n\n**Fichiers joints:**\n";
-        pinnedFilesToSend.forEach((file) => {
-          fullMessage += `- ${file.name} (${file.type})\n`;
-        });
-        parts.push({ text: fullMessage });
-  
-        // Ajouter les fichiers à la requête
-        for (const file of pinnedFilesToSend) {
-          const fileData = await readFileAsBase64(file);
-          parts.push({
-            inlineData: {
-              data: fileData,
-              mimeType: file.type,
-            },
-          });
-        }
+        const parts = [];
+
+        // Vérifier si des fichiers sont joints
+        if (pinnedFilesToSend.length > 0) {
+          // Traiter chaque fichier séparément
+          for (const file of pinnedFilesToSend) {
+            let filePart = {};
+            if (file.type === 'text/plain') {
+              filePart.text = file.content;
+            } else {
+              const fileData = await readFileAsBase64(file);
+              filePart.inlineData = {
+                data: fileData,
+                mimeType: file.type,
+              };
+            }
+            parts.push(filePart); // Ajouter chaque fichier comme une partie distincte
+          }
+    
       } else {
         // Traitement du texte seul : inclure le contexte de la conversation
         let conversationContext = "";
@@ -621,16 +653,21 @@ function createPinnedResponsesElement(responses) {
         parts.push({ text: fullMessage });
       }
   
-      // Générer la réponse avec le modèle sélectionné
-      const generativeModel = genAI.getGenerativeModel({ model: model });
-      const result = await generativeModel.generateContent(parts);
+      // Mettre à jour le modèle avec la nouvelle sélection
+      model = genAI.getGenerativeModel({
+        model: selectedModel,
+        systemInstruction: SYSTEM_INSTRUCTION,
+      });
+  
+      // Générer la réponse avec le modèle mis à jour
+      const result = await model.generateContent(parts);
       const response = await result.response;
       let aiResponse = response.text();
   
       let aiMessageElement;
       if (
-        model === "gemini-1.0-pro" ||
-        (model === "gemini-1.5-flash" &&
+        selectedModel === "gemini-1.0-pro" ||
+        (selectedModel === "gemini-1.5-flash" &&
           currentUser.paidCredits < requiredCredits)
       ) {
         const words = aiResponse.split(/\s+/);
@@ -650,23 +687,20 @@ function createPinnedResponsesElement(responses) {
       } else {
         aiMessageElement = addMessageToChat("ai", aiResponse);
       }
-
-      // Ajouter le message de l'utilisateur à l'historique de la conversation
-    currentConversation.push({ sender: "user", content: userInput }); 
   
-      // Ajouter le message de Gemini à l'historique de la conversation (si pas de fichier)
+      // Ajouter le message de l'utilisateur à l'historique
+      currentConversation.push({ sender: "user", content: userInput });
+  
+      // Ajouter le message de Gemini à l'historique (si pas de fichier)
       if (pinnedFilesToSend.length === 0) {
         currentConversation.push({ sender: "ai", content: aiResponse });
       }
   
-      await updateCredits(model, requiredCredits);
-      saveConversation(); // Sauvegarder la conversation mise à jour
+      await updateCredits(selectedModel, requiredCredits);
+      saveConversation();
     } catch (error) {
       console.error("Erreur lors de la génération de la réponse:", error);
-      showNotification(
-        `Erreur : ${error.message}. Veuillez réessayer.`,
-        "error"
-      );
+      showNotification(`Erreur : ${error.message}. Veuillez réessayer.`, "error");
     } finally {
       sendButton.classList.remove("loading");
       sendButton.disabled = false;
@@ -870,14 +904,6 @@ async function generateWordDoc(text) {
         <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
             <w:body>
                 <w:p>
-                    <w:pPr>
-                        <w:pStyle w:val="Heading1"/>
-                    </w:pPr>
-                    <w:r>
-                        <w:t>Réponse d'Eduque moi</w:t>
-                    </w:r>
-                </w:p>
-                <w:p>
                     <w:r>
                         <w:t>${text}</w:t>
                     </w:r>
@@ -896,7 +922,7 @@ function generatePDF(text) {
     const doc = new jsPDF();
     
     doc.setFontSize(18);
-    doc.text("Réponse d'Eduque moi", 20, 20);
+    doc.text("", 20, 20);
     
     doc.setFontSize(12);
     const splitText = doc.splitTextToSize(text, 170);
@@ -920,7 +946,7 @@ function shareResponse(messageElement) {
     const responseText = messageElement.querySelector('div:first-child').textContent;
     if (navigator.share) {
         navigator.share({
-            title: 'Réponse de Eduque moi',
+            title: '',
             text: responseText
         }).then(() => {
             showNotification('Partage réussi', 'success');
@@ -1637,9 +1663,6 @@ window.onload = async function() {
         modelSelect.value = 'gemini-1.5-flash';
     }
 
-    // Appeler resetImportedFilesCount au chargement de la page et toutes les 24 heures
-    await resetImportedFilesCount();
-    setInterval(resetImportedFilesCount, 24 * 60 * 60 * 1000);
 };
 
 function setupUIEventListeners() {
@@ -1774,6 +1797,8 @@ function updateUI() {
     }
 }
 
+// Modifier l'input de fichier pour accepter les fichiers docx et doc
+document.getElementById('fileInput').accept = '.pdf,.jpg,.jpeg,.png,.docx,.doc';
 
 // Appel de updateUI toutes les 5 minutes
 setInterval(updateUI, 300000);
