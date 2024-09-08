@@ -1473,3 +1473,94 @@ button:hover {
     font-style: italic; /* Ou une autre mise en forme distinctive */
 }
 
+#loadingIndicator {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.loading-spinner {
+    border: 5px solid #f3f3f3;
+    border-top: 5px solid #3498db;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+#loadingIndicator p {
+    color: white;
+    margin-top: 10px;
+}
+
+.pinned-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  
+  .pinned-item {
+    background-color: var(--input-background);
+    border: 2px solid transparent; /* Bordure transparente par défaut */
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 0.9em;
+    display: inline-flex;
+    align-items: center;
+    max-width: 180px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Ombre subtile */
+    transition: border-color 0.3s ease; /* Transition pour l'effet de survol */
+  }
+  
+  .pinned-item:hover {
+    border-color: var(--primary-color); /* Changement de couleur de la bordure au survol */
+  }
+  
+  .pinned-item .name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-left: 8px; 
+  }
+  
+  .pinned-item .remove {
+    margin-left: 10px;
+    cursor: pointer;
+    color: var(--text-color);
+    opacity: 0.7;
+    transition: opacity 0.3s ease;
+  }
+  
+  .pinned-item .remove:hover {
+    opacity: 1;
+  }
+  
+  /* Aperçu des images */
+  .pinned-item[data-type="file"] .icon {
+    width: 30px; /* Ajuster la taille de l'aperçu */
+    height: 30px; 
+    overflow: hidden;
+    border-radius: 5px; 
+  }
+  
+  .pinned-item[data-type="file"] .icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
