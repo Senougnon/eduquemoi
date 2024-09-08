@@ -432,15 +432,23 @@ function createPinnedFilesElement(files) {
         const fileElement = document.createElement('div');
         fileElement.className = 'pinned-file';
 
-        const iconElement = document.createElement('span');
-        iconElement.className = 'file-icon';
-        iconElement.textContent = file.type.startsWith('image/') ? '🖼️' : '📄';
+        if (file.type.startsWith('image/')) {
+            const imgElement = document.createElement('img');
+            imgElement.src = URL.createObjectURL(file);
+            imgElement.alt = file.name;
+            imgElement.className = 'pinned-image';
+            fileElement.appendChild(imgElement);
+        } else {
+            const iconElement = document.createElement('span');
+            iconElement.className = 'file-icon';
+            iconElement.textContent = file.type.startsWith('application/pdf') ? '📄' : '📎';
+            fileElement.appendChild(iconElement);
+        }
 
         const nameElement = document.createElement('span');
         nameElement.className = 'file-name';
         nameElement.textContent = file.name;
 
-        fileElement.appendChild(iconElement);
         fileElement.appendChild(nameElement);
         pinnedFilesElement.appendChild(fileElement);
     });
@@ -569,13 +577,13 @@ function createPinnedResponsesElement(responses) {
   
     // Ajouter les fichiers épinglés au message de l'utilisateur
     if (pinnedFilesToSend.length > 0) {
-      const pinnedFilesElement = createPinnedFilesElement(pinnedFilesToSend);
-      messageElement.appendChild(pinnedFilesElement);
-  
-      fullMessage += "\n\n**Fichiers joints:**\n";
-      pinnedFilesToSend.forEach((file) => {
-        fullMessage += `- ${file.name} (${file.type})\n`;
-      });
+        const pinnedFilesElement = createPinnedFilesElement(pinnedFilesToSend);
+        messageElement.appendChild(pinnedFilesElement);
+
+        fullMessage += "\n\n**Fichiers joints:**\n";
+        pinnedFilesToSend.forEach((file) => {
+            fullMessage += `- ${file.name} (${file.type})\n`;
+        });
     }
   
     // Ajouter les réponses épinglées au message de l'utilisateur
@@ -637,19 +645,19 @@ function createPinnedResponsesElement(responses) {
       // Traiter les fichiers épinglés
       for (const file of pinnedFilesToSend) {
         if (file.type === 'text/plain') {
-          parts.push({ text: `Analyse ce fichier texte: ${file.content}` });
+            parts.push({ text: `Analyse ce fichier texte: ${file.content}` });
         } else {
-          const fileData = await readFileAsBase64(file);
-          parts.push({
-            inlineData: {
-              data: fileData,
-              mimeType: file.type,
-            }
-          });
-          // Ajouter une instruction pour chaque fichier non textuel
-          parts.push({ text: `Analyse le fichier ${file.name} (${file.type}) que je viens de t'envoyer.` });
+            const fileData = await readFileAsBase64(file);
+            parts.push({
+                inlineData: {
+                    data: fileData,
+                    mimeType: file.type,
+                }
+            });
+            // Ajouter une instruction pour chaque fichier non textuel
+            parts.push({ text: `Analyse le fichier ${file.name} (${file.type}) que je viens de t'envoyer.` });
         }
-      }
+    }
   
       // Mettre à jour le modèle avec la nouvelle sélection
       model = genAI.getGenerativeModel({
