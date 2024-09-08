@@ -496,216 +496,185 @@ function createPinnedResponsesElement(responses) {
     return pinnedPromptElement;
   }
 
-
   async function sendMessage() {
     if (!currentUser) {
-      showNotification("Veuillez vous connecter pour envoyer des messages.", "error");
-      return;
+        showNotification("Veuillez vous connecter pour envoyer des messages.", "error");
+        return;
     }
-  
+
     const userInput = document.getElementById("userInput").value.trim();
     const selectedModel = document.getElementById("modelSelect").value;
-  
-    if (
-      !userInput &&
-      pinnedFiles.length === 0 &&
-      pinnedResponses.length === 0 &&
-      !pinnedPrompt
-    ) {
-      showNotification(
-        "Veuillez entrer un message, joindre un fichier, épingler une réponse ou sélectionner un prompt.",
-        "error"
-      );
-      return;
+
+    if (!userInput && pinnedFiles.length === 0 && pinnedResponses.length === 0 && !pinnedPrompt) {
+        showNotification(
+            "Veuillez entrer un message, joindre un fichier, épingler une réponse ou sélectionner un prompt.",
+            "error"
+        );
+        return;
     }
-  
+
     // Calculer le nombre total de crédits requis
     let requiredCredits = 1; // Crédit de base pour le message texte
     requiredCredits += pinnedFiles.filter(file => file.type !== 'text/plain').length; // Ajouter des crédits pour les images et les PDF
     requiredCredits += pinnedResponses.length;
-  
+
     // Vérification des crédits et sélection du modèle
     if (!hasValidSubscription()) {
-      if (selectedModel === "gemini-1.5-flash") {
-        if (currentUser.paidCredits >= requiredCredits) {
-          showNotification("Utilisation de crédits payants pour Gemini 1.5 Flash.", "info");
-        } else if (currentUser.freeCredits >= requiredCredits) {
-          showNotification("Utilisation de crédits gratuits pour Gemini 1.5 Flash.", "info");
+        if (selectedModel === "gemini-1.5-flash") {
+            if (currentUser.paidCredits >= requiredCredits) {
+                showNotification("Utilisation de crédits payants pour Gemini 1.5 Flash.", "info");
+            } else if (currentUser.freeCredits >= requiredCredits) {
+                showNotification("Utilisation de crédits gratuits pour Gemini 1.5 Flash.", "info");
+            } else {
+                showPaymentNotification("Vous n'avez pas assez de crédits pour utiliser Gemini 1.5 Flash.");
+                return;
+            }
+        } else if (!["gemini-1.0-pro"].includes(selectedModel)) {
+            // Modèles avancés (hors Gemini 1.0 Pro)
+            if (currentUser.paidCredits < requiredCredits) {
+                showPaymentNotification("Vous n'avez pas assez de crédits payants pour ce modèle avancé.");
+                return;
+            }
         } else {
-          showPaymentNotification("Vous n'avez pas assez de crédits pour utiliser Gemini 1.5 Flash.");
-          return;
+            // Gemini 1.0 Pro (modèle gratuit)
+            if (currentUser.freeCredits < requiredCredits && currentUser.paidCredits < requiredCredits) {
+                showPaymentNotification("Vous n'avez pas assez de crédits pour envoyer ce message.");
+                return;
+            }
         }
-      } else if (!["gemini-1.0-pro"].includes(selectedModel)) {
-        // Modèles avancés (hors Gemini 1.0 Pro)
-        if (currentUser.paidCredits < requiredCredits) {
-          showPaymentNotification("Vous n'avez pas assez de crédits payants pour ce modèle avancé.");
-          return;
-        }
-      } else {
-        // Gemini 1.0 Pro (modèle gratuit)
-        if (currentUser.freeCredits < requiredCredits && currentUser.paidCredits < requiredCredits) {
-          showPaymentNotification("Vous n'avez pas assez de crédits pour envoyer ce message.");
-          return;
-        }
-      }
     }
-  
+
     let displayMessage = userInput;
     let fullMessage = userInput;
-  
+
     // Stocker les éléments épinglés avant de les réinitialiser
-    const pinnedFilesToSend = pinnedFiles;
-    const pinnedResponsesToSend = pinnedResponses;
+    const pinnedFilesToSend = [...pinnedFiles];
+    const pinnedResponsesToSend = [...pinnedResponses];
     const pinnedPromptToSend = pinnedPrompt;
-  
+
     // Réinitialiser les éléments épinglés dès que la requête est envoyée
     pinnedFiles = [];
     pinnedResponses = [];
     pinnedPrompt = null;
     updatePinnedItems();
-  
+
     // Créer l'élément du message de l'utilisateur
     const messageElement = document.createElement("div");
     messageElement.className = "message user-message";
-  
+
     // Ajouter les fichiers épinglés au message de l'utilisateur
     if (pinnedFilesToSend.length > 0) {
-      const pinnedFilesElement = createPinnedFilesElement(pinnedFilesToSend);
-      messageElement.appendChild(pinnedFilesElement);
-  
-      fullMessage += "\n\n**Fichiers joints:**\n";
-      pinnedFilesToSend.forEach((file) => {
-        fullMessage += `- ${file.name} (${file.type})\n`;
-      });
+        const pinnedFilesElement = createPinnedFilesElement(pinnedFilesToSend);
+        messageElement.appendChild(pinnedFilesElement);
+
+        fullMessage += "\n\n**Fichiers joints:**\n";
+        pinnedFilesToSend.forEach((file) => {
+            fullMessage += `- ${file.name} (${file.type})\n`;
+        });
     }
-  
+
     // Ajouter les réponses épinglées au message de l'utilisateur
     if (pinnedResponsesToSend.length > 0) {
-      const pinnedResponsesElement = createPinnedResponsesElement(pinnedResponsesToSend);
-      messageElement.appendChild(pinnedResponsesElement);
-  
-      fullMessage += "\n\n**Réponses épinglées:**\n";
-      pinnedResponsesToSend.forEach((response) => {
-        fullMessage += `- ${response.displayText}\n`;
-      });
+        const pinnedResponsesElement = createPinnedResponsesElement(pinnedResponsesToSend);
+        messageElement.appendChild(pinnedResponsesElement);
+
+        fullMessage += "\n\n**Réponses épinglées:**\n";
+        pinnedResponsesToSend.forEach((response) => {
+            fullMessage += `- ${response.displayText}\n`;
+        });
     }
-  
+
     // Ajouter le prompt épinglé au début du message
     if (pinnedPromptToSend) {
-      const pinnedPromptElement = createPinnedPromptElement(pinnedPromptToSend);
-      messageElement.appendChild(pinnedPromptElement);
-  
-      fullMessage = pinnedPromptToSend.content + "\n\n" + fullMessage;
+        const pinnedPromptElement = createPinnedPromptElement(pinnedPromptToSend);
+        messageElement.appendChild(pinnedPromptElement);
+
+        fullMessage = pinnedPromptToSend.content + "\n\n" + fullMessage;
     }
-  
+
     // Ajouter le texte du message de l'utilisateur
     const textElement = document.createElement("p");
     textElement.textContent = displayMessage;
     messageElement.appendChild(textElement);
-  
+
     // Ajouter le message au conteneur
     const messageContainer = document.getElementById("messageContainer");
     messageContainer.appendChild(messageElement);
     messageContainer.scrollTop = messageContainer.scrollHeight;
-  
+
     document.getElementById("userInput").value = "";
     resetTextareaHeight();
-  
+
     // Affiche l'animation de chargement et cache le bouton d'envoi
     const sendButton = document.querySelector(".input-actions button:last-child");
     sendButton.classList.add("loading");
     sendButton.disabled = true;
-  
+
     try {
         const parts = [];
 
-        // Vérifier si des fichiers sont joints
-        if (pinnedFilesToSend.length > 0) {
-          // Traiter chaque fichier séparément
-          for (const file of pinnedFilesToSend) {
+        // Traiter les fichiers épinglés
+        for (const file of pinnedFilesToSend) {
             let filePart = {};
             if (file.type === 'text/plain') {
-              filePart.text = file.content;
+                filePart.text = file.content;
             } else {
-              const fileData = await readFileAsBase64(file);
-              filePart.inlineData = {
-                data: fileData,
-                mimeType: file.type,
-              };
+                const fileData = await readFileAsBase64(file);
+                filePart.inlineData = {
+                    data: fileData,
+                    mimeType: file.type,
+                };
             }
-            parts.push(filePart); // Ajouter chaque fichier comme une partie distincte
-          }
-    
-      } else {
-        // Traitement du texte seul : inclure le contexte de la conversation
-        let conversationContext = "";
-        const recentMessages = currentConversation.slice(-20);
-  
-        recentMessages.forEach((message) => {
-          if (message.sender === "user") {
-            conversationContext += `Utilisateur: ${message.content}\n`;
-          } else {
-            conversationContext += `Gemini: ${message.content}\n`;
-          }
-        });
-  
-        fullMessage = conversationContext + fullMessage;
-        parts.push({ text: fullMessage });
-      }
-  
-      // Mettre à jour le modèle avec la nouvelle sélection
-      model = genAI.getGenerativeModel({
-        model: selectedModel,
-        systemInstruction: SYSTEM_INSTRUCTION,
-      });
-  
-      // Générer la réponse avec le modèle mis à jour
-      const result = await model.generateContent(parts);
-      const response = await result.response;
-      let aiResponse = response.text();
-  
-      let aiMessageElement;
-      if (
-        selectedModel === "gemini-1.0-pro" ||
-        (selectedModel === "gemini-1.5-flash" &&
-          currentUser.paidCredits < requiredCredits)
-      ) {
-        const words = aiResponse.split(/\s+/);
-        if (words.length > FREE_MODEL_MAX_RESPONSE) {
-          aiResponse =
-            words.slice(0, FREE_MODEL_MAX_RESPONSE).join(" ") +
-            "...(Utilisez un modèle avancé pour avoir la suite de ma réponse)";
-          showNotification(
-            `La réponse a été tronquée à ${FREE_MODEL_MAX_RESPONSE} mots.`,
-            "info"
-          );
-          aiMessageElement = addMessageToChat("ai", aiResponse);
-          showUpgradeButton(aiMessageElement);
-        } else {
-          aiMessageElement = addMessageToChat("ai", aiResponse);
+            parts.push(filePart);
         }
-      } else {
-        aiMessageElement = addMessageToChat("ai", aiResponse);
-      }
-  
-      // Ajouter le message de l'utilisateur à l'historique
-      currentConversation.push({ sender: "user", content: userInput });
-  
-      // Ajouter le message de Gemini à l'historique (si pas de fichier)
-      if (pinnedFilesToSend.length === 0) {
+
+        // Ajouter le message de l'utilisateur
+        parts.push({ text: fullMessage });
+
+        // Mettre à jour le modèle avec la nouvelle sélection
+        model = genAI.getGenerativeModel({
+            model: selectedModel,
+            systemInstruction: SYSTEM_INSTRUCTION,
+        });
+
+        // Générer la réponse avec le modèle mis à jour
+        const result = await model.generateContent(parts);
+        const response = await result.response;
+        let aiResponse = response.text();
+
+        let aiMessageElement;
+        if (selectedModel === "gemini-1.0-pro" ||
+            (selectedModel === "gemini-1.5-flash" && currentUser.paidCredits < requiredCredits)) {
+            const words = aiResponse.split(/\s+/);
+            if (words.length > FREE_MODEL_MAX_RESPONSE) {
+                aiResponse = words.slice(0, FREE_MODEL_MAX_RESPONSE).join(" ") +
+                    "...(Utilisez un modèle avancé pour avoir la suite de ma réponse)";
+                showNotification(`La réponse a été tronquée à ${FREE_MODEL_MAX_RESPONSE} mots.`, "info");
+                aiMessageElement = addMessageToChat("ai", aiResponse);
+                showUpgradeButton(aiMessageElement);
+            } else {
+                aiMessageElement = addMessageToChat("ai", aiResponse);
+            }
+        } else {
+            aiMessageElement = addMessageToChat("ai", aiResponse);
+        }
+
+        // Ajouter le message de l'utilisateur à l'historique
+        currentConversation.push({ sender: "user", content: userInput });
+
+        // Ajouter le message de Gemini à l'historique
         currentConversation.push({ sender: "ai", content: aiResponse });
-      }
-  
-      await updateCredits(selectedModel, requiredCredits);
-      saveConversation();
+
+        await updateCredits(selectedModel, requiredCredits);
+        saveConversation();
     } catch (error) {
-      console.error("Erreur lors de la génération de la réponse:", error);
-      showNotification(`Erreur : ${error.message}. Veuillez réessayer.`, "error");
+        console.error("Erreur lors de la génération de la réponse:", error);
+        showNotification(`Erreur : ${error.message}. Veuillez réessayer.`, "error");
     } finally {
-      sendButton.classList.remove("loading");
-      sendButton.disabled = false;
+        sendButton.classList.remove("loading");
+        sendButton.disabled = false;
     }
-  }
+}
 
 // Fonction pour épingler une réponse à la barre de saisie
 function pinResponse(messageElement) {
