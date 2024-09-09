@@ -1130,11 +1130,7 @@ async function checkFirstPurchaseAndRewardReferrer(username, amount) {
     }
 }
 
-async function addCreditsToUser(amount) {
-    currentUser.paidCredits += amount;
-    await syncUserData();
-    document.getElementById('paidCredits').textContent = currentUser.paidCredits;
-}
+
 
 function getShareMessage(referralLink) {
     return encodeURIComponent(`🚀 Découvrez le secret pour booster votre apprentissage ! 🧠✨
