@@ -1000,7 +1000,7 @@ function buySubscription() {
     }
 
     const subscriptionPrices = {
-        '24h': 500, '3d': 1200, '7d': 2400, '30d': 8000, '3m': 20000
+        '24h': 1, '3d': 1200, '7d': 2400, '30d': 8000, '3m': 20000
     };
 
     const price = subscriptionPrices[subscriptionType];
@@ -1057,7 +1057,7 @@ function buyCredits() {
     }
 
     const creditPrices = {
-       '10': 200, '100': 1000, '500': 4500, '1000': 8000
+       '10': 1, '100': 1000, '500': 4500, '1000': 8000
     };
 
     const price = creditPrices[creditAmount];
