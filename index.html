@@ -19,6 +19,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.29.0/docxtemplater.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PizZip/3.0.6/pizzip.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.0/mammoth.browser.min.js"></script>
     <script type="importmap">
         {
             "imports": {
@@ -62,15 +63,22 @@
             </div>
 
             <h3>Modèles</h3>
+
             <select id="modelSelect" onchange="checkModelAccess()">
                 <optgroup label="Modèles gratuits">
                     <option value="gemini-1.5-flash" selected>Gemini 1.5 Flash</option>
                     <option value="gemini-1.0-pro">Gemini 1.0 Pro</option>
                 </optgroup>
                 <optgroup label="Modèles avancés">
+                    <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
                     <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
                     <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro Latest</option>
-                    <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                </optgroup>
+                <optgroup label="Modèles expérimentaux">
+                    <option value="gemini-1.5-pro-exp-0801">Gemini 1.5 Pro Exp 0801</option>
+                    <option value="gemini-1.5-pro-exp-0827">Gemini 1.5 Pro Exp 0827</option>
+                    <option value="gemini-1.5-flash-exp-0827">Gemini 1.5 Flash Exp 0827</option>
+                    <option value="gemini-1.5-flash-8b-exp-0827">Gemini 1.5 Flash 8B Exp 0827</option>
                 </optgroup>
             </select>
 
