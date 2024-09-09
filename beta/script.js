@@ -819,31 +819,55 @@ function hasEnoughCredits(model, fileCount) {
 }
 
 async function updateCredits(model, requiredCredits) {
-    if (hasValidSubscription()) return;
-    
-    if (model === 'gemini-1.5-flash') {
-        if (currentUser.paidCredits >= requiredCredits) {
-            currentUser.paidCredits -= requiredCredits;
+  if (hasValidSubscription()) return;
+
+  // Mettre à jour les crédits sur Firebase en utilisant une transaction
+  const userRef = db.ref('users/' + currentUser.username);
+  await userRef.transaction((userData) => {
+    if (userData) {
+      if (model === 'gemini-1.5-flash') {
+        if (userData.paidCredits >= requiredCredits) {
+          userData.paidCredits -= requiredCredits;
         } else {
-            currentUser.freeCredits -= requiredCredits;
+          userData.freeCredits -= requiredCredits;
         }
-    } else if (model === 'gemini-1.0-pro') {
-        if (currentUser.freeCredits >= requiredCredits) {
-            currentUser.freeCredits -= requiredCredits;
+      } else if (model === 'gemini-1.0-pro') {
+        if (userData.freeCredits >= requiredCredits) {
+          userData.freeCredits -= requiredCredits;
         } else {
-            const remainingCredits = requiredCredits - currentUser.freeCredits;
-            currentUser.freeCredits = 0;
-            currentUser.paidCredits = Math.max(0, currentUser.paidCredits - remainingCredits);
+          const remainingCredits = requiredCredits - userData.freeCredits;
+          userData.freeCredits = 0;
+          userData.paidCredits = Math.max(0, userData.paidCredits - remainingCredits);
         }
-    } else {
+      } else {
         // Modèles avancés
-        currentUser.paidCredits = Math.max(0, currentUser.paidCredits - requiredCredits);
+        userData.paidCredits = Math.max(0, userData.paidCredits - requiredCredits);
+      }
     }
-    
-    document.getElementById('freeCredits').textContent = currentUser.freeCredits;
-    document.getElementById('paidCredits').textContent = currentUser.paidCredits;
-    
-    await syncUserData();
+    return userData; // Retourner les données mises à jour pour la transaction
+  });
+
+  // Mettre à jour les crédits en local à partir de Firebase
+  currentUser.freeCredits = (await userRef.child('freeCredits').once('value')).val();
+  currentUser.paidCredits = (await userRef.child('paidCredits').once('value')).val();
+
+  document.getElementById('freeCredits').textContent = currentUser.freeCredits;
+  document.getElementById('paidCredits').textContent = currentUser.paidCredits;
+}
+
+async function addCreditsToUser(amount) {
+  // Mettre à jour les crédits sur Firebase en utilisant une transaction
+  const userRef = db.ref('users/' + currentUser.username);
+  await userRef.transaction((userData) => {
+    if (userData) {
+      userData.paidCredits += amount;
+    }
+    return userData;
+  });
+
+  // Mettre à jour les crédits en local à partir de Firebase
+  currentUser.paidCredits = (await userRef.child('paidCredits').once('value')).val();
+  document.getElementById('paidCredits').textContent = currentUser.paidCredits;
 }
 
 function addMessageToChat(sender, message) {
