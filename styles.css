@@ -1572,19 +1572,13 @@ button:hover {
     margin-bottom: 10px;
 }
 
-.pinned-file {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    max-width: 100px;
-}
-
 .pinned-image {
-    max-width: 100px;
-    max-height: 100px;
-    object-fit: cover;
+    max-width: 100%; /* L'image prend toute la largeur disponible */
+    max-height: 100px; /* Hauteur maximale de l'image */
+    object-fit: cover; /* L'image est recadrée pour conserver ses proportions */
     border-radius: 5px;
     margin-bottom: 5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Ombre subtile */
 }
 
 .file-icon {
@@ -1594,6 +1588,5 @@ button:hover {
 
 .file-name {
     font-size: 0.8em;
-    text-align: center;
-    word-break: break-word;
+    word-break: break-word; /* Permet de couper les mots longs sur plusieurs lignes */
 }
