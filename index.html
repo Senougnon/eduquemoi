@@ -67,15 +67,12 @@
             <select id="modelSelect" onchange="checkModelAccess()">
                 <optgroup label="Modèles gratuits">
                     <option value="gemini-1.5-flash" selected>Gemini 1.5 Flash</option>
-                    <option value="gemini-1.0-pro">Gemini 1.0 Pro</option>
                 </optgroup>
                 <optgroup label="Modèles avancés">
                     <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-                    <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
                     <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro Latest</option>
                 </optgroup>
-                <optgroup label="Modèles expérimentaux">
-                    <option value="gemini-1.5-pro-exp-0801">Gemini 1.5 Pro Exp 0801</option>
+                <optgroup label="Modèles beta">
                     <option value="gemini-1.5-pro-exp-0827">Gemini 1.5 Pro Exp 0827</option>
                     <option value="gemini-1.5-flash-exp-0827">Gemini 1.5 Flash Exp 0827</option>
                     <option value="gemini-1.5-flash-8b-exp-0827">Gemini 1.5 Flash 8B Exp 0827</option>
@@ -84,20 +81,20 @@
 
             <h3>Forfaits illimités</h3>
             <select id="subscriptionSelect">
-                <option value="24h" selected>24 heures</option>
-                <option value="3d">3 jours</option>
-                <option value="7d">7 jours</option>
-                <option value="30d">30 jours</option>
-                <option value="3m">3 mois</option>
+                <option value="24h" selected>24 heures [500F]</option>
+                <option value="3d">3 jours [1200F]</option>
+                <option value="7d">7 jours [2400F]</option>
+                <option value="30d">30 jours [8000F]</option>
+                <option value="3m">3 mois [20000F]</option>
             </select>
             <button onclick="buySubscription()">Acheter le forfait</button>
         
             <h3>Acheter des crédits</h3>
             <select id="creditSelect">
-                <option value="10" selected>10 crédits</option>
-                <option value="100">100 crédits</option>
-                <option value="500">500 crédits</option>
-                <option value="1000">1000 crédits</option>
+                <option value="10" selected>10 crédits [200F]</option>
+                <option value="100">100 crédits [1000F]</option>
+                <option value="500">500 crédits [4500F]</option>
+                <option value="1000">1000 crédits [8000F]</option>
             </select>
             <button onclick="buyCredits()">Acheter des crédits</button>
     <!-- Ajout du bouton Bibliothèque -->
@@ -188,7 +185,7 @@
                 <ul>
                     <li><strong>Votre récompense :</strong> 10 crédits gratuits pour chaque ami(e) qui effectue son premier achat</li>
                     <li><strong>Condition :</strong> La récompense vous est accordée après le premier achat de votre ami(e) (abonnement ou crédits)</li>
-                    <li><strong>Pour votre ami(e) :</strong> 10 crédits offerts dès l'inscription</li>
+                    <li><strong>Pour votre ami(e) :</strong> 3 crédits offerts dès l'inscription</li>
                 </ul>
                 <p>Partagez votre lien unique et commencez à gagner des crédits dès maintenant !</p>
             </div>
