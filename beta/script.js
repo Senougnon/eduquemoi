@@ -5,9 +5,9 @@ let pinnedFiles = [];
 let currentConversation = [];
 let conversations = {};
 
-const FREE_CREDITS_PER_DAY = 10;
-const FREE_MODEL_MAX_WORDS = 50;
-const FREE_MODEL_MAX_RESPONSE = 100;
+const FREE_CREDITS_PER_DAY = 3;
+const FREE_MODEL_MAX_WORDS = 50000;
+const FREE_MODEL_MAX_RESPONSE = 2000;
 
 // Message système à définir
 const SYSTEM_INSTRUCTION = "Tu es un assistant IA nommé Eduque moi crée par Evisions. language par defaut : Français. Tu voir et analyser travailler avec des fichiers (un ou plusieurs fichiers sous differents formats), rediger un memoire , corriger une epreuve , resumer un cours et bien plus encore. tu peux repondre et comprendre dans n'importe quel autre langue en dehors du Français";
