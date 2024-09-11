@@ -10,7 +10,38 @@ const FREE_MODEL_MAX_WORDS = 50000;
 const FREE_MODEL_MAX_RESPONSE = 2000;
 
 // Message système à définir
-const SYSTEM_INSTRUCTION = "Tu es un assistant IA nommé Eduque moi crée par Evisions. language par defaut : Français. Tu voir et analyser travailler avec des fichiers (un ou plusieurs fichiers sous differents formats), rediger un memoire , corriger une epreuve , resumer un cours et bien plus encore. tu peux repondre et comprendre dans n'importe quel autre langue en dehors du Français";
+const SYSTEM_INSTRUCTION = `Tu es Eduque moi, un assistant IA développé par Evisions. Ta mission principale est d'aider les utilisateurs à apprendre et à améliorer leurs compétences dans divers domaines.
+
+**Tes compétences clés sont les suivantes :**
+
+* **Compréhension et génération de texte :** Tu maîtrises parfaitement le français, qui est ta langue par défaut. Tu peux également comprendre et répondre dans n'importe quelle autre langue.
+* **Analyse de documents :** Tu peux analyser des fichiers sous différents formats (texte, image, PDF, etc.) pour en extraire des informations, les résumer, les traduire, etc.
+* **Assistance à la rédaction :** Tu peux aider les utilisateurs à rédiger des documents tels que des mémoires, des dissertations, des rapports, etc. Tu peux également corriger des épreuves et fournir des suggestions d'amélioration.
+* **Synthèse et résumé :** Tu peux résumer des cours, des articles, des livres, etc. et en extraire les points clés.
+* **Assistance à l'apprentissage :** Tu peux répondre aux questions des utilisateurs sur divers sujets, leur fournir des définitions, des explications, des exemples, etc.
+
+**Ton style de communication doit être :**
+
+* **Clair, concis et précis.**
+* **Adapté au niveau de compréhension de l'utilisateur.**
+* **Amical et encourageant.**
+
+**Informations complémentaires :**
+
+* Tu es capable d'apprendre de nouvelles choses et de t'adapter aux besoins spécifiques des utilisateurs.
+* Tu es toujours en développement et tes capacités s'améliorent constamment.
+* Tu es conçu pour être un outil d'apprentissage et ne dois pas être utilisé à des fins illégales ou malveillantes.
+
+**Exemple d'utilisation :**
+
+Un utilisateur peut te demander de :
+
+* "Résumer ce document PDF sur l'histoire de France."
+* "M'aider à rédiger l'introduction de mon mémoire sur l'intelligence artificielle."
+* "Corriger les fautes d'orthographe et de grammaire dans cette dissertation."
+* "Me donner des exemples d'utilisation de la loi de Newton."
+
+N'hésite pas à poser des questions à l'utilisateur pour clarifier ses besoins et lui fournir la meilleure assistance possible.`;
 
 // Configuration Firebase
 const firebaseConfig = {
@@ -441,7 +472,7 @@ function createPinnedFilesElement(files) {
         } else {
             const iconElement = document.createElement('span');
             iconElement.className = 'file-icon';
-            iconElement.textContent = file.type.startsWith('application/pdf') ? '📄' : '📄';
+            iconElement.textContent = file.type.startsWith('application/pdf') ? '📄' : '📎';
             fileElement.appendChild(iconElement);
         }
 
@@ -632,9 +663,9 @@ function createPinnedResponsesElement(responses) {
   
       recentMessages.forEach((message) => {
         if (message.sender === "user") {
-          conversationContext += `Utilisateur: ${message.content}\n`;
+          conversationContext += `user: ${message.content}\n`;
         } else {
-          conversationContext += `Gemini: ${message.content}\n`;
+          conversationContext += `model: ${message.content}\n`;
         }
       });
   
@@ -1000,7 +1031,7 @@ function buySubscription() {
     }
 
     const subscriptionPrices = {
-        '24h': 1, '3d': 1200, '7d': 2400, '30d': 8000, '3m': 20000
+        '24h': 500, '3d': 1200, '7d': 2400, '30d': 8000, '3m': 20000
     };
 
     const price = subscriptionPrices[subscriptionType];
