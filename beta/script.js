@@ -6,6 +6,7 @@ let currentConversation = [];
 let conversations = {};
 
 const FREE_CREDITS_PER_DAY = 3;
+const FREE_CREDITS_REGISTER = 10;
 const FREE_MODEL_MAX_WORDS = 50000;
 const FREE_MODEL_MAX_RESPONSE = 2000;
 
@@ -253,7 +254,7 @@ async function register() {
         const now = new Date();
         const userData = {
             password: password,
-            freeCredits: FREE_CREDITS_PER_DAY,
+            freeCredits: FREE_CREDITS_REGISTER,
             paidCredits: 0,
             subscription: null,
             subscriptionEndDate: null,
@@ -262,6 +263,7 @@ async function register() {
             firstPurchase: false,
             totalReferrals: 0,
             activeReferrals: 0
+            showNotification('Inscription réussie ! Vous avez reçu 10 crédits gratuits.', 'success');
         };
         
         await userRef.set(userData);
