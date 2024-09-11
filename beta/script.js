@@ -263,7 +263,7 @@ async function register() {
             firstPurchase: false,
             totalReferrals: 0,
             activeReferrals: 0
-            showNotification('Inscription réussie ! Vous avez reçu 10 crédits gratuits.', 'success');
+            
         };
         
         await userRef.set(userData);
@@ -296,7 +296,7 @@ async function register() {
         
         currentUser = { username, ...userData };
         updateUIForLoggedInUser();
-        showNotification('Inscription réussie !', 'success');
+        showNotification('Inscription réussie ! Vous avez reçu 10 crédits gratuits.', 'success');
         closeModal('registerModal');
         storeLoginInfo(username, password);
     } catch (error) {
