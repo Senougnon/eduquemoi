@@ -194,7 +194,7 @@ function startGuidedTour() {
         },
         {
             id: 'file-upload',
-            text: 'Cliquez ici pour importer des fichiers que vous voulez analyser.',
+            text: 'Cliquez ici pour importer des fichiers (image, pdf, docx, doc, txt) que vous voulez analyser.',
             attachTo: {
                 element: '.file-label',
                 on: 'top'
@@ -202,7 +202,7 @@ function startGuidedTour() {
         },
         {
             id: 'prompt-list',
-            text: 'Ce bouton ouvre la liste des prompts prédéfinis.',
+            text: 'Ce bouton ouvre la liste des demandes personnalisées (Utile si vous ne savez pas comment faire une demande).',
             attachTo: {
                 element: '#promptListButton',
                 on: 'top'
