@@ -1590,3 +1590,106 @@ button:hover {
     font-size: 0.8em;
     word-break: break-word; /* Permet de couper les mots longs sur plusieurs lignes */
 }
+
+        /* Styles personnalisés pour la visite guidée */
+        .shepherd-element {
+            background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        .shepherd-text {
+            color: white;
+        }
+        .shepherd-button {
+            background: #FF6B6B;
+            color: white;
+            border: 2px solid white;
+            border-radius: 25px;
+            padding: 10px 20px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        .shepherd-button:hover {
+            background: white;
+            color: #FF6B6B;
+        }
+        .shepherd-arrow:before {
+            background: #FF6B6B !important;
+        }
+        .tour-icon {
+            position: absolute;
+            font-size: 24px;
+            color: #FF6B6B;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        /* Styles existants pour le pointeur */
+.tour-icon {
+    position: absolute;
+    font-size: 24px;
+    color: #FF6B6B;
+    animation: pulse 1s infinite;
+    z-index: 10000;
+    pointer-events: none;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+/* Nouveaux styles pour la mise en évidence des éléments */
+.tour-highlight {
+    position: relative;
+    z-index: 9999;
+    animation: highlight-pulse 1s infinite alternate;
+}
+
+@keyframes highlight-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.4); }
+    100% { box-shadow: 0 0 0 10px rgba(255, 107, 107, 0); }
+}
+
+/* Style spécifique pour le bouton du menu */
+.toggle-sidebar.tour-highlight {
+    background-color: rgba(255, 107, 107, 0.2);
+    border-radius: 50%;
+}
+
+/* Styles pour la fenêtre de la visite guidée */
+.shepherd-theme-custom {
+    background-color: #ffffff;
+    color: #333333;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.shepherd-theme-custom .shepherd-content {
+    padding: 20px;
+}
+
+.shepherd-theme-custom .shepherd-text {
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+.shepherd-theme-custom .shepherd-button {
+    background-color: #FF6B6B;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 20px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.shepherd-theme-custom .shepherd-button:hover {
+    background-color: #FF8E8E;
+}
