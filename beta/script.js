@@ -130,6 +130,16 @@ function positionPointer(pointer, element) {
     pointer.style.display = 'block';
 }
 
+// Fonction pour mettre en évidence un élément
+function highlightElement(element) {
+    element.classList.add('tour-highlight');
+}
+
+// Fonction pour retirer la mise en évidence d'un élément
+function removeHighlight(element) {
+    element.classList.remove('tour-highlight');
+}
+
 // Fonction pour démarrer la visite guidée
 function startGuidedTour() {
     const pointer = createPointer();
@@ -161,11 +171,17 @@ function startGuidedTour() {
                 on: 'right'
             },
             beforeShow: () => {
+                const menuButton = document.querySelector('.toggle-sidebar');
+                highlightElement(menuButton);
                 // Ouvrir le menu si ce n'est pas déjà fait
                 const sidebar = document.querySelector('.sidebar');
                 if (!sidebar.classList.contains('visible')) {
-                    document.querySelector('.toggle-sidebar').click();
+                    menuButton.click();
                 }
+            },
+            beforeHide: () => {
+                const menuButton = document.querySelector('.toggle-sidebar');
+                removeHighlight(menuButton);
             }
         },
         {
