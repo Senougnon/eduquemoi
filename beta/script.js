@@ -111,6 +111,155 @@ function initializeGeminiAPI() {
     }
 }
 
+// Fonction pour créer et positionner le pointeur
+function createPointer() {
+    const pointer = document.createElement('div');
+    pointer.classList.add('tour-icon');
+    pointer.innerHTML = '👆';
+    pointer.style.position = 'absolute';
+    pointer.style.display = 'none';
+    document.body.appendChild(pointer);
+    return pointer;
+}
+
+// Fonction pour positionner le pointeur sur un élément
+function positionPointer(pointer, element) {
+    const rect = element.getBoundingClientRect();
+    pointer.style.left = `${rect.left + rect.width / 2}px`;
+    pointer.style.top = `${rect.top + rect.height / 2}px`;
+    pointer.style.display = 'block';
+}
+
+// Fonction pour démarrer la visite guidée
+function startGuidedTour() {
+    const pointer = createPointer();
+
+    const tour = new Shepherd.Tour({
+        defaultStepOptions: {
+            cancelIcon: {
+                enabled: true
+            },
+            classes: 'shepherd-theme-custom',
+            scrollTo: { behavior: 'smooth', block: 'center' }
+        }
+    });
+
+    const steps = [
+        {
+            id: 'welcome',
+            text: 'Bienvenue sur Eduque moi ! Commençons la visite guidée.',
+            attachTo: {
+                element: '.logo',
+                on: 'bottom'
+            }
+        },
+        {
+            id: 'menu',
+            text: 'Voici le menu principal. Il vous permet d\'accéder à différentes fonctionnalités de l\'application.',
+            attachTo: {
+                element: '.toggle-sidebar',
+                on: 'right'
+            },
+            beforeShow: () => {
+                // Ouvrir le menu si ce n'est pas déjà fait
+                const sidebar = document.querySelector('.sidebar');
+                if (!sidebar.classList.contains('visible')) {
+                    document.querySelector('.toggle-sidebar').click();
+                }
+            }
+        },
+        {
+            id: 'input-area',
+            text: 'Voici la zone de saisie. C\'est ici que vous poserez vos questions.',
+            attachTo: {
+                element: '.input-container',
+                on: 'top'
+            }
+        },
+        {
+            id: 'file-upload',
+            text: 'Cliquez ici pour importer des fichiers que vous voulez analyser.',
+            attachTo: {
+                element: '.file-label',
+                on: 'top'
+            }
+        },
+        {
+            id: 'prompt-list',
+            text: 'Ce bouton ouvre la liste des prompts prédéfinis.',
+            attachTo: {
+                element: '#promptListButton',
+                on: 'top'
+            }
+        },
+        {
+            id: 'send-button',
+            text: 'Cliquez ici pour envoyer votre message.',
+            attachTo: {
+                element: '.input-actions button:last-child',
+                on: 'top'
+            }
+        },
+        {
+            id: 'message-actions',
+            text: 'Ces icônes vous permettent de copier, exporter en PDF, partager ou répondre à un message spécifique.',
+            attachTo: {
+                element: '.message-actions',
+                on: 'bottom'
+            }
+        }
+    ];
+
+    steps.forEach((step, index) => {
+        tour.addStep({
+            ...step,
+            buttons: [
+                {
+                    text: index === steps.length - 1 ? 'Terminer' : 'Suivant',
+                    action: index === steps.length - 1 ? tour.complete : tour.next
+                }
+            ],
+            beforeShow: () => {
+                const element = document.querySelector(step.attachTo.element);
+                if (element) {
+                    positionPointer(pointer, element);
+                }
+                if (step.beforeShow) {
+                    step.beforeShow();
+                }
+            },
+            beforeHide: () => {
+                pointer.style.display = 'none';
+            }
+        });
+    });
+
+    tour.on('complete', () => {
+        pointer.remove();
+        // Fermer le menu si ouvert
+        const sidebar = document.querySelector('.sidebar');
+        if (sidebar.classList.contains('visible')) {
+            document.querySelector('.toggle-sidebar').click();
+        }
+    });
+
+    tour.start();
+}
+
+// Fonction pour vérifier si l'utilisateur a déjà vu la visite guidée
+async function checkGuidedTourStatus(username) {
+    const userRef = db.ref('users/' + username);
+    const snapshot = await userRef.once('value');
+    const userData = snapshot.val();
+    return userData && userData.hasSeenGuidedTour;
+}
+
+// Fonction pour marquer la visite guidée comme vue
+async function markGuidedTourAsSeen(username) {
+    const userRef = db.ref('users/' + username);
+    await userRef.update({ hasSeenGuidedTour: true });
+}
+
 // Fonction pour vérifier et mettre à jour le statut de l'abonnement
 async function checkSubscriptionStatus() {
     if (!currentUser || !currentUser.subscriptionEndDate) return;
@@ -262,8 +411,8 @@ async function register() {
             referredBy: referralCode || null,
             firstPurchase: false,
             totalReferrals: 0,
-            activeReferrals: 0
-            
+            activeReferrals: 0,
+            hasSeenGuidedTour: false // Ajout d'un champ pour suivre l'état de la visite guidée
         };
         
         await userRef.set(userData);
@@ -278,7 +427,6 @@ async function register() {
                     isActive: false
                 });
                 
-                // Mettre à jour uniquement le total des parrainages pour le parrain
                 const referrerRef = db.ref(`users/${referrerUsername}`);
                 await referrerRef.transaction((user) => {
                     if (user) {
@@ -287,7 +435,6 @@ async function register() {
                     return user;
                 });
                 
-                // Mettre à jour les statistiques affichées si le parrain est l'utilisateur actuel
                 if (currentUser && currentUser.username === referrerUsername) {
                     document.getElementById('totalReferrals').textContent = (parseInt(document.getElementById('totalReferrals').textContent) || 0) + 1;
                 }
@@ -299,6 +446,13 @@ async function register() {
         showNotification('Inscription réussie ! Vous avez reçu 10 crédits gratuits.', 'success');
         closeModal('registerModal');
         storeLoginInfo(username, password);
+
+        // Démarrer la visite guidée pour le nouvel utilisateur
+        startGuidedTour();
+        
+        // Marquer la visite guidée comme vue
+        await markGuidedTourAsSeen(username);
+
     } catch (error) {
         console.error('Erreur lors de l\'inscription:', error);
         showNotification('Erreur lors de l\'inscription. Veuillez réessayer.', 'error');
@@ -334,8 +488,17 @@ async function login(username, password) {
             showNotification('Connexion réussie !', 'success');
             closeModal('loginModal');
             storeLoginInfo(username, password);
+
+            // Vérifier si l'utilisateur a déjà vu la visite guidée
+            const hasSeenTour = await checkGuidedTourStatus(username);
+            if (!hasSeenTour) {
+                // Démarrer la visite guidée
+                startGuidedTour();
+                // Marquer la visite guidée comme vue
+                await markGuidedTourAsSeen(username);
+            }
         } else {
-            showNotification('Nom d\'utilisateur ou mot de passe incorrect.', 'error');
+            showNotification('Nom dutilisateur ou mot de passe incorrect.', 'error');
         }
     } catch (error) {
         console.error('Erreur lors de la connexion:', error);
@@ -1786,6 +1949,17 @@ function initModals() {
         });
     });
 }
+
+// Vérification au chargement de la page pour les utilisateurs existants
+window.addEventListener('load', async () => {
+    if (currentUser) {
+        const hasSeenTour = await checkGuidedTourStatus(currentUser.username);
+        if (!hasSeenTour) {
+            startGuidedTour();
+            await markGuidedTourAsSeen(currentUser.username);
+        }
+    }
+});
 
 document.addEventListener('keydown', function(event) {
     if (event.key === 'Enter' && !event.shiftKey) {
