@@ -155,7 +155,7 @@ function startGuidedTour() {
         },
         {
             id: 'menu',
-            text: 'Voici le menu principal. Il vous permet d\'accéder à différentes fonctionnalités de l\'application.',
+            text: 'Voici le menu principal. Il vous permet d\'accéder à différentes fonctionnalités de l\'application (Models, Crédits, Bibliothèque, Récompense...).',
             attachTo: {
                 element: '.toggle-sidebar',
                 on: 'right'
@@ -1114,10 +1114,10 @@ async function exportResponse(messageElement, format) {
     const responseText = messageElement.querySelector('div:first-child').textContent;
     if (format === 'word') {
         const blob = await generateWordDoc(responseText);
-        saveAs(blob, "response.docx");
+        saveAs(blob, "Eduque_moi.docx");
     } else if (format === 'pdf') {
         const blob = await generatePDF(responseText);
-        saveAs(blob, "response.pdf");
+        saveAs(blob, "Eduque_moi.pdf");
     }
     showNotification(`Export en ${format.toUpperCase()} réussi`, 'success');
 }
