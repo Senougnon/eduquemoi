@@ -1717,6 +1717,10 @@ function selectPrompt(id, prompt) {
     updatePinnedPrompt();
     closePromptModal();
     showNotification('Prompt sélectionné', 'success');
+
+    // Insérer le texte indicatif dans la zone de saisie, même s'il est vide
+    document.getElementById('userInput').value = pinnedPrompt.indicativeText || ''; 
+    adjustTextareaHeight(); // Ajuster la hauteur de la zone de saisie
 }
 
 function closePromptModal() {
