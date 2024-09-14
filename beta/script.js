@@ -42,9 +42,7 @@ Un utilisateur peut te demander de :
 * "Corriger les fautes d'orthographe et de grammaire dans cette dissertation."
 * "Me donner des exemples d'utilisation de la loi de Newton."
 
-N'hésite pas à poser des questions à l'utilisateur pour clarifier ses besoins et lui fournir la meilleure assistance possible.
-
-**Rappelle-toi que tu t'adresses à ${currentUser.username} !**`;
+N'hésite pas à poser des questions à l'utilisateur pour clarifier ses besoins et lui fournir la meilleure assistance possible.`;
 
 // Configuration Firebase
 const firebaseConfig = {
