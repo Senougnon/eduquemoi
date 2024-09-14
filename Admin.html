@@ -83,6 +83,9 @@
             <label for="promptCategory">Catégorie :</label>
             <input type="text" id="promptCategory" required>
             
+            <label for="promptIndicativeText">Texte indicatif :</label>
+            <textarea id="promptIndicativeText" rows="2" required></textarea>
+            
             <button type="submit">Ajouter le prompt</button>
         </form>
         <div id="error" class="error"></div>
@@ -115,11 +118,13 @@
             const title = document.getElementById('promptTitle').value;
             const content = document.getElementById('promptContent').value;
             const category = document.getElementById('promptCategory').value;
+            const indicativeText = document.getElementById('promptIndicativeText').value;
 
             promptsRef.push({
                 title: title,
                 content: content,
                 category: category,
+                indicativeText: indicativeText,
                 createdAt: firebase.database.ServerValue.TIMESTAMP
             }).then(() => {
                 document.getElementById('promptForm').reset();
@@ -140,7 +145,8 @@
                 promptDiv.innerHTML = `
                     <h3>${prompt.title}</h3>
                     <p><strong>Catégorie :</strong> ${prompt.category}</p>
-                    <p>${prompt.content}</p>
+                    <p><strong>Contenu :</strong> ${prompt.content}</p>
+                    <p><strong>Texte indicatif :</strong> ${prompt.indicativeText}</p>
                     <button onclick="editPrompt('${snapshot.key}')">Modifier</button>
                     <button onclick="deletePrompt('${snapshot.key}')">Supprimer</button>
                 `;
@@ -155,6 +161,7 @@
                 document.getElementById('promptTitle').value = prompt.title;
                 document.getElementById('promptContent').value = prompt.content;
                 document.getElementById('promptCategory').value = prompt.category;
+                document.getElementById('promptIndicativeText').value = prompt.indicativeText;
                 
                 const form = document.getElementById('promptForm');
                 form.onsubmit = (e) => {
@@ -163,6 +170,7 @@
                         title: document.getElementById('promptTitle').value,
                         content: document.getElementById('promptContent').value,
                         category: document.getElementById('promptCategory').value,
+                        indicativeText: document.getElementById('promptIndicativeText').value,
                         updatedAt: firebase.database.ServerValue.TIMESTAMP
                     };
                     promptsRef.child(key).update(updates).then(() => {
