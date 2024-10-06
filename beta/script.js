@@ -1717,11 +1717,12 @@ function selectPrompt(id, prompt) {
     updatePinnedPrompt();
     closePromptModal();
     showNotification('Prompt sélectionné', 'success');
-
-    // Insérer le texte indicatif dans la zone de saisie, même s'il est vide
-    document.getElementById('userInput').value = pinnedPrompt.indicativeText || ''; 
-    adjustTextareaHeight(); // Ajuster la hauteur de la zone de saisie
-}
+  
+    // Insérer le texte indicatif dans la zone de saisie en tant que placeholder
+    const userInput = document.getElementById('userInput');
+    userInput.placeholder = pinnedPrompt.indicativeText || 'Tapez votre texte ici...';
+    adjustTextareaHeight();
+  }
 
 function closePromptModal() {
     document.getElementById('promptListModal').style.display = 'none';
