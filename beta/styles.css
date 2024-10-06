@@ -1628,3 +1628,8 @@ button:hover {
             50% { transform: scale(1.2); }
             100% { transform: scale(1); }
         }
+/* Styles pour l'indicateur de prompt embarqué */
+.pinned-prompt-indicator {
+    color: #ccc; /* Couleur gris clair pour le placeholder */
+    font-style: italic; /* Style italique pour le placeholder */
+  }
