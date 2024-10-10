@@ -2049,6 +2049,23 @@ function updateUI() {
     }
 }
 
+// ... (votre code existant) ...
+
+// Fonction pour gérer le clic sur le bouton retour
+function handleBackButton() {
+    const sidebar = document.querySelector('.sidebar');
+    if (sidebar.classList.contains('visible')) {
+        toggleSidebar(); // Fermer la barre de menu si elle est ouverte
+    } else {
+        window.history.back(); // Sinon, appliquer le comportement de retour par défaut
+    }
+}
+
+// Ajouter un écouteur d'événements pour le bouton retour
+window.addEventListener('popstate', handleBackButton); 
+
+// ... (reste de votre code) ...
+
 document.addEventListener('click', function (event) {
     const sidebar = document.querySelector('.sidebar');
     const menuButton = document.querySelector('.toggle-sidebar');
