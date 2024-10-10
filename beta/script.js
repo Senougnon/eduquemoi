@@ -2077,7 +2077,7 @@ window.addEventListener('popstate', function(event) {
         event.preventDefault(); // Empêcher le comportement par défaut (ne pas fermer l'application)
     } else {
         // Revenir à l'état précédent du bouton retour si la barre de menu est déjà fermée
-        window.history.back();
+
     }
 });
 
