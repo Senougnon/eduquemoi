@@ -2049,6 +2049,17 @@ function updateUI() {
     }
 }
 
+document.addEventListener('click', function (event) {
+    const sidebar = document.querySelector('.sidebar');
+    const menuButton = document.querySelector('.toggle-sidebar');
+    
+    // Si la barre est visible et que le clic n'est ni sur la barre ni sur le bouton menu
+    if (sidebar.classList.contains('visible') && !sidebar.contains(event.target) && !menuButton.contains(event.target)) {
+        toggleSidebar();  // Ferme la barre de menu
+    }
+});
+
+
 // Modifier l'input de fichier pour accepter les fichiers docx et doc
 document.getElementById('fileInput').accept = '.pdf,.jpg,.jpeg,.png,.docx,.doc';
 
