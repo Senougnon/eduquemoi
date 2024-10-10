@@ -1854,41 +1854,23 @@ window.onload = async function() {
     await attemptAutoLogin();
 
     if (currentUser) {
-        // Initialisation des propriétés utilisateur si elles ne sont pas définies
         if (currentUser.freeCredits === undefined) currentUser.freeCredits = 0;
         if (currentUser.paidCredits === undefined) currentUser.paidCredits = 0;
         if (currentUser.subscription === undefined) currentUser.subscription = null;
         if (currentUser.subscriptionEndDate === undefined) currentUser.subscriptionEndDate = null;
         if (currentUser.lastFreeCreditsReset === undefined) currentUser.lastFreeCreditsReset = new Date().toISOString();
 
-
+        // Charger les données d'importation de fichiers depuis la base de données
         const userRef = db.ref('users/' + currentUser.username);
-
-        try {
-            // Charger les données d'importation de fichiers depuis la base de données
-            const snapshot = await userRef.once('value');
-            const userData = snapshot.val();
-            if (userData) {
-                importedFilesCount = userData.importedFilesCount || 0;
-                // Assurez-vous que lastImportReset est une Date valide
-                lastImportReset = new Date(userData.lastImportReset || new Date());
-
-                // Initialiser les statistiques de parrainage si elles n'existent pas
-                if (!userData.totalReferrals) await userRef.update({ totalReferrals: 0 });
-                if (!userData.activeReferrals) await userRef.update({ activeReferrals: 0 });
-
-
-            }
-
-            await syncUserData(); // Synchroniser les données utilisateur après le chargement
-
-        } catch (error) {
-            console.error("Erreur lors du chargement des données utilisateur :", error);
+        const snapshot = await userRef.once('value');
+        const userData = snapshot.val();
+        if (userData) {
+            importedFilesCount = userData.importedFilesCount || 0;
+            lastImportReset = new Date(userData.lastImportReset || new Date());
         }
 
-
+        await syncUserData();
     }
-
 
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.body.setAttribute('data-theme', savedTheme);
@@ -1911,7 +1893,6 @@ window.onload = async function() {
 
     document.body.classList.add('loaded');
 
-
     setInterval(checkSubscriptionStatus, 3600000);
 
     // Charger la liste des clés API au chargement de la page
@@ -1920,29 +1901,11 @@ window.onload = async function() {
     // Initialiser l'API Gemini avec une clé aléatoire
     initializeGeminiAPI();
 
+    // Mise à jour de la sélection du modèle par défaut
     const modelSelect = document.getElementById('modelSelect');
     if (!modelSelect.value) {
-        modelSelect.value = 'gemini-1.5-flash'; // Définir la valeur par défaut si aucune n'est sélectionnée
+        modelSelect.value = 'gemini-1.5-flash';
     }
-
-
-        // Restaurer l'état de la sidebar au chargement de la page
-        const savedSidebarState = localStorage.getItem('sidebarState');
-        if (savedSidebarState === 'true') {
-            toggleSidebar();
-        }
-
-
-    // Vérification de la visite guidée pour les utilisateurs existants
-    if (currentUser) {
-        const hasSeenTour = await checkGuidedTourStatus(currentUser.username);
-        if (!hasSeenTour) {
-            startGuidedTour();
-            await markGuidedTourAsSeen(currentUser.username);
-        }
-    }
-    // Mettre à jour l'interface utilisateur initialement
-    updateUI();
 
 };
 
