@@ -1470,6 +1470,9 @@ function toggleSidebar() {
     const chatContainer = document.querySelector('.chat-container');
     sidebar.classList.toggle('visible');
     chatContainer.classList.toggle('sidebar-visible');
+
+    // Enregistre l'état de la sidebar dans le localStorage
+    localStorage.setItem('sidebarState', sidebar.classList.contains('visible'));
 }
 
 function saveConversation() {
@@ -1851,23 +1854,41 @@ window.onload = async function() {
     await attemptAutoLogin();
 
     if (currentUser) {
+        // Initialisation des propriétés utilisateur si elles ne sont pas définies
         if (currentUser.freeCredits === undefined) currentUser.freeCredits = 0;
         if (currentUser.paidCredits === undefined) currentUser.paidCredits = 0;
         if (currentUser.subscription === undefined) currentUser.subscription = null;
         if (currentUser.subscriptionEndDate === undefined) currentUser.subscriptionEndDate = null;
         if (currentUser.lastFreeCreditsReset === undefined) currentUser.lastFreeCreditsReset = new Date().toISOString();
 
-        // Charger les données d'importation de fichiers depuis la base de données
+
         const userRef = db.ref('users/' + currentUser.username);
-        const snapshot = await userRef.once('value');
-        const userData = snapshot.val();
-        if (userData) {
-            importedFilesCount = userData.importedFilesCount || 0;
-            lastImportReset = new Date(userData.lastImportReset || new Date());
+
+        try {
+            // Charger les données d'importation de fichiers depuis la base de données
+            const snapshot = await userRef.once('value');
+            const userData = snapshot.val();
+            if (userData) {
+                importedFilesCount = userData.importedFilesCount || 0;
+                // Assurez-vous que lastImportReset est une Date valide
+                lastImportReset = new Date(userData.lastImportReset || new Date());
+
+                // Initialiser les statistiques de parrainage si elles n'existent pas
+                if (!userData.totalReferrals) await userRef.update({ totalReferrals: 0 });
+                if (!userData.activeReferrals) await userRef.update({ activeReferrals: 0 });
+
+
+            }
+
+            await syncUserData(); // Synchroniser les données utilisateur après le chargement
+
+        } catch (error) {
+            console.error("Erreur lors du chargement des données utilisateur :", error);
         }
 
-        await syncUserData();
+
     }
+
 
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.body.setAttribute('data-theme', savedTheme);
@@ -1890,6 +1911,7 @@ window.onload = async function() {
 
     document.body.classList.add('loaded');
 
+
     setInterval(checkSubscriptionStatus, 3600000);
 
     // Charger la liste des clés API au chargement de la page
@@ -1898,11 +1920,29 @@ window.onload = async function() {
     // Initialiser l'API Gemini avec une clé aléatoire
     initializeGeminiAPI();
 
-    // Mise à jour de la sélection du modèle par défaut
     const modelSelect = document.getElementById('modelSelect');
     if (!modelSelect.value) {
-        modelSelect.value = 'gemini-1.5-flash';
+        modelSelect.value = 'gemini-1.5-flash'; // Définir la valeur par défaut si aucune n'est sélectionnée
     }
+
+
+        // Restaurer l'état de la sidebar au chargement de la page
+        const savedSidebarState = localStorage.getItem('sidebarState');
+        if (savedSidebarState === 'true') {
+            toggleSidebar();
+        }
+
+
+    // Vérification de la visite guidée pour les utilisateurs existants
+    if (currentUser) {
+        const hasSeenTour = await checkGuidedTourStatus(currentUser.username);
+        if (!hasSeenTour) {
+            startGuidedTour();
+            await markGuidedTourAsSeen(currentUser.username);
+        }
+    }
+    // Mettre à jour l'interface utilisateur initialement
+    updateUI();
 
 };
 
@@ -2049,32 +2089,30 @@ function updateUI() {
     }
 }
 
-// ... (votre code existant) ...
 
-// Fonction pour gérer le clic sur le bouton retour
-function handleBackButton() {
-    const sidebar = document.querySelector('.sidebar');
-    if (sidebar.classList.contains('visible')) {
-        toggleSidebar(); // Fermer la barre de menu si elle est ouverte
-    } else {
-        window.history.back(); // Sinon, appliquer le comportement de retour par défaut
-    }
-}
 
-// Ajouter un écouteur d'événements pour le bouton retour
-window.addEventListener('popstate', handleBackButton); 
-
-// ... (reste de votre code) ...
-
-document.addEventListener('click', function (event) {
+document.addEventListener('click', function(event) {
     const sidebar = document.querySelector('.sidebar');
     const menuButton = document.querySelector('.toggle-sidebar');
-    
-    // Si la barre est visible et que le clic n'est ni sur la barre ni sur le bouton menu
+
     if (sidebar.classList.contains('visible') && !sidebar.contains(event.target) && !menuButton.contains(event.target)) {
-        toggleSidebar();  // Ferme la barre de menu
+        toggleSidebar(); // Ferme la barre latérale si elle est ouverte et que le clic est en dehors
+        event.preventDefault(); // Empêche l'action par défaut du bouton retour (navigation)
     }
 });
+
+
+window.onpopstate = function(event) {
+    const sidebar = document.querySelector('.sidebar');
+    if (sidebar.classList.contains('visible')) {
+        toggleSidebar(); // Ferme la sidebar lorsque le bouton retour est utilisé
+        // Empêcher le rechargement de la page ou d'autres actions par défaut du bouton retour
+        event.preventDefault(); 
+        history.pushState({}, '', ''); // Maintenir l'état actuel de l'historique
+        return false; // Empêcher le comportement par défaut du navigateur
+
+    }
+};
 
 
 // Modifier l'input de fichier pour accepter les fichiers docx et doc
