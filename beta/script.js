@@ -1465,19 +1465,11 @@ function updateThemeIcon(theme) {
     themeToggle.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
 }
 
-// Ajouter un état dans l'historique à chaque ouverture du menu
 function toggleSidebar() {
     const sidebar = document.querySelector('.sidebar');
-    
-    if (sidebar.classList.contains('visible')) {
-        sidebar.classList.remove('visible');
-        // Supprimer l'état ajouté dans l'historique lors de la fermeture du menu
-        window.history.back();
-    } else {
-        sidebar.classList.add('visible');
-        // Ajouter un état dans l'historique pour intercepter le bouton retour
-        window.history.pushState(null, null, window.location.href);
-    }
+    const chatContainer = document.querySelector('.chat-container');
+    sidebar.classList.toggle('visible');
+    chatContainer.classList.toggle('sidebar-visible');
 }
 
 function saveConversation() {
@@ -2066,20 +2058,6 @@ document.addEventListener('click', function (event) {
         toggleSidebar();  // Ferme la barre de menu
     }
 });
-
-// Fonction pour gérer le bouton retour sur mobile
-window.addEventListener('popstate', function(event) {
-    const sidebar = document.querySelector('.sidebar');
-    
-    // Vérifier si la barre de menu est visible
-    if (sidebar.classList.contains('visible')) {
-        toggleSidebar(); // Fermer la barre de menu
-        event.preventDefault(); // Empêcher le comportement par défaut (ne pas fermer l'application)
-    } else {
-        event.preventDefault(); // Empêcher le comportement par défaut (ne pas fermer l'application)
-    }
-});
-
 
 
 // Modifier l'input de fichier pour accepter les fichiers docx et doc
