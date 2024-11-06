@@ -1260,10 +1260,8 @@ function hasEnoughCredits(model, fileCount) {
 }
 
 async function updateCredits(model, requiredCredits) {
+    // Ne pas retourner si c'est un modèle de texte pour un non-abonné
     if (hasValidSubscription() && !isImageGenerationModel(model)) return;
-
-    // Pour les modèles d'image, le coût est fixé à 5 crédits
-    const creditsNeeded = isImageGenerationModel(model) ? 5 : requiredCredits;
 
     // Mise à jour des crédits sur Firebase avec transaction
     const userRef = db.ref('users/' + currentUser.username);
@@ -1271,46 +1269,51 @@ async function updateCredits(model, requiredCredits) {
     try {
         await userRef.transaction((userData) => {
             if (userData) {
-                // Pour la génération d'image avec un abonné qui a épuisé son quota
-                if (isImageGenerationModel(model) && hasValidSubscription()) {
-                    const imageCount = userData.imageGeneration?.dailyCount || 0;
-                    if (imageCount >= 5) {
-                        // Déduire des crédits payants en priorité
-                        if (userData.paidCredits >= creditsNeeded) {
-                            userData.paidCredits -= creditsNeeded;
+                if (isImageGenerationModel(model)) {
+                    // Logique pour les modèles de génération d'image
+                    if (hasValidSubscription()) {
+                        const imageCount = userData.imageGeneration?.dailyCount || 0;
+                        if (imageCount >= 5) {
+                            if (userData.paidCredits >= 5) {
+                                userData.paidCredits -= 5;
+                            } else {
+                                userData.freeCredits = Math.max(0, userData.freeCredits - 5);
+                            }
+                        }
+                    } else {
+                        if (userData.paidCredits >= 5) {
+                            userData.paidCredits -= 5;
                         } else {
-                            // Si pas assez de crédits payants, utiliser les crédits gratuits
-                            const remainingCredits = creditsNeeded - userData.paidCredits;
-                            userData.paidCredits = 0;
-                            userData.freeCredits = Math.max(0, userData.freeCredits - remainingCredits);
+                            userData.freeCredits = Math.max(0, userData.freeCredits - 5);
                         }
                     }
-                } else if (model === 'gemini-1.5-flash') {
-                    // Pour Gemini 1.5 Flash, utiliser d'abord les crédits payants
-                    if (userData.paidCredits >= creditsNeeded) {
-                        userData.paidCredits -= creditsNeeded;
-                    } else {
-                        userData.freeCredits -= creditsNeeded;
-                    }
-                } else if (model === 'gemini-1.0-pro') {
-                    // Pour Gemini 1.0 Pro, utiliser d'abord les crédits gratuits
-                    if (userData.freeCredits >= creditsNeeded) {
-                        userData.freeCredits -= creditsNeeded;
-                    } else {
-                        const remainingCredits = creditsNeeded - userData.freeCredits;
-                        userData.freeCredits = 0;
-                        userData.paidCredits = Math.max(0, userData.paidCredits - remainingCredits);
-                    }
-                } else if (isImageGenerationModel(model)) {
-                    // Pour les non-abonnés ou génération d'image standard
-                    if (userData.paidCredits >= creditsNeeded) {
-                        userData.paidCredits -= creditsNeeded;
-                    } else {
-                        userData.freeCredits -= creditsNeeded;
+                } else {
+                    // Logique pour les modèles de texte
+                    if (!hasValidSubscription()) {  // Seulement pour les non-abonnés
+                        if (model === 'gemini-1.5-flash') {
+                            // Utiliser d'abord les crédits payants
+                            if (userData.paidCredits >= requiredCredits) {
+                                userData.paidCredits -= requiredCredits;
+                            } else {
+                                userData.freeCredits -= requiredCredits;
+                            }
+                        } else if (model === 'gemini-1.0-pro') {
+                            // Utiliser d'abord les crédits gratuits
+                            if (userData.freeCredits >= requiredCredits) {
+                                userData.freeCredits -= requiredCredits;
+                            } else {
+                                const remainingCredits = requiredCredits - userData.freeCredits;
+                                userData.freeCredits = 0;
+                                userData.paidCredits = Math.max(0, userData.paidCredits - remainingCredits);
+                            }
+                        } else {
+                            // Pour les autres modèles, utiliser uniquement les crédits payants
+                            userData.paidCredits = Math.max(0, userData.paidCredits - requiredCredits);
+                        }
                     }
                 }
 
-                // S'assurer que les valeurs ne sont pas négatives
+                // Maintenir les valeurs positives
                 userData.freeCredits = Math.max(0, userData.freeCredits);
                 userData.paidCredits = Math.max(0, userData.paidCredits);
             }
@@ -1329,7 +1332,7 @@ async function updateCredits(model, requiredCredits) {
             document.getElementById('freeCredits').textContent = currentUser.freeCredits;
             document.getElementById('paidCredits').textContent = currentUser.paidCredits;
             
-            // Notification si crédits bas
+            // Notification de crédits bas
             if (currentUser.freeCredits === 0 && currentUser.paidCredits < 5) {
                 showNotification('Attention : vos crédits sont presque épuisés !', 'warning');
             }
