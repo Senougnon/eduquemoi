@@ -1268,74 +1268,76 @@ function hasEnoughCredits(model, fileCount) {
 }
 
 async function updateCredits(model, requiredCredits) {
-    if (hasValidSubscription()) return;
+    if (hasValidSubscription() && !isImageGenerationModel(model)) return;
 
-    // Vérifier si c'est un modèle de génération d'image
-    const isImageModel = isImageGenerationModel(model);
     // Pour les modèles d'image, le coût est fixé à 5 crédits
-    const creditsNeeded = isImageModel ? 5 : requiredCredits;
+    const creditsNeeded = isImageGenerationModel(model) ? 5 : requiredCredits;
 
-    // Mettre à jour les crédits sur Firebase en utilisant une transaction
+    // Mise à jour des crédits sur Firebase avec transaction
     const userRef = db.ref('users/' + currentUser.username);
-    await userRef.transaction((userData) => {
-        if (userData) {
-            if (model === 'gemini-1.5-flash') {
-                // Pour Gemini 1.5 Flash, utiliser d'abord les crédits payants
-                if (userData.paidCredits >= creditsNeeded) {
-                    userData.paidCredits -= creditsNeeded;
-                } else {
-                    userData.freeCredits -= creditsNeeded;
-                }
-            } else if (model === 'gemini-1.0-pro') {
-                // Pour Gemini 1.0 Pro, utiliser d'abord les crédits gratuits
-                if (userData.freeCredits >= creditsNeeded) {
-                    userData.freeCredits -= creditsNeeded;
-                } else {
-                    // Si pas assez de crédits gratuits, utiliser une combinaison
-                    const remainingCredits = creditsNeeded - userData.freeCredits;
-                    userData.freeCredits = 0;
-                    userData.paidCredits = Math.max(0, userData.paidCredits - remainingCredits);
-                }
-            } else if (isImageModel) {
-                // Pour les modèles de génération d'image
-                // Utiliser d'abord les crédits payants, puis les gratuits si nécessaire
-                if (userData.paidCredits >= creditsNeeded) {
-                    userData.paidCredits -= creditsNeeded;
-                } else if (userData.freeCredits >= creditsNeeded) {
-                    userData.freeCredits -= creditsNeeded;
-                } else {
-                    // Si une combinaison est nécessaire
-                    const availablePaidCredits = userData.paidCredits;
-                    const remainingCredits = creditsNeeded - availablePaidCredits;
-                    userData.paidCredits = 0;
-                    userData.freeCredits = Math.max(0, userData.freeCredits - remainingCredits);
-                }
-            } else {
-                // Pour les modèles avancés, utiliser uniquement les crédits payants
-                userData.paidCredits = Math.max(0, userData.paidCredits - creditsNeeded);
-            }
-
-            // S'assurer que les valeurs ne sont pas négatives
-            userData.freeCredits = Math.max(0, userData.freeCredits);
-            userData.paidCredits = Math.max(0, userData.paidCredits);
-        }
-        return userData;
-    });
-
+    
     try {
-        // Mettre à jour les crédits en local à partir de Firebase
+        await userRef.transaction((userData) => {
+            if (userData) {
+                // Pour la génération d'image avec un abonné qui a épuisé son quota
+                if (isImageGenerationModel(model) && hasValidSubscription()) {
+                    const imageCount = userData.imageGeneration?.dailyCount || 0;
+                    if (imageCount >= 5) {
+                        // Déduire des crédits payants en priorité
+                        if (userData.paidCredits >= creditsNeeded) {
+                            userData.paidCredits -= creditsNeeded;
+                        } else {
+                            // Si pas assez de crédits payants, utiliser les crédits gratuits
+                            const remainingCredits = creditsNeeded - userData.paidCredits;
+                            userData.paidCredits = 0;
+                            userData.freeCredits = Math.max(0, userData.freeCredits - remainingCredits);
+                        }
+                    }
+                } else if (model === 'gemini-1.5-flash') {
+                    // Pour Gemini 1.5 Flash, utiliser d'abord les crédits payants
+                    if (userData.paidCredits >= creditsNeeded) {
+                        userData.paidCredits -= creditsNeeded;
+                    } else {
+                        userData.freeCredits -= creditsNeeded;
+                    }
+                } else if (model === 'gemini-1.0-pro') {
+                    // Pour Gemini 1.0 Pro, utiliser d'abord les crédits gratuits
+                    if (userData.freeCredits >= creditsNeeded) {
+                        userData.freeCredits -= creditsNeeded;
+                    } else {
+                        const remainingCredits = creditsNeeded - userData.freeCredits;
+                        userData.freeCredits = 0;
+                        userData.paidCredits = Math.max(0, userData.paidCredits - remainingCredits);
+                    }
+                } else if (isImageGenerationModel(model)) {
+                    // Pour les non-abonnés ou génération d'image standard
+                    if (userData.paidCredits >= creditsNeeded) {
+                        userData.paidCredits -= creditsNeeded;
+                    } else {
+                        userData.freeCredits -= creditsNeeded;
+                    }
+                }
+
+                // S'assurer que les valeurs ne sont pas négatives
+                userData.freeCredits = Math.max(0, userData.freeCredits);
+                userData.paidCredits = Math.max(0, userData.paidCredits);
+            }
+            return userData;
+        });
+
+        // Mise à jour des données locales
         const snapshot = await userRef.once('value');
         const userData = snapshot.val();
         
         if (userData) {
             currentUser.freeCredits = userData.freeCredits;
             currentUser.paidCredits = userData.paidCredits;
-
-            // Mettre à jour l'affichage des crédits dans l'interface
+            
+            // Mise à jour de l'interface
             document.getElementById('freeCredits').textContent = currentUser.freeCredits;
             document.getElementById('paidCredits').textContent = currentUser.paidCredits;
-
-            // Afficher une notification si les crédits sont bas
+            
+            // Notification si crédits bas
             if (currentUser.freeCredits === 0 && currentUser.paidCredits < 5) {
                 showNotification('Attention : vos crédits sont presque épuisés !', 'warning');
             }
@@ -1344,9 +1346,6 @@ async function updateCredits(model, requiredCredits) {
         console.error('Erreur lors de la mise à jour des crédits:', error);
         showNotification('Erreur lors de la mise à jour des crédits', 'error');
     }
-
-    // Vérifier et mettre à jour le statut de l'abonnement
-    await checkSubscriptionStatus();
 }
 
 async function addCreditsToUser(amount) {
@@ -2397,298 +2396,73 @@ async function incrementImageGenerationCount(username) {
     });
 }
 
+// Modifier la fonction canGenerateImage pour retirer la demande de confirmation
 async function canGenerateImage() {
-    const CREDITS_PER_IMAGE = 5; // Coût en crédits par génération d'image
-    const DAILY_FREE_LIMIT = 5; // Limite quotidienne pour les abonnés
-
-    // Vérifier d'abord les crédits payants
-    if (currentUser.paidCredits >= CREDITS_PER_IMAGE) {
+    const imageCount = await getImageGenerationCount(currentUser.username);
+    const hasSubscription = hasValidSubscription();
+    const hasEnoughCredits = currentUser.paidCredits >= 5 || currentUser.freeCredits >= 5;
+    
+    // Cas 1: Abonné avec générations gratuites disponibles
+    if (hasSubscription && imageCount < 5) {
+        return {
+            canGenerate: true,
+            useFreeGeneration: true,
+            message: `Il vous reste ${5 - imageCount} générations gratuites aujourd'hui.`
+        };
+    }
+    
+    // Cas 2: Abonné ayant épuisé ses générations gratuites ou non abonné avec assez de crédits
+    if (hasEnoughCredits) {
         return {
             canGenerate: true,
             useFreeGeneration: false,
-            useSubscription: false,
-            message: `Génération possible avec ${CREDITS_PER_IMAGE} crédits payants.`,
-            deductFrom: 'paid'
+            message: "Génération avec consommation de 5 crédits"
         };
     }
-
-    // Ensuite vérifier les crédits gratuits
-    if (currentUser.freeCredits >= CREDITS_PER_IMAGE) {
-        return {
-            canGenerate: true,
-            useFreeGeneration: false,
-            useSubscription: false,
-            message: `Génération possible avec ${CREDITS_PER_IMAGE} crédits gratuits.`,
-            deductFrom: 'free'
-        };
-    }
-
-    // Si l'utilisateur a un abonnement valide, vérifier le quota journalier
-    if (hasValidSubscription()) {
-        const imageCount = await getImageGenerationCount(currentUser.username);
-        if (imageCount < DAILY_FREE_LIMIT) {
-            return {
-                canGenerate: true,
-                useFreeGeneration: true,
-                useSubscription: true,
-                message: `Il vous reste ${DAILY_FREE_LIMIT - imageCount} générations gratuites aujourd'hui (abonnement).`,
-                deductFrom: 'quota'
-            };
-        } else {
-            // L'utilisateur a épuisé son quota journalier
-            return {
-                canGenerate: false,
-                useFreeGeneration: false,
-                useSubscription: false,
-                message: "Vous avez atteint votre limite quotidienne de générations d'images. Utilisez des crédits pour continuer.",
-                deductFrom: null
-            };
-        }
-    }
-
-    // Aucune option disponible
+    
+    // Cas 3: Pas assez de crédits
     return {
         canGenerate: false,
         useFreeGeneration: false,
-        useSubscription: false,
-        message: "Vous n'avez pas assez de crédits pour générer une image. Veuillez acheter des crédits ou souscrire à un abonnement.",
-        deductFrom: null
+        message: "Vous n'avez pas assez de crédits pour générer une image."
     };
 }
 
-async function handleImageGeneration(status) {
-    const CREDITS_PER_IMAGE = 5;
-
-    if (!status.canGenerate) {
-        return false;
-    }
-
-    try {
-        const userRef = db.ref('users/' + currentUser.username);
-        
-        switch (status.deductFrom) {
-            case 'paid':
-                await userRef.transaction((userData) => {
-                    if (userData && userData.paidCredits >= CREDITS_PER_IMAGE) {
-                        userData.paidCredits -= CREDITS_PER_IMAGE;
-                        return userData;
-                    }
-                    return;
-                });
-                break;
-
-            case 'free':
-                await userRef.transaction((userData) => {
-                    if (userData && userData.freeCredits >= CREDITS_PER_IMAGE) {
-                        userData.freeCredits -= CREDITS_PER_IMAGE;
-                        return userData;
-                    }
-                    return;
-                });
-                break;
-
-            case 'quota':
-                await incrementImageGenerationCount(currentUser.username);
-                break;
-        }
-
-        // Mettre à jour les données locales
-        const snapshot = await userRef.once('value');
-        const userData = snapshot.val();
-        if (userData) {
-            currentUser.paidCredits = userData.paidCredits;
-            currentUser.freeCredits = userData.freeCredits;
-            // Mettre à jour l'interface utilisateur
-            document.getElementById('paidCredits').textContent = currentUser.paidCredits;
-            document.getElementById('freeCredits').textContent = currentUser.freeCredits;
-        }
-
-        return true;
-    } catch (error) {
-        console.error('Erreur lors de la gestion des crédits:', error);
-        showNotification('Erreur lors de la gestion des crédits. Veuillez réessayer.', 'error');
-        return false;
-    }
-}
-
-async function generateImage(userInput, selectedModel) {
-    try {
-        // Vérifier la capacité de génération
-        const generationStatus = await canGenerateImage();
-
-        if (!generationStatus.canGenerate) {
-            showNotification(generationStatus.message, 'error');
-            return false;
-        }
-
-        // Si des crédits vont être utilisés (non abonnement), demander confirmation
-        if (!generationStatus.useSubscription) {
-            const useCredits = await confirmCreditUsage(generationStatus.message);
-            if (!useCredits) {
-                return false;
-            }
-        }
-
-        // Gérer les crédits/quota avant la génération
-        const credited = await handleImageGeneration(generationStatus);
-        if (!credited) {
-            showNotification('Erreur lors de la gestion des crédits. Veuillez réessayer.', 'error');
-            return false;
-        }
-
-        // Récupérer la taille d'image sélectionnée
-        const imageSize = document.getElementById('imageSizeSelect').value;
-        const style = getRecraftStyle(selectedModel);
-        
-        // Afficher un indicateur de chargement
-        const loadingMessage = addLoadingMessage('Génération de l\'image en cours...');
-        
-        try {
-            // Appel à l'API Recraft
-            const response = await fetch('https://external.api.recraft.ai/v1/images/generations', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${RECRAFT_API_KEY}`
-                },
-                body: JSON.stringify({
-                    prompt: userInput,
-                    style: style,
-                    size: imageSize
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error('Erreur lors de la génération de l\'image');
-            }
-
-            const data = await response.json();
-            const imageUrl = data.data[0].url;
-
-            // Créer le message contenant l'image générée
-            const messageElement = document.createElement('div');
-            messageElement.className = 'message ai-message';
-            messageElement.innerHTML = `
-                <img src="${imageUrl}" alt="Image générée" style="max-width: 100%; border-radius: 5px;">
-                <p>Image générée à partir du prompt : "${userInput}"</p>
-                <div class="message-metadata">
-                    <span class="generation-info">Style: ${style.replace('_', ' ').toUpperCase()}</span>
-                    <span class="generation-info">Taille: ${imageSize}</span>
-                    <span class="generation-info">
-                        ${generationStatus.useSubscription ? 
-                          'Génération gratuite (abonnement)' : 
-                          'Génération payante (5 crédits)'}
-                    </span>
-                </div>
-                <div class="message-actions">
-                    <button onclick="downloadImage('${imageUrl}', 'image-generee.png')" title="Télécharger l'image">
-                        <i class="fas fa-download"></i>
+// Fonction pour demander confirmation avant d'utiliser des crédits
+function confirmCreditUsage(message) {
+    return new Promise((resolve) => {
+        const notification = document.createElement('div');
+        notification.className = 'notification warning';
+        notification.innerHTML = `
+            <div class="notification-content">
+                <p>${message}</p>
+                <div class="notification-actions">
+                    <button onclick="this.closest('.notification').setAttribute('data-response', 'true')">
+                        Utiliser mes crédits
                     </button>
-                    <button onclick="copyImage('${imageUrl}')" title="Copier le lien de l'image">
-                        <i class="fas fa-copy"></i>
-                    </button>
-                    <button onclick="shareImage('${imageUrl}')" title="Partager l'image">
-                        <i class="fas fa-share-alt"></i>
+                    <button onclick="this.closest('.notification').setAttribute('data-response', 'false')">
+                        Annuler
                     </button>
                 </div>
-            `;
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        setTimeout(() => notification.classList.add('show'), 100);
 
-            // Ajouter le message au conteneur
-            document.getElementById('messageContainer').appendChild(messageElement);
-            
-            // Mettre à jour les statistiques et afficher la notification appropriée
-            if (generationStatus.useSubscription) {
-                const newCount = await getImageGenerationCount(currentUser.username);
-                const remainingGenerations = 5 - newCount;
-                showNotification(
-                    `Image générée avec succès! Il vous reste ${remainingGenerations} génération${remainingGenerations > 1 ? 's' : ''} gratuite${remainingGenerations > 1 ? 's' : ''} aujourd'hui.`, 
-                    'success'
-                );
-                
-                // Si le nombre de générations restantes est faible, ajouter un avertissement
-                if (remainingGenerations <= 2) {
-                    showNotification(
-                        `Attention : il ne vous reste plus que ${remainingGenerations} génération${remainingGenerations > 1 ? 's' : ''} gratuite${remainingGenerations > 1 ? 's' : ''} aujourd'hui.`, 
-                        'warning'
-                    );
-                }
-            } else {
-                showNotification('Image générée avec succès!', 'success');
-                
-                // Vérifier si les crédits sont faibles après la génération
-                const totalCredits = currentUser.paidCredits + currentUser.freeCredits;
-                if (totalCredits < 10) {
-                    showNotification(
-                        `Attention : il ne vous reste plus que ${totalCredits} crédit${totalCredits > 1 ? 's' : ''}.`, 
-                        'warning'
-                    );
-                }
-            }
-
-            return true;
-
-        } catch (error) {
-            console.error('Erreur lors de la génération d\'image:', error);
-            showNotification('Erreur lors de la génération de l\'image. Veuillez réessayer.', 'error');
-            return false;
-        } finally {
-            // Supprimer le message de chargement
-            if (loadingMessage) {
-                loadingMessage.remove();
-            }
+        function handleResponse(e) {
+            const response = e.target.closest('.notification').getAttribute('data-response');
+            notification.classList.remove('show');
+            setTimeout(() => {
+                notification.remove();
+                resolve(response === 'true');
+            }, 300);
         }
 
-    } catch (error) {
-        console.error('Erreur générale:', error);
-        showNotification('Une erreur inattendue s\'est produite. Veuillez réessayer.', 'error');
-        return false;
-    }
-}
-
-// Fonctions utilitaires pour la manipulation des images générées
-async function downloadImage(url, filename) {
-    try {
-        const response = await fetch(url);
-        const blob = await response.blob();
-        const downloadUrl = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(downloadUrl);
-        showNotification('Image téléchargée avec succès!', 'success');
-    } catch (error) {
-        console.error('Erreur lors du téléchargement:', error);
-        showNotification('Erreur lors du téléchargement de l\'image.', 'error');
-    }
-}
-
-function copyImage(url) {
-    navigator.clipboard.writeText(url)
-        .then(() => showNotification('Lien de l\'image copié dans le presse-papiers!', 'success'))
-        .catch(() => showNotification('Erreur lors de la copie du lien.', 'error'));
-}
-
-function shareImage(url) {
-    if (navigator.share) {
-        navigator.share({
-            title: 'Image générée par Eduque moi',
-            text: 'Regardez cette image générée par IA!',
-            url: url
-        })
-        .then(() => showNotification('Image partagée avec succès!', 'success'))
-        .catch((error) => {
-            if (error.name !== 'AbortError') {
-                console.error('Erreur lors du partage:', error);
-                showNotification('Erreur lors du partage de l\'image.', 'error');
-            }
+        notification.querySelectorAll('button').forEach(button => {
+            button.addEventListener('click', handleResponse);
         });
-    } else {
-        copyImage(url);
-        showNotification('Lien copié dans le presse-papiers car le partage n\'est pas disponible.', 'info');
-    }
+    });
 }
 // Fonction pour mettre à jour régulièrement l'interface utilisateur
 function updateUI() {
