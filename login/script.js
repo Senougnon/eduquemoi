@@ -808,7 +808,7 @@ function createPinnedResponsesElement(responses) {
     return pinnedPromptElement;
   }
 
-async function sendMessage() {
+  async function sendMessage() {
     if (!currentUser) {
         showNotification("Veuillez vous connecter pour envoyer des messages.", "error");
         return;
@@ -839,14 +839,6 @@ async function sendMessage() {
             if (!generationStatus.canGenerate) {
                 showPaymentNotification(generationStatus.message);
                 return;
-            }
-
-            // Si l'utilisateur doit utiliser des crédits, demander confirmation
-            if (!generationStatus.useFreeGeneration) {
-                const useCredits = await confirmCreditUsage(generationStatus.message);
-                if (!useCredits) {
-                    return;
-                }
             }
 
             // Générer l'image
