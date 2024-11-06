@@ -808,34 +808,43 @@ function createPinnedResponsesElement(responses) {
     return pinnedPromptElement;
   }
 
-  async function sendMessage() {
+async function sendMessage() {
     if (!currentUser) {
         showNotification("Veuillez vous connecter pour envoyer des messages.", "error");
         return;
     }
 
-    const selectedModel = document.getElementById('modelSelect').value;
-    const userInput = document.getElementById('userInput').value.trim();
+    const userInput = document.getElementById("userInput").value.trim();
+    const selectedModel = document.getElementById("modelSelect").value;
 
-    if (!userInput && pinnedFiles.length === 0 && pinnedResponses.length === 0 && !pinnedPrompt) {
-        showNotification("Veuillez entrer un message, joindre un fichier, épingler une réponse ou sélectionner un prompt.", "error");
+    if (
+        !userInput &&
+        pinnedFiles.length === 0 &&
+        pinnedResponses.length === 0 &&
+        !pinnedPrompt
+    ) {
+        showNotification(
+            "Veuillez entrer un message, joindre un fichier, épingler une réponse ou sélectionner un prompt.",
+            "error"
+        );
         return;
     }
 
-    // Traitement spécial pour les modèles de génération d'images
+    // Traitement spécial pour les modèles de génération d'image
     if (isImageGenerationModel(selectedModel)) {
         try {
-            // Vérifier la limite de génération pour les abonnés
-            if (hasValidSubscription()) {
-                const imageCount = await getImageGenerationCount(currentUser.username);
-                if (imageCount >= 5) {
-                    showNotification('Vous avez atteint votre limite de 5 générations d\'images par jour avec votre abonnement.', 'warning');
-                    return;
-                }
-            } else {
-                // Vérifier les crédits pour les non-abonnés
-                if (currentUser.paidCredits < 5 && currentUser.freeCredits < 5) {
-                    showPaymentNotification('Vous avez besoin de 5 crédits pour générer une image.');
+            // Vérifier la capacité de génération
+            const generationStatus = await canGenerateImage();
+
+            if (!generationStatus.canGenerate) {
+                showPaymentNotification(generationStatus.message);
+                return;
+            }
+
+            // Si l'utilisateur doit utiliser des crédits, demander confirmation
+            if (!generationStatus.useFreeGeneration) {
+                const useCredits = await confirmCreditUsage(generationStatus.message);
+                if (!useCredits) {
                     return;
                 }
             }
@@ -879,6 +888,11 @@ function createPinnedResponsesElement(responses) {
                 <div class="message-metadata">
                     <span class="generation-info">Style: ${style.replace('_', ' ').toUpperCase()}</span>
                     <span class="generation-info">Taille: ${imageSize}</span>
+                    <span class="generation-info">
+                        ${generationStatus.useFreeGeneration ? 
+                          'Génération gratuite (abonnement)' : 
+                          'Génération payante (5 crédits)'}
+                    </span>
                 </div>
                 <div class="message-actions">
                     <button onclick="downloadImage('${imageUrl}', 'image-generee.png')">
@@ -895,11 +909,11 @@ function createPinnedResponsesElement(responses) {
 
             document.getElementById('messageContainer').appendChild(messageElement);
             
-            // Incrémenter le compteur pour les abonnés ou déduire les crédits pour les non-abonnés
-            if (hasValidSubscription()) {
+            // Mettre à jour les compteurs et crédits
+            if (generationStatus.useFreeGeneration) {
                 await incrementImageGenerationCount(currentUser.username);
                 const newCount = await getImageGenerationCount(currentUser.username);
-                showNotification(`Image générée avec succès! Il vous reste ${5 - newCount} générations aujourd'hui.`, 'success');
+                showNotification(`Image générée avec succès! Il vous reste ${5 - newCount} générations gratuites aujourd'hui.`, 'success');
             } else {
                 await updateCredits(selectedModel, 5);
                 showNotification('Image générée avec succès! 5 crédits ont été déduits.', 'success');
@@ -908,17 +922,18 @@ function createPinnedResponsesElement(responses) {
             // Réinitialiser l'input
             document.getElementById('userInput').value = '';
             resetTextareaHeight();
-            
+            return;
         } catch (error) {
             console.error('Erreur de génération d\'image:', error);
             showNotification('Erreur lors de la génération de l\'image. Veuillez réessayer.', 'error');
+            return;
         }
-        return;
     }
 
-    // Traitement pour les modèles Gemini
+    // Traitement normal pour les modèles de texte (Gemini)
+    // Calculer le nombre total de crédits requis
     let requiredCredits = 1; // Crédit de base pour le message texte
-    requiredCredits += pinnedFiles.filter(file => file.type !== 'text/plain').length;
+    requiredCredits += pinnedFiles.filter(file => file.type !== 'text/plain').length; // Ajouter des crédits pour les images et les PDF
     requiredCredits += pinnedResponses.length;
 
     // Vérification des crédits et sélection du modèle
@@ -933,11 +948,13 @@ function createPinnedResponsesElement(responses) {
                 return;
             }
         } else if (!["gemini-1.0-pro"].includes(selectedModel)) {
+            // Modèles avancés (hors Gemini 1.0 Pro)
             if (currentUser.paidCredits < requiredCredits) {
                 showPaymentNotification("Vous n'avez pas assez de crédits payants pour ce modèle avancé.");
                 return;
             }
         } else {
+            // Gemini 1.0 Pro (modèle gratuit)
             if (currentUser.freeCredits < requiredCredits && currentUser.paidCredits < requiredCredits) {
                 showPaymentNotification("Vous n'avez pas assez de crédits pour envoyer ce message.");
                 return;
@@ -974,18 +991,18 @@ function createPinnedResponsesElement(responses) {
         });
     }
 
-    // Ajouter les réponses épinglées au message
+    // Ajouter les réponses épinglées
     if (pinnedResponsesToSend.length > 0) {
         const pinnedResponsesElement = createPinnedResponsesElement(pinnedResponsesToSend);
         messageElement.appendChild(pinnedResponsesElement);
 
         fullMessage += "\n\n**Réponses épinglées:**\n";
         pinnedResponsesToSend.forEach((response) => {
-            fullMessage += `- ${response.displayText}\n`;
+            fullMessage += `- ${response.text}\n`;
         });
     }
 
-    // Ajouter le prompt épinglé au début du message
+    // Ajouter le prompt épinglé
     if (pinnedPromptToSend) {
         const pinnedPromptElement = createPinnedPromptElement(pinnedPromptToSend);
         messageElement.appendChild(pinnedPromptElement);
@@ -994,15 +1011,18 @@ function createPinnedResponsesElement(responses) {
     }
 
     // Ajouter le texte du message
-    const textElement = document.createElement("p");
-    textElement.textContent = displayMessage;
-    messageElement.appendChild(textElement);
+    if (displayMessage) {
+        const textElement = document.createElement("p");
+        textElement.textContent = displayMessage;
+        messageElement.appendChild(textElement);
+    }
 
     // Ajouter le message au conteneur
     const messageContainer = document.getElementById("messageContainer");
     messageContainer.appendChild(messageElement);
     messageContainer.scrollTop = messageContainer.scrollHeight;
 
+    // Réinitialiser l'input
     document.getElementById("userInput").value = "";
     resetTextareaHeight();
 
@@ -1016,21 +1036,17 @@ function createPinnedResponsesElement(responses) {
 
         // Ajouter le contexte de la conversation
         let conversationContext = "";
-        const recentMessages = currentConversation.slice(-5);
+        const recentMessages = currentConversation.slice(-5); // Garder les 5 derniers messages
 
         recentMessages.forEach((message) => {
-            if (message.sender === "user") {
-                conversationContext += `user: ${message.content}\n`;
-            } else {
-                conversationContext += `model: ${message.content}\n`;
-            }
+            conversationContext += `${message.sender === "user" ? "user" : "model"}: ${message.content}\n`;
         });
 
         // Ajouter le contexte et le message
         fullMessage = conversationContext + "\n" + fullMessage;
         parts.push({ text: fullMessage });
 
-        // Traiter les fichiers épinglés
+        // Traiter les fichiers
         for (const file of pinnedFilesToSend) {
             if (file.type === 'text/plain') {
                 parts.push({ text: `Analyse ce fichier texte: ${file.content}` });
@@ -1057,10 +1073,10 @@ function createPinnedResponsesElement(responses) {
         const response = await result.response;
         let aiResponse = response.text();
 
+        // Traiter la réponse selon le modèle
         let aiMessageElement;
         if (selectedModel === "gemini-1.0-pro" || 
             (selectedModel === "gemini-1.5-flash" && currentUser.paidCredits < requiredCredits)) {
-            
             const words = aiResponse.split(/\s+/);
             if (words.length > FREE_MODEL_MAX_RESPONSE) {
                 aiResponse = words.slice(0, FREE_MODEL_MAX_RESPONSE).join(" ") +
@@ -1075,10 +1091,11 @@ function createPinnedResponsesElement(responses) {
             aiMessageElement = addMessageToChat("ai", aiResponse);
         }
 
-        // Mettre à jour l'historique
+        // Mettre à jour la conversation
         currentConversation.push({ sender: "user", content: userInput });
         currentConversation.push({ sender: "ai", content: aiResponse });
 
+        // Mettre à jour les crédits
         await updateCredits(selectedModel, requiredCredits);
         saveConversation();
 
@@ -2380,6 +2397,85 @@ async function incrementImageGenerationCount(username) {
     });
 }
 
+// Modifier la fonction de vérification des capacités de génération d'images
+async function canGenerateImage() {
+    const imageCount = await getImageGenerationCount(currentUser.username);
+    const hasSubscription = hasValidSubscription();
+    const hasEnoughCredits = currentUser.paidCredits >= 5 || currentUser.freeCredits >= 5;
+    
+    // Cas 1: Abonné avec générations gratuites disponibles
+    if (hasSubscription && imageCount < 5) {
+        return {
+            canGenerate: true,
+            useFreeGeneration: true,
+            message: `Il vous reste ${5 - imageCount} générations gratuites aujourd'hui.`
+        };
+    }
+    
+    // Cas 2: Abonné ayant épuisé ses générations gratuites mais ayant des crédits
+    if (hasSubscription && imageCount >= 5 && hasEnoughCredits) {
+        return {
+            canGenerate: true,
+            useFreeGeneration: false,
+            message: "Vous avez épuisé vos générations gratuites. Utilisez vos crédits (5 crédits par image)?"
+        };
+    }
+    
+    // Cas 3: Non abonné avec crédits suffisants
+    if (!hasSubscription && hasEnoughCredits) {
+        return {
+            canGenerate: true,
+            useFreeGeneration: false,
+            message: "Génération possible avec 5 crédits."
+        };
+    }
+    
+    // Cas 4: Aucune possibilité de génération
+    return {
+        canGenerate: false,
+        useFreeGeneration: false,
+        message: hasSubscription ? 
+            "Vous avez épuisé vos générations gratuites et n'avez pas assez de crédits." :
+            "Vous n'avez pas assez de crédits pour générer une image."
+    };
+}
+
+// Fonction pour demander confirmation avant d'utiliser des crédits
+function confirmCreditUsage(message) {
+    return new Promise((resolve) => {
+        const notification = document.createElement('div');
+        notification.className = 'notification warning';
+        notification.innerHTML = `
+            <div class="notification-content">
+                <p>${message}</p>
+                <div class="notification-actions">
+                    <button onclick="this.closest('.notification').setAttribute('data-response', 'true')">
+                        Utiliser mes crédits
+                    </button>
+                    <button onclick="this.closest('.notification').setAttribute('data-response', 'false')">
+                        Annuler
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        setTimeout(() => notification.classList.add('show'), 100);
+
+        function handleResponse(e) {
+            const response = e.target.closest('.notification').getAttribute('data-response');
+            notification.classList.remove('show');
+            setTimeout(() => {
+                notification.remove();
+                resolve(response === 'true');
+            }, 300);
+        }
+
+        notification.querySelectorAll('button').forEach(button => {
+            button.addEventListener('click', handleResponse);
+        });
+    });
+}
 // Fonction pour mettre à jour régulièrement l'interface utilisateur
 function updateUI() {
     if (currentUser) {
