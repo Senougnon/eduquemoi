@@ -1670,3 +1670,58 @@ button:hover {
     color: var(--text-color);
     font-weight: normal;
 }
+
+/* Ajoutez ces styles à votre fichier CSS */
+
+.loading-message {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 20px;
+}
+
+.loading-spinner {
+    width: 30px;
+    height: 30px;
+    border: 3px solid var(--background-color);
+    border-top: 3px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.message-metadata {
+    display: flex;
+    gap: 15px;
+    margin-top: 10px;
+    font-size: 0.9em;
+    color: var(--text-color);
+    opacity: 0.8;
+}
+
+.generation-info {
+    background-color: var(--input-background);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8em;
+}
+
+.image-generation-counter {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    padding: 10px;
+    background-color: var(--input-background);
+    border-radius: 5px;
+    font-size: 0.9em;
+}
+
+.image-generation-counter i {
+    color: var(--primary-color);
+}
+
+.image-limit-warning {
+    color: #ff9800;
+    font-weight: bold;
+}
+
