@@ -186,7 +186,7 @@ body, html {
     align-items: center;
 }
 
-.input-actions button, .input-actions label {
+.options-button {
     background: none;
     border: none;
     color: var(--button-color);
@@ -197,8 +197,36 @@ body, html {
     transition: color 0.3s ease;
 }
 
-.input-actions button:hover, .input-actions label:hover {
-    color: var(--hover-color);
+.options-menu {
+    position: absolute;
+    bottom: 100%;
+    right: 0;
+    background-color: var(--input-background);
+    border: 1px solid var(--button-color);
+    border-radius: 5px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+}
+
+.options-menu.hidden {
+    display: none;
+}
+
+.options-menu label,
+.options-menu button {
+    background: none;
+    border: none;
+    color: var(--text-color);
+    cursor: pointer;
+    padding: 5px;
+    text-align: left;
+    transition: background-color 0.3s ease;
+}
+
+.options-menu label:hover,
+.options-menu button:hover {
+    background-color: var(--hover-color);
 }
 
 .file-input {
@@ -223,28 +251,7 @@ button:hover {
     background-color: var(--hover-color);
 }
 
-.message {
-    margin-bottom: 15px;
-    padding: 15px;
-    border-radius: 10px;
-    max-width: 80%;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    word-wrap: break-word;
-}
 
-.user-message {
-    background-color: var(--user-message-color);
-    color: var(--text-color);
-    align-self: flex-end;
-    border-bottom-right-radius: 0;
-}
-
-.ai-message {
-    background-color: var(--ai-message-color);
-    color: var(--text-color);
-    align-self: flex-start;
-    border-bottom-left-radius: 0;
-}
 
 #modelSelect, #subscriptionSelect, #creditSelect {
     width: 100%;
@@ -883,16 +890,49 @@ button:hover {
     }
     
     /* Styles pour le système de parrainage */
+    .referral-info {
+        background-color: var(--input-background);
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .referral-info p {
+        margin-bottom: 10px;
+    }
+    
+    .referral-info ul {
+        list-style-type: none;
+        padding-left: 0;
+    }
+    
+    .referral-info li {
+        margin-bottom: 8px;
+        padding-left: 20px;
+        position: relative;
+    }
+    
+    .referral-info li:before {
+        content: "•";
+        position: absolute;
+        left: 0;
+        color: var(--primary-color);
+    }
+    
     #referralModal .modal-content {
-        text-align: center;
+        max-width: 600px;
     }
     
     #referralLink {
-        width: 80%;
-        margin: 10px auto;
+        width: 100%;
+        margin: 15px 0;
         padding: 10px;
         font-size: 0.9em;
         text-align: center;
+        background-color: var(--input-background);
+        border: 1px solid var(--button-color);
+        border-radius: 5px;
     }
     
     #referralModal button {
@@ -1175,33 +1215,458 @@ button:hover {
         animation: spin 1s ease-in-out infinite;
         margin-right: 5px; /* Ajouter une marge à droite si nécessaire */
     }
-    .pinned-files-message {
-        background-color: rgba(0, 0, 0, 0.05);
-        border-radius: 8px;
-        padding: 10px;
-        margin-bottom: 10px;
+/* Styles pour les éléments épinglés */
+.pinned-files-message,
+.pinned-responses-message,
+.pinned-prompt-message {
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.pinned-file,
+.pinned-response,
+.pinned-prompt {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.file-icon,
+.response-icon,
+.prompt-icon {
+  font-size: 1.2em;
+  margin-right: 10px;
+}
+
+.file-name,
+.response-text,
+.prompt-title {
+  font-size: 0.9em;
+  color: #555;
+}
+
+/* Styles pour le thème sombre */
+[data-theme="dark"] .pinned-files-message,
+[data-theme="dark"] .pinned-responses-message,
+[data-theme="dark"] .pinned-prompt-message {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .file-name,
+[data-theme="dark"] .response-text,
+[data-theme="dark"] .prompt-title {
+  color: #ccc;
+}
+/* ... (votre CSS existant) ... */
+
+/* Icône pour répondre à un message spécifique */
+.message-actions button.reply-button {
+    /* Styles pour le bouton de réponse */
+    background: none;
+    border: none;
+    color: var(--text-color);
+    cursor: pointer;
+    margin-right: 5px;
+    font-size: 0.9em;
+}
+
+.message-actions button.reply-button:hover {
+    /* Styles pour le bouton de réponse au survol */
+    color: var(--hover-color);
+}
+
+.message-actions button.reply-button i {
+    /* Styles pour l'icône de réponse */
+    transform: rotate(180deg); /* Rotation de 180 degrés pour un effet "retour" */
+    margin-right: 3px; /* Ajustez la marge si nécessaire */
+}
+
+
+
+/* Styles pour formater les messages comme dans un document web/Word */
+.message {
+    margin-bottom: 15px;
+    padding: 15px;
+    border-radius: 10px;
+    max-width: 80%;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    word-wrap: break-word;
+    white-space: pre-wrap; /* Permet les sauts de ligne automatiques et préserve les espaces */
+}
+
+.user-message, .ai-message {
+    /* Styles communs aux messages utilisateur et AI */
+    font-size: 16px; /* Taille de police standard */
+    line-height: 1.5; /* Interligne standard */
+}
+
+.user-message {
+    /* Styles spécifiques aux messages utilisateur */
+    background-color: var(--user-message-color);
+    color: var(--text-color);
+    align-self: flex-end;
+    border-bottom-right-radius: 0;
+}
+
+.ai-message {
+    /* Styles spécifiques aux messages AI */
+    background-color: var(--ai-message-color);
+    color: var(--text-color);
+    align-self: flex-start;
+    border-bottom-left-radius: 0;
+}
+
+.message p {
+    /* Styles pour les paragraphes dans les messages */
+    margin: 0; /* Supprimer les marges par défaut des paragraphes */
+}
+
+.message strong {
+    /* Styles pour le texte en gras dans les messages */
+    font-weight: bold;
+}
+
+.message em {
+    /* Styles pour le texte en italique dans les messages */
+    font-style: italic;
+}
+
+.message ul, .message ol {
+    /* Styles pour les listes dans les messages */
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-left: 20px;
+}
+
+.message-actions {
+    margin-top: 5px;
+    display: flex; /* Utilisez flexbox pour aligner les icônes */
+    justify-content: flex-end; /* Alignez les icônes à droite */
+}
+
+.message-actions button {
+    background: none;
+    border: none;
+    color: var(--text-color);
+    cursor: pointer;
+    margin-left: 5px; /* Ajoutez une marge à gauche pour espacer les icônes */
+    font-size: 0.9em;
+}
+
+/* ... (votre CSS existant) ... */
+
+/* Styles pour les notifications */
+.notification-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end; /* Aligner les notifications à droite */
+    z-index: 1000;
+}
+
+.notification {
+    background-color: var(--background-color);
+    border: 1px solid var(--button-color);
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 10px; /* Espacement entre les notifications */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    max-width: 300px; /* Largeur maximale de la notification */
+    animation: slideInRight 0.5s ease-out; /* Animation d'entrée */
+    opacity: 0; /* Initialement caché */
+    transition: opacity 0.3s ease-in-out; /* Transition pour l'opacité */
+}
+
+.notification.show {
+    opacity: 1; /* Afficher la notification */
+}
+
+.notification.success {
+    border-color: var(--secondary-color);
+}
+
+.notification.error {
+    border-color: #e74c3c;
+}
+
+.notification.info {
+    border-color: #3498db;
+}
+
+.notification.warning {
+    border-color: #f39c12;
+}
+
+.notification-content {
+    display: flex;
+    align-items: center;
+}
+
+.notification-icon {
+    font-size: 1.2em;
+    margin-right: 10px;
+}
+
+.notification-text {
+    font-size: 0.9em;
+    line-height: 1.4;
+}
+
+.notification button {
+    margin-top: 10px;
+    padding: 5px 10px;
+    background-color: var(--button-color);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.8em;
+    transition: background-color 0.3s ease;
+}
+
+.notification button:hover {
+    background-color: var(--hover-color);
+}
+
+/* Animation d'entrée */
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
     }
-    
-    .pinned-file {
-        display: flex;
-        align-items: center;
-        margin-bottom: 5px;
+    to {
+        transform: translateX(0);
     }
-    
-    .file-icon {
-        font-size: 1.2em;
-        margin-right: 10px;
-    }
-    
-    .file-name {
-        font-size: 0.9em;
-        color: #555;
-    }
-    
-    [data-theme="dark"] .pinned-files-message {
-        background-color: rgba(255, 255, 255, 0.1);
-    }
-    
-    [data-theme="dark"] .file-name {
-        color: #ccc;
-    }
+}
+
+/* Styles pour les notifications en mode clair */
+[data-theme="light"] .notification {
+    color: var(--text-color); /* Définir la couleur du texte en mode clair */
+}
+
+/* Styles pour l'historique des conversations en mode clair */
+[data-theme="light"] .conversation-item {
+    color: var(--text-color); /* Définir la couleur du texte en mode clair */
+}
+
+/* Styles pour la sélection du modèle */
+#modelSelect {
+    width: 100%;
+    margin-bottom: 10px;
+    background-color: var(--input-background);
+    color: var(--text-color);
+    border: 1px solid var(--button-color);
+    padding: 10px;
+    border-radius: 5px;
+}
+
+/* Styles pour les options de modèle */
+#modelSelect optgroup {
+    font-weight: bold;
+}
+
+/* Styles pour les options de modèle expérimentales */
+#modelSelect optgroup[label="Modèles expérimentaux"] option {
+    font-style: italic; /* Ou une autre mise en forme distinctive */
+}
+
+#loadingIndicator {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.loading-spinner {
+    border: 5px solid #f3f3f3;
+    border-top: 5px solid #3498db;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+#loadingIndicator p {
+    color: white;
+    margin-top: 10px;
+}
+
+.pinned-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  
+  .pinned-item {
+    background-color: var(--input-background);
+    border: 2px solid transparent; /* Bordure transparente par défaut */
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 0.9em;
+    display: inline-flex;
+    align-items: center;
+    max-width: 180px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Ombre subtile */
+    transition: border-color 0.3s ease; /* Transition pour l'effet de survol */
+  }
+  
+  .pinned-item:hover {
+    border-color: var(--primary-color); /* Changement de couleur de la bordure au survol */
+  }
+  
+  .pinned-item .name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-left: 8px; 
+  }
+  
+  .pinned-item .remove {
+    margin-left: 10px;
+    cursor: pointer;
+    color: var(--text-color);
+    opacity: 0.7;
+    transition: opacity 0.3s ease;
+  }
+  
+  .pinned-item .remove:hover {
+    opacity: 1;
+  }
+  
+  /* Aperçu des images */
+  .pinned-item[data-type="file"] .icon {
+    width: 30px; /* Ajuster la taille de l'aperçu */
+    height: 30px; 
+    overflow: hidden;
+    border-radius: 5px; 
+  }
+  
+  .pinned-item[data-type="file"] .icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .pinned-files-message {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.pinned-image {
+    max-width: 100%; /* L'image prend toute la largeur disponible */
+    max-height: 100px; /* Hauteur maximale de l'image */
+    object-fit: cover; /* L'image est recadrée pour conserver ses proportions */
+    border-radius: 5px;
+    margin-bottom: 5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Ombre subtile */
+}
+
+.file-icon {
+    font-size: 2em;
+    margin-bottom: 5px;
+}
+
+.file-name {
+    font-size: 0.8em;
+    word-break: break-word; /* Permet de couper les mots longs sur plusieurs lignes */
+}
+
+        /* Styles personnalisés pour la visite guidée */
+        .shepherd-element {
+            background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        .shepherd-text {
+            color: white;
+        }
+        .shepherd-button {
+            background: #FF6B6B;
+            color: white;
+            border: 2px solid white;
+            border-radius: 25px;
+            padding: 10px 20px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        .shepherd-button:hover {
+            background: white;
+            color: #FF6B6B;
+        }
+        .shepherd-arrow:before {
+            background: #FF6B6B !important;
+        }
+        .tour-icon {
+            position: absolute;
+            font-size: 24px;
+            color: #FF6B6B;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+/* Styles pour l'indicateur de prompt embarqué */
+.pinned-prompt-indicator {
+    color: #ccc; /* Couleur gris clair pour le placeholder */
+    font-style: italic; /* Style italique pour le placeholder */
+  }
+/* Ajoutez ces styles à votre fichier CSS existant */
+
+#imageSizeSelect {
+    width: 100%;
+    margin-top: 10px;
+    background-color: var(--input-background);
+    color: var(--text-color);
+    border: 1px solid var(--button-color);
+    padding: 10px;
+    border-radius: 5px;
+    display: none;
+}
+
+.ai-message img {
+    max-width: 100%;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.image-generation-options {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: var(--input-background);
+    border-radius: 5px;
+}
+
+/* Style pour le sélecteur de modèle d'image */
+#modelSelect optgroup[label="Modèles de génération d'image"] {
+    color: var(--primary-color);
+    font-weight: bold;
+}
+
+#modelSelect optgroup[label="Modèles de génération d'image"] option {
+    color: var(--text-color);
+    font-weight: normal;
+}

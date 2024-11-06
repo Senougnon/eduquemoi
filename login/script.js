@@ -4,9 +4,45 @@ let currentUser = null;
 let pinnedFiles = [];
 let currentConversation = [];
 let conversations = {};
-const FREE_CREDITS_PER_DAY = 10;
-const FREE_MODEL_MAX_WORDS = 50;
-const FREE_MODEL_MAX_RESPONSE = 100;
+
+const FREE_CREDITS_PER_DAY = 3;
+const FREE_CREDITS_REGISTER = 10;
+const FREE_MODEL_MAX_WORDS = 50000;
+const FREE_MODEL_MAX_RESPONSE = 2000;
+
+// Message système à définir
+const SYSTEM_INSTRUCTION = `Tu es Eduque moi, un assistant IA développé par Evisions. Ta mission principale est d'aider les utilisateurs à apprendre et à améliorer leurs compétences dans divers domaines.
+
+**Tes compétences clés sont les suivantes :**
+
+* **Compréhension et génération de texte :** Tu maîtrises parfaitement le français, qui est ta langue par défaut. Tu peux également comprendre et répondre dans n'importe quelle autre langue.
+* **Analyse de documents :** Tu peux analyser des fichiers sous différents formats (texte, image, PDF, etc.) pour en extraire des informations, les résumer, les traduire, etc.
+* **Assistance à la rédaction :** Tu peux aider les utilisateurs à rédiger des documents tels que des mémoires, des dissertations, des rapports, etc. Tu peux également corriger des épreuves et fournir des suggestions d'amélioration.
+* **Synthèse et résumé :** Tu peux résumer des cours, des articles, des livres, etc. et en extraire les points clés.
+* **Assistance à l'apprentissage :** Tu peux répondre aux questions des utilisateurs sur divers sujets, leur fournir des définitions, des explications, des exemples, etc.
+
+**Ton style de communication doit être :**
+
+* **Clair, concis et précis.**
+* **Adapté au niveau de compréhension de l'utilisateur.**
+* **Amical et encourageant.**
+
+**Informations complémentaires :**
+
+* Tu es capable d'apprendre de nouvelles choses et de t'adapter aux besoins spécifiques des utilisateurs.
+* Tu es toujours en développement et tes capacités s'améliorent constamment.
+* Tu es conçu pour être un outil d'apprentissage et ne dois pas être utilisé à des fins illégales ou malveillantes.
+
+**Exemple d'utilisation :**
+
+Un utilisateur peut te demander de :
+
+* "Résumer ce document PDF sur l'histoire de France."
+* "M'aider à rédiger l'introduction de mon mémoire sur l'intelligence artificielle."
+* "Corriger les fautes d'orthographe et de grammaire dans cette dissertation."
+* "Me donner des exemples d'utilisation de la loi de Newton."
+
+N'hésite pas à poser des questions à l'utilisateur pour clarifier ses besoins et lui fournir la meilleure assistance possible.`;
 
 // Configuration Firebase
 const firebaseConfig = {
@@ -26,11 +62,13 @@ const db = firebase.database();
 
 let prompts = {};
 let pinnedPrompt = null;
+let pinnedResponses = []; // Tableau pour stocker les réponses épinglées
 
 // Configuration de l'API Gemini
 let genAI;
 const API_KEY_LIST_REF = db.ref('API');
 let apiKeyList = [];
+
 
 // Fonction pour charger la liste des clés API au chargement de la page
 async function loadApiKeyList() {
@@ -59,13 +97,183 @@ function getRandomApiKey() {
 
 // Fonction pour initialiser l'API Gemini (modifiée)
 function initializeGeminiAPI() {
-    const apiKey = getRandomApiKey(); // Obtenir une clé aléatoire
+    const apiKey = getRandomApiKey(); 
     if (apiKey) {
         genAI = new GoogleGenerativeAI(apiKey);
+        // Définir le message système ici
+        model = genAI.getGenerativeModel({
+            model: document.getElementById('modelSelect').value, // Obtenir le modèle sélectionné
+            systemInstruction: SYSTEM_INSTRUCTION 
+        });
     } else {
         // Gérer le cas où aucune clé API n'est disponible
         showNotification("Erreur : Impossible d'initialiser l'API. Aucune clé API disponible.", 'error');
     }
+}
+
+// Fonction pour créer et positionner le pointeur
+function createPointer() {
+    const pointer = document.createElement('div');
+    pointer.classList.add('tour-icon');
+    pointer.innerHTML = '👆';
+    pointer.style.position = 'absolute';
+    pointer.style.display = 'none';
+    document.body.appendChild(pointer);
+    return pointer;
+}
+
+// Fonction pour positionner le pointeur sur un élément
+function positionPointer(pointer, element) {
+    const rect = element.getBoundingClientRect();
+    pointer.style.left = `${rect.left + rect.width / 2}px`;
+    pointer.style.top = `${rect.top + rect.height / 2}px`;
+    pointer.style.display = 'block';
+}
+
+// Fonction pour mettre en évidence un élément
+function highlightElement(element) {
+    element.classList.add('tour-highlight');
+}
+
+// Fonction pour retirer la mise en évidence d'un élément
+function removeHighlight(element) {
+    element.classList.remove('tour-highlight');
+}
+
+// Fonction pour démarrer la visite guidée
+function startGuidedTour() {
+    const pointer = createPointer();
+
+    const tour = new Shepherd.Tour({
+        defaultStepOptions: {
+            cancelIcon: {
+                enabled: true
+            },
+            classes: 'shepherd-theme-custom',
+            scrollTo: { behavior: 'smooth', block: 'center' }
+        }
+    });
+
+    const steps = [
+        {
+            id: 'welcome',
+            text: 'Bienvenue sur Eduque moi ! Commençons la visite guidée.',
+            attachTo: {
+                element: '.logo',
+                on: 'bottom'
+            }
+        },
+        {
+            id: 'menu',
+            text: 'Voici le menu principal. Il vous permet d\'accéder à différentes fonctionnalités de l\'application (Models, Crédits, Bibliothèque, Récompense...).',
+            attachTo: {
+                element: '.toggle-sidebar',
+                on: 'right'
+            },
+            beforeShow: () => {
+                const menuButton = document.querySelector('.toggle-sidebar');
+                highlightElement(menuButton);
+                // Ouvrir le menu si ce n'est pas déjà fait
+                const sidebar = document.querySelector('.sidebar');
+                if (!sidebar.classList.contains('visible')) {
+                    menuButton.click();
+                }
+            },
+            beforeHide: () => {
+                const menuButton = document.querySelector('.toggle-sidebar');
+                removeHighlight(menuButton);
+            }
+        },
+        {
+            id: 'input-area',
+            text: 'Voici la zone de saisie. C\'est ici que vous poserez vos questions.',
+            attachTo: {
+                element: '.input-container',
+                on: 'top'
+            }
+        },
+        {
+            id: 'file-upload',
+            text: 'Cliquez ici pour importer des fichiers (image, pdf, docx, doc, txt) que vous voulez analyser.',
+            attachTo: {
+                element: '.file-label',
+                on: 'top'
+            }
+        },
+        {
+            id: 'prompt-list',
+            text: 'Ce bouton ouvre la liste des demandes personnalisées (Utile si vous ne savez pas comment faire une demande).',
+            attachTo: {
+                element: '#promptListButton',
+                on: 'top'
+            }
+        },
+        {
+            id: 'send-button',
+            text: 'Cliquez ici pour envoyer votre message.',
+            attachTo: {
+                element: '.input-actions button:last-child',
+                on: 'top'
+            }
+        },
+        {
+            id: 'message-actions',
+            text: 'Ces icônes vous permettent de copier, exporter en PDF, partager ou répondre à un message spécifique.',
+            attachTo: {
+                element: '.message-actions',
+                on: 'bottom'
+            }
+        }
+    ];
+
+    steps.forEach((step, index) => {
+        tour.addStep({
+            ...step,
+            buttons: [
+                {
+                    text: index === steps.length - 1 ? 'Terminer' : 'Suivant',
+                    action: index === steps.length - 1 ? tour.complete : tour.next
+                }
+            ],
+            beforeShow: () => {
+                const element = document.querySelector(step.attachTo.element);
+                if (element) {
+                    positionPointer(pointer, element);
+                }
+                if (step.beforeShow) {
+                    step.beforeShow();
+                }
+            },
+            beforeHide: () => {
+                pointer.style.display = 'none';
+            }
+        });
+    });
+
+    tour.on('complete', () => {
+        pointer.remove();
+        // Fermer le menu si ouvert
+        const sidebar = document.querySelector('.sidebar');
+        if (sidebar.classList.contains('visible')) {
+            document.querySelector('.toggle-sidebar').click();
+        }
+    });
+
+    tour.start();
+}
+
+// Fonction pour vérifier si l'utilisateur a déjà vu la visite guidée
+async function checkGuidedTourStatus(username) {
+    const userRef = db.ref('users/' + username);
+    const snapshot = await userRef.once('value');
+    const userData = snapshot.val();
+    return userData && userData.hasSeenGuidedTour;
+}
+
+// Fonction pour marquer la visite guidée comme vue
+async function markGuidedTourAsSeen(username) {
+    const userRef = db.ref('users/' + username);
+    await userRef.update({ hasSeenGuidedTour: true });
 }
 
 // Fonction pour vérifier et mettre à jour le statut de l'abonnement
@@ -211,12 +419,16 @@ async function register() {
         const now = new Date();
         const userData = {
             password: password,
-            freeCredits: FREE_CREDITS_PER_DAY + 5, // 5 crédits supplémentaires pour le filleul
+            freeCredits: FREE_CREDITS_REGISTER,
             paidCredits: 0,
             subscription: null,
             subscriptionEndDate: null,
             lastFreeCreditsReset: now.toISOString(),
-            referredBy: referralCode || null
+            referredBy: referralCode || null,
+            firstPurchase: false,
+            totalReferrals: 0,
+            activeReferrals: 0,
+            hasSeenGuidedTour: false // Ajout d'un champ pour suivre l'état de la visite guidée
         };
         
         await userRef.set(userData);
@@ -228,27 +440,35 @@ async function register() {
                 const referrerUsername = Object.keys(referrer)[0];
                 await db.ref(`users/${referrerUsername}/referrals/${username}`).set({
                     date: now.toISOString(),
-                    isActive: true
+                    isActive: false
                 });
                 
-                // Attribuer 5 crédits au parrain
                 const referrerRef = db.ref(`users/${referrerUsername}`);
                 await referrerRef.transaction((user) => {
                     if (user) {
-                        user.paidCredits = (user.paidCredits || 0) + 5;
+                        user.totalReferrals = (user.totalReferrals || 0) + 1;
                     }
                     return user;
                 });
                 
-                showNotification('Vous avez reçu 5 crédits grâce à votre parrain !', 'success');
+                if (currentUser && currentUser.username === referrerUsername) {
+                    document.getElementById('totalReferrals').textContent = (parseInt(document.getElementById('totalReferrals').textContent) || 0) + 1;
+                }
             }
         }
         
         currentUser = { username, ...userData };
         updateUIForLoggedInUser();
-        showNotification('Inscription réussie !', 'success');
+        showNotification('Inscription réussie ! Vous avez reçu 10 crédits gratuits.', 'success');
         closeModal('registerModal');
         storeLoginInfo(username, password);
+
+        // Démarrer la visite guidée pour le nouvel utilisateur
+        startGuidedTour();
+        
+        // Marquer la visite guidée comme vue
+        await markGuidedTourAsSeen(username);
+
     } catch (error) {
         console.error('Erreur lors de l\'inscription:', error);
         showNotification('Erreur lors de l\'inscription. Veuillez réessayer.', 'error');
@@ -284,8 +504,17 @@ async function login(username, password) {
             showNotification('Connexion réussie !', 'success');
             closeModal('loginModal');
             storeLoginInfo(username, password);
+
+            // Vérifier si l'utilisateur a déjà vu la visite guidée
+            const hasSeenTour = await checkGuidedTourStatus(username);
+            if (!hasSeenTour) {
+                // Démarrer la visite guidée
+                startGuidedTour();
+                // Marquer la visite guidée comme vue
+                await markGuidedTourAsSeen(username);
+            }
         } else {
-            showNotification('Nom d\'utilisateur ou mot de passe incorrect.', 'error');
+            showNotification('Nom dutilisateur ou mot de passe incorrect.', 'error');
         }
     } catch (error) {
         console.error('Erreur lors de la connexion:', error);
@@ -320,219 +549,87 @@ async function resetFreeCreditsIfNeeded() {
     }
 }
 
-function checkModelAccess() {
+// Modification de la fonction checkModelAccess
+async function checkModelAccess() {
     const selectedModel = document.getElementById('modelSelect').value;
-    if (!['gemini-1.5-flash', 'gemini-1.0-pro'].includes(selectedModel) && !hasValidSubscription() && currentUser.paidCredits <= 0) {
+    const imageSizeSelect = document.getElementById('imageSizeSelect');
+    
+    // Afficher/masquer le sélecteur de taille d'image
+    imageSizeSelect.style.display = isImageGenerationModel(selectedModel) ? 'block' : 'none';
+
+    if (isImageGenerationModel(selectedModel)) {
+        if (!hasValidSubscription() && currentUser.paidCredits < 5 && currentUser.freeCredits < 5) {
+            showPaymentNotification('La génération d\'images nécessite 5 crédits.');
+            document.getElementById('modelSelect').value = 'gemini-1.5-flash';
+            imageSizeSelect.style.display = 'none';
+            return;
+        }
+    } else if (!['gemini-1.5-flash', 'gemini-1.0-pro'].includes(selectedModel) && 
+               !hasValidSubscription() && 
+               currentUser.paidCredits <= 0) {
         showPaymentNotification('Ce modèle nécessite un abonnement ou des crédits payants.');
         document.getElementById('modelSelect').value = 'gemini-1.5-flash';
     }
 }
 
-// Fonction pour gérer l'ajout de fichiers
-function handleFileUpload(event) {
+
+// Fonction pour gérer l'importation de fichiers (docx, doc)
+async function handleFileUpload(event) {
     const files = event.target.files;
+
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        if (file.type.startsWith('image/') || file.type === 'application/pdf') {
+
+        if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.type === 'application/msword') {
+
+            try {
+                const textContent = await convertWordToText(file);
+                
+                // Ajouter le contenu texte aux fichiers épinglés
+                pinnedFiles.push({
+                    name: file.name.replace(/\.[^/.]+$/, "") + '.txt', // Remplace l'extension par .txt
+                    type: 'text/plain',
+                    content: textContent
+                });
+                updatePinnedFiles();
+                
+                // Incrémenter le compteur de fichiers importés et mettre à jour la base de données
+                importedFilesCount++;
+                await db.ref('users/' + currentUser.username).update({
+                    importedFilesCount: importedFilesCount
+                });
+
+            } catch (error) {
+                console.error('Erreur lors de la conversion du fichier Word :', error);
+                showNotification('Erreur lors de la conversion du fichier Word.', 'error');
+            }
+        } else if (file.type.startsWith('image/') || file.type === 'application/pdf') {
+            // Gestion des fichiers image et PDF comme avant
             pinnedFiles.push(file);
             updatePinnedFiles();
         }
     }
 }
 
-
-
-
-async function sendMessage() {
-    if (!currentUser) {
-        showNotification('Veuillez vous connecter pour envoyer des messages.', 'error');
-        return;
-    }
-
-    const userInput = document.getElementById('userInput').value.trim();
-    let model = document.getElementById('modelSelect').value;
-
-    if (!userInput && pinnedFiles.length === 0 && !pinnedPrompt) {
-        showNotification('Veuillez entrer un message, joindre un fichier ou sélectionner un prompt.', 'error');
-        return;
-    }
-
-    const requiredCredits = pinnedFiles.length > 0 ? pinnedFiles.length : 1;
-
-    // Vérification des crédits et sélection du modèle
-    if (!hasValidSubscription()) {
-        if (model === 'gemini-1.5-flash') {
-            if (currentUser.paidCredits < requiredCredits && currentUser.freeCredits < requiredCredits) {
-                showPaymentNotification('Vous n\'avez pas assez de crédits pour utiliser Gemini 1.5 Flash.');
-                return;
-            }
-        } else if (!['gemini-1.0-pro'].includes(model)) {
-            if (currentUser.paidCredits < requiredCredits) {
-                showPaymentNotification('Vous n\'avez pas assez de crédits payants pour ce modèle avancé.');
-                return;
-            }
-        } else {
-            if (currentUser.freeCredits < requiredCredits && currentUser.paidCredits < requiredCredits) {
-                showPaymentNotification('Vous n\'avez pas assez de crédits pour envoyer ce message.');
-                return;
-            }
-        }
-    }
-
-    const messageElement = document.createElement('div');
-    messageElement.className = 'message user-message';
-
-    if (pinnedFiles.length > 0) {
-        const pinnedFilesElement = createPinnedFilesElement(pinnedFiles);
-        messageElement.appendChild(pinnedFilesElement);
-    }
-
-    const textElement = document.createElement('p');
-    textElement.textContent = userInput;
-    messageElement.appendChild(textElement);
-
-    const messageContainer = document.getElementById('messageContainer');
-    messageContainer.appendChild(messageElement);
-    messageContainer.scrollTop = messageContainer.scrollHeight;
-
-    document.getElementById('userInput').value = '';
-
-    const sendButton = document.querySelector('.input-actions button:last-child');
-    sendButton.disabled = true;
-
-    try {
-        const parts = [];
-
-        if (userInput) {
-            parts.push({ text: userInput });
-        }
-
-        for (const file of pinnedFiles) {
-            const fileData = await readFileAsBase64(file);
-            parts.push({
-                inlineData: {
-                    data: fileData,
-                    mimeType: file.type
-                }
-            });
-        }
-
-        if (pinnedPrompt) {
-            parts.unshift({ text: pinnedPrompt.content });
-        }
-
-        const generativeModel = genAI.getGenerativeModel({ model: model });
-        const result = await generativeModel.generateContent(parts);
-        const response = await result.response;
-        let aiResponse = response.text();
-
-        if (model === 'gemini-1.0-pro' || (model === 'gemini-1.5-flash' && currentUser.paidCredits < requiredCredits)) {
-            const words = aiResponse.split(/\s+/);
-            if (words.length > FREE_MODEL_MAX_RESPONSE) {
-                aiResponse = words.slice(0, FREE_MODEL_MAX_RESPONSE).join(' ') + '...(Utilisez un modèle avancé pour avoir la suite de ma réponse)';
-                showNotification(`La réponse a été tronquée à ${FREE_MODEL_MAX_RESPONSE} mots.`, 'info');
-            }
-        }
-
-        addMessageToChat('ai', aiResponse);
-
-        await updateCredits(model, requiredCredits);
-        pinnedFiles = [];
-        updatePinnedFiles();
-        removePinnedPrompt();
-        saveConversation();
-
-    } catch (error) {
-        showNotification(`Erreur : ${error.message}. Veuillez réessayer.`, 'error');
-    } finally {
-        sendButton.disabled = false;
-    }
-}
-
-function createPinnedFilesElement(files) {
-    const pinnedFilesElement = document.createElement('div');
-    pinnedFilesElement.className = 'pinned-files-message';
-
-    files.forEach(file => {
-        const fileElement = document.createElement('div');
-        fileElement.className = 'pinned-file';
-
-        const iconElement = document.createElement('span');
-        iconElement.className = 'file-icon';
-        iconElement.textContent = file.type.startsWith('image/') ? '🖼️' : '📄';
-
-        const nameElement = document.createElement('span');
-        nameElement.className = 'file-name';
-        nameElement.textContent = file.name;
-
-        fileElement.appendChild(iconElement);
-        fileElement.appendChild(nameElement);
-        pinnedFilesElement.appendChild(fileElement);
-    });
-
-    return pinnedFilesElement;
-}
-
-async function updateCredits(model, requiredCredits) {
-    if (hasValidSubscription()) return;
-    
-    if (model === 'gemini-1.5-flash') {
-        if (currentUser.paidCredits >= requiredCredits) {
-            currentUser.paidCredits -= requiredCredits;
-        } else {
-            currentUser.freeCredits -= requiredCredits;
-        }
-    } else if (model === 'gemini-1.0-pro') {
-        if (currentUser.freeCredits >= requiredCredits) {
-            currentUser.freeCredits -= requiredCredits;
-        } else {
-            const remainingCredits = requiredCredits - currentUser.freeCredits;
-            currentUser.freeCredits = 0;
-            currentUser.paidCredits = Math.max(0, currentUser.paidCredits - remainingCredits);
-        }
-    } else {
-        // Modèles avancés
-        currentUser.paidCredits = Math.max(0, currentUser.paidCredits - requiredCredits);
-    }
-    
-    document.getElementById('freeCredits').textContent = currentUser.freeCredits;
-    document.getElementById('paidCredits').textContent = currentUser.paidCredits;
-    
-    await syncUserData();
-}
-
-function addMessageToChat(sender, message) {
-    const messageContainer = document.getElementById('messageContainer');
-    const messageElement = document.createElement('div');
-    messageElement.classList.add('message', sender === 'user' ? 'user-message' : 'ai-message');
-    messageElement.textContent = message;
-    messageContainer.appendChild(messageElement);
-    messageContainer.scrollTop = messageContainer.scrollHeight;
-
-    currentConversation.push({ sender, content: message });
-}
-
-function hasValidSubscription() {
-    if (!currentUser.subscription || !currentUser.subscriptionEndDate) return false;
-    return new Date() < new Date(currentUser.subscriptionEndDate);
-}
-
-function showPaymentNotification(message) {
-    const notification = document.createElement('div');
-    notification.className = 'notification error';
-    notification.textContent = message;
-    document.body.appendChild(notification);
-}
-
-async function readFileAsBase64(file) {
+// Fonction pour convertir un fichier Word en texte
+function convertWordToText(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
+        reader.onload = function (e) {
+            const arrayBuffer = e.target.result;
+            mammoth.extractRawText({ arrayBuffer: arrayBuffer })
+                .then(function (result) {
+                    resolve(result.value);
+                })
+                .catch(function (error) {
+                    reject(error);
+                });
+        };
+        reader.readAsArrayBuffer(file);
     });
 }
 
+// Fonction pour mettre à jour l'affichage des fichiers épinglés
 function updatePinnedFiles() {
     const pinnedItems = document.getElementById('pinnedItems');
     pinnedItems.innerHTML = '';
@@ -548,117 +645,423 @@ function updatePinnedFiles() {
     });
 }
 
+// Fonction pour supprimer un fichier épinglé
 function removePinnedFile(index) {
     pinnedFiles.splice(index, 1);
     updatePinnedFiles();
 }
 
-function removePinnedPrompt() {
-    pinnedPrompt = null;
-    updatePinnedPrompt();
+function createPinnedFilesElement(files) {
+    const pinnedFilesElement = document.createElement('div');
+    pinnedFilesElement.className = 'pinned-files-message';
+
+    files.forEach(file => {
+        const fileElement = document.createElement('div');
+        fileElement.className = 'pinned-file';
+
+        if (file.type.startsWith('image/')) {
+            const imgElement = document.createElement('img');
+            imgElement.src = URL.createObjectURL(file);
+            imgElement.alt = file.name;
+            imgElement.className = 'pinned-image';
+            fileElement.appendChild(imgElement);
+        } else {
+            const iconElement = document.createElement('span');
+            iconElement.className = 'file-icon';
+            iconElement.textContent = file.type.startsWith('application/pdf') ? '📄' : '📎';
+            fileElement.appendChild(iconElement);
+        }
+
+        const nameElement = document.createElement('span');
+        nameElement.className = 'file-name';
+        nameElement.textContent = file.name;
+
+        fileElement.appendChild(nameElement);
+        pinnedFilesElement.appendChild(fileElement);
+    });
+
+    return pinnedFilesElement;
 }
 
-function updatePinnedPrompt() {
-    const pinnedItems = document.getElementById('pinnedItems');
-    const existingPrompt = pinnedItems.querySelector('.pinned-item[data-type="prompt"]');
-    if (existingPrompt) {
-        existingPrompt.remove();
+// Fonction pour créer un élément pour les réponses épinglées (similaire à createPinnedFilesElement)
+function createPinnedResponsesElement(responses) {
+    const pinnedResponsesElement = document.createElement("div");
+    pinnedResponsesElement.className = "pinned-responses-message";
+  
+    responses.forEach((response) => {
+      const responseElement = document.createElement("div");
+      responseElement.className = "pinned-response";
+  
+      const iconElement = document.createElement("span");
+      iconElement.className = "response-icon";
+      iconElement.textContent = "💬";
+  
+      const textElement = document.createElement("span");
+      textElement.className = "response-text";
+      textElement.textContent = response.displayText;
+  
+      responseElement.appendChild(iconElement);
+      responseElement.appendChild(textElement);
+      pinnedResponsesElement.appendChild(responseElement);
+    });
+  
+    return pinnedResponsesElement;
+  }
+  
+  // Fonction pour créer un élément pour le prompt épinglé
+  function createPinnedPromptElement(prompt) {
+    const pinnedPromptElement = document.createElement("div");
+    pinnedPromptElement.className = "pinned-prompt-message";
+  
+    const promptElement = document.createElement("div");
+    promptElement.className = "pinned-prompt";
+  
+    const iconElement = document.createElement("span");
+    iconElement.className = "prompt-icon";
+    iconElement.textContent = "🤖";
+  
+    const titleElement = document.createElement("span");
+    titleElement.className = "prompt-title";
+    titleElement.textContent = prompt.title;
+  
+    promptElement.appendChild(iconElement);
+    promptElement.appendChild(titleElement);
+    pinnedPromptElement.appendChild(promptElement);
+  
+    return pinnedPromptElement;
+  }
+
+  async function sendMessage() {
+    if (!currentUser) {
+        showNotification("Veuillez vous connecter pour envoyer des messages.", "error");
+        return;
     }
+
+    const userInput = document.getElementById("userInput").value.trim();
+    const selectedModel = document.getElementById("modelSelect").value;
+
+    if (!userInput && pinnedFiles.length === 0 && pinnedResponses.length === 0 && !pinnedPrompt) {
+        showNotification(
+            "Veuillez entrer un message, joindre un fichier, épingler une réponse ou sélectionner un prompt.",
+            "error"
+        );
+        return;
+    }
+
+    // Calculer le nombre de crédits requis
+    let requiredCredits = isImageGenerationModel(selectedModel) ? 5 : 1; // 5 crédits pour les images, 1 pour le texte
+    requiredCredits += pinnedFiles.filter(file => file.type !== 'text/plain').length;
+    requiredCredits += pinnedResponses.length;
+
+    // Vérification des crédits et sélection du modèle
+    if (!hasValidSubscription()) {
+        if (isImageGenerationModel(selectedModel)) {
+            if (currentUser.paidCredits < requiredCredits && currentUser.freeCredits < requiredCredits) {
+                showPaymentNotification("Vous avez besoin de 5 crédits pour générer une image.");
+                return;
+            }
+        } else if (selectedModel === "gemini-1.5-flash") {
+            if (currentUser.paidCredits >= requiredCredits) {
+                showNotification("Utilisation de crédits payants pour Gemini 1.5 Flash.", "info");
+            } else if (currentUser.freeCredits >= requiredCredits) {
+                showNotification("Utilisation de crédits gratuits pour Gemini 1.5 Flash.", "info");
+            } else {
+                showPaymentNotification("Vous n'avez pas assez de crédits pour utiliser Gemini 1.5 Flash.");
+                return;
+            }
+        } else if (!["gemini-1.0-pro"].includes(selectedModel)) {
+            if (currentUser.paidCredits < requiredCredits) {
+                showPaymentNotification("Vous n'avez pas assez de crédits payants pour ce modèle avancé.");
+                return;
+            }
+        } else {
+            if (currentUser.freeCredits < requiredCredits && currentUser.paidCredits < requiredCredits) {
+                showPaymentNotification("Vous n'avez pas assez de crédits pour envoyer ce message.");
+                return;
+            }
+        }
+    }
+
+    let displayMessage = userInput;
+    let fullMessage = userInput;
+
+    // Stocker les éléments épinglés
+    const pinnedFilesToSend = [...pinnedFiles];
+    const pinnedResponsesToSend = [...pinnedResponses];
+    const pinnedPromptToSend = pinnedPrompt;
+
+    // Réinitialiser les éléments épinglés
+    pinnedFiles = [];
+    pinnedResponses = [];
+    pinnedPrompt = null;
+    updatePinnedItems();
+
+    // Créer l'élément du message de l'utilisateur
+    const messageElement = document.createElement("div");
+    messageElement.className = "message user-message";
+
+    // Ajouter les fichiers épinglés
+    if (pinnedFilesToSend.length > 0) {
+        const pinnedFilesElement = createPinnedFilesElement(pinnedFilesToSend);
+        messageElement.appendChild(pinnedFilesElement);
+        fullMessage += "\n\n**Fichiers joints:**\n";
+        pinnedFilesToSend.forEach((file) => {
+            fullMessage += `- ${file.name} (${file.type})\n`;
+        });
+    }
+
+    // Ajouter les réponses épinglées
+    if (pinnedResponsesToSend.length > 0) {
+        const pinnedResponsesElement = createPinnedResponsesElement(pinnedResponsesToSend);
+        messageElement.appendChild(pinnedResponsesElement);
+        fullMessage += "\n\n**Réponses épinglées:**\n";
+        pinnedResponsesToSend.forEach((response) => {
+            fullMessage += `- ${response.displayText}\n`;
+        });
+    }
+
+    // Ajouter le prompt épinglé
+    if (pinnedPromptToSend) {
+        const pinnedPromptElement = createPinnedPromptElement(pinnedPromptToSend);
+        messageElement.appendChild(pinnedPromptElement);
+        fullMessage = pinnedPromptToSend.content + "\n\n" + fullMessage;
+    }
+
+    // Ajouter le texte du message
+    const textElement = document.createElement("p");
+    textElement.textContent = displayMessage;
+    messageElement.appendChild(textElement);
+
+    // Ajouter le message au conteneur
+    const messageContainer = document.getElementById("messageContainer");
+    messageContainer.appendChild(messageElement);
+    messageContainer.scrollTop = messageContainer.scrollHeight;
+
+    // Réinitialiser l'input
+    document.getElementById("userInput").value = "";
+    resetTextareaHeight();
+
+    // Afficher l'animation de chargement
+    const sendButton = document.querySelector(".input-actions button:last-child");
+    sendButton.classList.add("loading");
+    sendButton.disabled = true;
+
+    try {
+        if (isImageGenerationModel(selectedModel)) {
+            // Génération d'image avec Recraft
+            const imageSize = document.getElementById('imageSizeSelect').value;
+            const style = getRecraftStyle(selectedModel);
+
+            const response = await fetch('https://external.api.recraft.ai/v1/images/generations', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${RECRAFT_API_KEY}`
+                },
+                body: JSON.stringify({
+                    prompt: userInput,
+                    style: style,
+                    size: imageSize
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Erreur lors de la génération de l\'image');
+            }
+
+            const data = await response.json();
+            const imageUrl = data.data[0].url;
+
+            // Créer le message avec l'image générée
+            const aiMessageElement = document.createElement('div');
+            aiMessageElement.className = 'message ai-message';
+            aiMessageElement.innerHTML = `
+                <img src="${imageUrl}" alt="Image générée" style="max-width: 100%; border-radius: 5px;">
+                <p>Image générée à partir du prompt : "${userInput}"</p>
+                <div class="message-actions">
+                    <button onclick="copyResponse(this.parentNode.parentNode)"><i class="fas fa-copy"></i></button>
+                    <button onclick="exportResponse(this.parentNode.parentNode, 'pdf')"><i class="fas fa-file-pdf"></i></button>
+                    <button onclick="shareResponse(this.parentNode.parentNode)"><i class="fas fa-share-alt"></i></button>
+                    <button class="reply-button" onclick="pinResponse(this.parentNode.parentNode)"><i class="fas fa-reply"></i></button>
+                </div>
+            `;
+            messageContainer.appendChild(aiMessageElement);
+
+        } else {
+            // Traitement normal pour les modèles Gemini
+            const parts = [];
+
+            // Ajouter le contexte de la conversation
+            let conversationContext = "";
+            const recentMessages = currentConversation.slice(-5);
+
+            recentMessages.forEach((message) => {
+                if (message.sender === "user") {
+                    conversationContext += `user: ${message.content}\n`;
+                } else {
+                    conversationContext += `model: ${message.content}\n`;
+                }
+            });
+
+            fullMessage = conversationContext + "\n" + fullMessage;
+            parts.push({ text: fullMessage });
+
+            // Traiter les fichiers épinglés
+            for (const file of pinnedFilesToSend) {
+                if (file.type === 'text/plain') {
+                    parts.push({ text: `Analyse ce fichier texte: ${file.content}` });
+                } else {
+                    const fileData = await readFileAsBase64(file);
+                    parts.push({
+                        inlineData: {
+                            data: fileData,
+                            mimeType: file.type,
+                        }
+                    });
+                    parts.push({ text: `Analyse le fichier ${file.name} (${file.type}) que je viens de t'envoyer.` });
+                }
+            }
+
+            // Mettre à jour le modèle
+            model = genAI.getGenerativeModel({
+                model: selectedModel,
+                systemInstruction: SYSTEM_INSTRUCTION,
+            });
+
+            // Générer la réponse
+            const result = await model.generateContent(parts);
+            const response = await result.response;
+            let aiResponse = response.text();
+
+            let aiMessageElement;
+            if (selectedModel === "gemini-1.0-pro" ||
+                (selectedModel === "gemini-1.5-flash" && currentUser.paidCredits < requiredCredits)) {
+                const words = aiResponse.split(/\s+/);
+                if (words.length > FREE_MODEL_MAX_RESPONSE) {
+                    aiResponse = words.slice(0, FREE_MODEL_MAX_RESPONSE).join(" ") +
+                        "...(Utilisez un modèle avancé pour avoir la suite de ma réponse)";
+                    showNotification(`La réponse a été tronquée à ${FREE_MODEL_MAX_RESPONSE} mots.`, "info");
+                    aiMessageElement = addMessageToChat("ai", aiResponse);
+                    showUpgradeButton(aiMessageElement);
+                } else {
+                    aiMessageElement = addMessageToChat("ai", aiResponse);
+                }
+            } else {
+                aiMessageElement = addMessageToChat("ai", aiResponse);
+            }
+
+            // Mettre à jour l'historique
+            currentConversation.push({ sender: "user", content: userInput });
+            currentConversation.push({ sender: "ai", content: aiResponse });
+        }
+
+        // Mettre à jour les crédits
+        await updateCredits(selectedModel, requiredCredits);
+        saveConversation();
+
+    } catch (error) {
+        console.error("Erreur lors de la génération de la réponse:", error);
+        showNotification(`Erreur : ${error.message}. Veuillez réessayer.`, "error");
+    } finally {
+        sendButton.classList.remove("loading");
+        sendButton.disabled = false;
+    }
+}
+
+// Fonction pour épingler une réponse à la barre de saisie
+function pinResponse(messageElement) {
+    const responseText = messageElement.querySelector('div:first-child').textContent;
+    const truncatedText = responseText.length > 50 ? responseText.substring(0, 50) + '...' : responseText;
+
+    pinnedResponses.push({
+        text: responseText,
+        displayText: truncatedText
+    });
+    updatePinnedItems();
+}
+
+// Fonction pour mettre à jour l'affichage des éléments épinglés (fichiers et réponses)
+function updatePinnedItems() {
+    const pinnedItems = document.getElementById('pinnedItems');
+    pinnedItems.innerHTML = '';
+
+    // Ajouter les fichiers épinglés
+    pinnedFiles.forEach((file, index) => {
+        const item = document.createElement('div');
+        item.className = 'pinned-item';
+        item.setAttribute('data-type', 'file');
+        item.innerHTML = `
+            <span class="icon">${file.type.startsWith('image/') ? '🖼️' : '📄'}</span>
+            <span class="name" title="${file.name}">${file.name}</span>
+            <span class="remove" onclick="removePinnedItem('file', ${index})">❌</span>
+        `;
+        pinnedItems.appendChild(item);
+    });
+
+    // Ajouter les réponses épinglées
+    pinnedResponses.forEach((response, index) => {
+        const item = document.createElement('div');
+        item.className = 'pinned-item';
+        item.setAttribute('data-type', 'response');
+        item.innerHTML = `
+            <span class="icon">💬</span>
+            <span class="name" title="${response.text}">${response.displayText}</span>
+            <span class="remove" onclick="removePinnedItem('response', ${index})">❌</span>
+        `;
+        pinnedItems.appendChild(item);
+    });
+
+    // Ajouter le prompt épinglé s'il existe
     if (pinnedPrompt) {
         const item = document.createElement('div');
         item.className = 'pinned-item';
         item.setAttribute('data-type', 'prompt');
-        item.innerHTML =`
-            <span class="icon">💬</span>
+        item.innerHTML = `
+            <span class="icon">🤖</span>
             <span class="name" title="${pinnedPrompt.title}">${pinnedPrompt.title}</span>
-            <span class="remove" onclick="removePinnedPrompt()">❌</span>
+            <span class="remove" onclick="removePinnedItem('prompt')">❌</span>
         `;
         pinnedItems.appendChild(item);
     }
 }
 
-function showNotification(message, type) {
-    const notification = document.createElement('div');
-    notification.textContent = message;
-    notification.className = `notification ${type}`;
-    document.body.appendChild(notification);
-}
-
-function saveConversation() {
-    if (!currentUser) return;
-    const conversationId = currentConversation.id || Date.now().toString();
-    conversations[conversationId] = currentConversation;
-    currentConversation.id = conversationId;
-    localStorage.setItem(`conversations_${currentUser.username}`, JSON.stringify(conversations));
-    updateConversationHistory();
-}
-
-function loadConversationHistory() {
-    if (!currentUser) return;
-    const savedConversations = localStorage.getItem(`conversations_${currentUser.username}`);
-    if (savedConversations) {
-        conversations = JSON.parse(savedConversations);
-        updateConversationHistory();
+// Fonction pour supprimer un élément épinglé
+function removePinnedItem(type, index) {
+    if (type === 'file') {
+        pinnedFiles.splice(index, 1);
+    } else if (type === 'response') {
+        pinnedResponses.splice(index, 1);
+    } else if (type === 'prompt') {
+        pinnedPrompt = null;
     }
+    updatePinnedItems();
 }
 
-function updateConversationHistory() {
-    const historyContainer = document.getElementById('historyList');
-    historyContainer.innerHTML = '';
 
-    const sortedConversations = Object.keys(conversations).sort((a, b) => parseInt(b) - parseInt(a));
 
-    sortedConversations.forEach(id => {
-        const conversation = conversations[id];
-        const element = document.createElement('div');
-        element.className = 'conversation-item';
-        element.textContent = `Conversation du ${new Date(parseInt(id)).toLocaleString()}`;
-        element.onclick = () => loadConversation(id);
-        historyContainer.appendChild(element);
+// Fonction pour répondre à un message spécifique
+function replyToMessage(messageElement) {
+    // Récupérer le contenu du message auquel on répond
+    const messageToReplyTo = messageElement.querySelector('div:first-child').textContent;
+
+    // Ajouter le contenu du message cité dans la zone de saisie
+    const userInput = document.getElementById('userInput');
+    userInput.value = `> ${messageToReplyTo}\n\n`; // Vous pouvez personnaliser le format de la citation
+
+    // Placer le curseur à la fin du texte
+    userInput.focus();
+    userInput.setSelectionRange(userInput.value.length, userInput.value.length);
+}
+
+// Fonction pour lire un fichier en base64
+function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
     });
 }
-
-function loadConversation(id) {
-    if (currentConversation.length > 0 && currentConversation.id !== id) {
-        saveConversation();
-    }
-
-    currentConversation = conversations[id];
-    currentConversation.id = id;
-    const messageContainer = document.getElementById('messageContainer');
-    messageContainer.innerHTML = '';
-    currentConversation.forEach(message => {
-        addMessageToChat(message.sender, message.content);
-    });
-}
-
-async function syncUserData() {
-    if (!currentUser) return;
-
-    const updateData = {
-        freeCredits: currentUser.freeCredits || 0,
-        paidCredits: currentUser.paidCredits || 0,
-        lastFreeCreditsReset: currentUser.lastFreeCreditsReset || new Date().toISOString()
-    };
-
-    if (currentUser.subscription) {
-        updateData.subscription = currentUser.subscription;
-    }
-    if (currentUser.subscriptionEndDate) {
-        updateData.subscriptionEndDate = currentUser.subscriptionEndDate;
-    }
-
-    const userRef = db.ref('users/' + currentUser.username);
-    try {
-        await userRef.update(updateData);
-        console.log("Données utilisateur mises à jour avec succès:", updateData);
-    } catch (error) {
-        console.error("Erreur lors de la mise à jour des données utilisateur:", error);
-        showNotification("Erreur lors de la mise à jour de votre profil. Veuillez réessayer.", 'error');
-    }
-}
-
-
 
 function hasEnoughCredits(model, fileCount) {
     const requiredCredits = fileCount > 0 ? fileCount : 1;
@@ -672,7 +1075,139 @@ function hasEnoughCredits(model, fileCount) {
     }
 }
 
+async function updateCredits(model, requiredCredits) {
+    if (hasValidSubscription()) return;
 
+    // Vérifier si c'est un modèle de génération d'image
+    const isImageModel = isImageGenerationModel(model);
+    // Pour les modèles d'image, le coût est fixé à 5 crédits
+    const creditsNeeded = isImageModel ? 5 : requiredCredits;
+
+    // Mettre à jour les crédits sur Firebase en utilisant une transaction
+    const userRef = db.ref('users/' + currentUser.username);
+    await userRef.transaction((userData) => {
+        if (userData) {
+            if (model === 'gemini-1.5-flash') {
+                // Pour Gemini 1.5 Flash, utiliser d'abord les crédits payants
+                if (userData.paidCredits >= creditsNeeded) {
+                    userData.paidCredits -= creditsNeeded;
+                } else {
+                    userData.freeCredits -= creditsNeeded;
+                }
+            } else if (model === 'gemini-1.0-pro') {
+                // Pour Gemini 1.0 Pro, utiliser d'abord les crédits gratuits
+                if (userData.freeCredits >= creditsNeeded) {
+                    userData.freeCredits -= creditsNeeded;
+                } else {
+                    // Si pas assez de crédits gratuits, utiliser une combinaison
+                    const remainingCredits = creditsNeeded - userData.freeCredits;
+                    userData.freeCredits = 0;
+                    userData.paidCredits = Math.max(0, userData.paidCredits - remainingCredits);
+                }
+            } else if (isImageModel) {
+                // Pour les modèles de génération d'image
+                // Utiliser d'abord les crédits payants, puis les gratuits si nécessaire
+                if (userData.paidCredits >= creditsNeeded) {
+                    userData.paidCredits -= creditsNeeded;
+                } else if (userData.freeCredits >= creditsNeeded) {
+                    userData.freeCredits -= creditsNeeded;
+                } else {
+                    // Si une combinaison est nécessaire
+                    const availablePaidCredits = userData.paidCredits;
+                    const remainingCredits = creditsNeeded - availablePaidCredits;
+                    userData.paidCredits = 0;
+                    userData.freeCredits = Math.max(0, userData.freeCredits - remainingCredits);
+                }
+            } else {
+                // Pour les modèles avancés, utiliser uniquement les crédits payants
+                userData.paidCredits = Math.max(0, userData.paidCredits - creditsNeeded);
+            }
+
+            // S'assurer que les valeurs ne sont pas négatives
+            userData.freeCredits = Math.max(0, userData.freeCredits);
+            userData.paidCredits = Math.max(0, userData.paidCredits);
+        }
+        return userData;
+    });
+
+    try {
+        // Mettre à jour les crédits en local à partir de Firebase
+        const snapshot = await userRef.once('value');
+        const userData = snapshot.val();
+        
+        if (userData) {
+            currentUser.freeCredits = userData.freeCredits;
+            currentUser.paidCredits = userData.paidCredits;
+
+            // Mettre à jour l'affichage des crédits dans l'interface
+            document.getElementById('freeCredits').textContent = currentUser.freeCredits;
+            document.getElementById('paidCredits').textContent = currentUser.paidCredits;
+
+            // Afficher une notification si les crédits sont bas
+            if (currentUser.freeCredits === 0 && currentUser.paidCredits < 5) {
+                showNotification('Attention : vos crédits sont presque épuisés !', 'warning');
+            }
+        }
+    } catch (error) {
+        console.error('Erreur lors de la mise à jour des crédits:', error);
+        showNotification('Erreur lors de la mise à jour des crédits', 'error');
+    }
+
+    // Vérifier et mettre à jour le statut de l'abonnement
+    await checkSubscriptionStatus();
+}
+
+async function addCreditsToUser(amount) {
+  // Mettre à jour les crédits sur Firebase en utilisant une transaction
+  const userRef = db.ref('users/' + currentUser.username);
+  await userRef.transaction((userData) => {
+    if (userData) {
+      userData.paidCredits += amount;
+    }
+    return userData;
+  });
+
+  // Mettre à jour les crédits en local à partir de Firebase
+  currentUser.paidCredits = (await userRef.child('paidCredits').once('value')).val();
+  document.getElementById('paidCredits').textContent = currentUser.paidCredits;
+}
+
+function addMessageToChat(sender, message) {
+    const messageContainer = document.getElementById('messageContainer');
+    const messageElement = document.createElement('div');
+    messageElement.classList.add('message', sender === 'user' ? 'user-message' : 'ai-message');
+
+    if (sender === 'ai') {
+// Remplacer les ** en début de ligne par des sauts de ligne
+message = message.replace(/^\*\*/gm, '\n'); 
+// Supprimer les autres ** dans le texte
+message = message.replace(/\*\*/g, '');
+
+        const textElement = document.createElement('div');
+        messageElement.appendChild(textElement);
+
+        animateResponse(textElement, message);
+
+        const actionsElement = document.createElement('div');
+        actionsElement.classList.add('message-actions');
+        actionsElement.innerHTML = `
+            <button onclick="copyResponse(this.parentNode.parentNode)"><i class="fas fa-copy"></i></button>
+            <button onclick="exportResponse(this.parentNode.parentNode, 'pdf')"><i class="fas fa-file-pdf"></i></button>
+            <button onclick="shareResponse(this.parentNode.parentNode)"><i class="fas fa-share-alt"></i></button>
+            <button class="reply-button" onclick="pinResponse(this.parentNode.parentNode)"><i class="fas fa-reply"></i></button> 
+        `;
+        messageElement.appendChild(actionsElement);
+    } else {
+        messageElement.textContent = message;
+    }
+
+    messageContainer.appendChild(messageElement);
+    messageContainer.scrollTop = messageContainer.scrollHeight;
+
+    currentConversation.push({ sender, content: message });
+
+    return messageElement;
+}
 
 function copyResponse(messageElement) {
     const responseText = messageElement.querySelector('div:first-child').textContent;
@@ -685,10 +1220,10 @@ async function exportResponse(messageElement, format) {
     const responseText = messageElement.querySelector('div:first-child').textContent;
     if (format === 'word') {
         const blob = await generateWordDoc(responseText);
-        saveAs(blob, "response.docx");
+        saveAs(blob, "Eduque_moi.docx");
     } else if (format === 'pdf') {
         const blob = await generatePDF(responseText);
-        saveAs(blob, "response.pdf");
+        saveAs(blob, "Eduque_moi.pdf");
     }
     showNotification(`Export en ${format.toUpperCase()} réussi`, 'success');
 }
@@ -698,14 +1233,6 @@ async function generateWordDoc(text) {
         <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
         <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
             <w:body>
-                <w:p>
-                    <w:pPr>
-                        <w:pStyle w:val="Heading1"/>
-                    </w:pPr>
-                    <w:r>
-                        <w:t>Réponse d'Eduque moi</w:t>
-                    </w:r>
-                </w:p>
                 <w:p>
                     <w:r>
                         <w:t>${text}</w:t>
@@ -725,7 +1252,7 @@ function generatePDF(text) {
     const doc = new jsPDF();
     
     doc.setFontSize(18);
-    doc.text("Réponse d'Eduque moi", 20, 20);
+    doc.text("", 20, 20);
     
     doc.setFontSize(12);
     const splitText = doc.splitTextToSize(text, 170);
@@ -749,7 +1276,7 @@ function shareResponse(messageElement) {
     const responseText = messageElement.querySelector('div:first-child').textContent;
     if (navigator.share) {
         navigator.share({
-            title: 'Réponse de Eduque moi',
+            title: '',
             text: responseText
         }).then(() => {
             showNotification('Partage réussi', 'success');
@@ -762,7 +1289,10 @@ function shareResponse(messageElement) {
     }
 }
 
-
+function hasValidSubscription() {
+    if (!currentUser.subscription || !currentUser.subscriptionEndDate) return false;
+    return new Date() < new Date(currentUser.subscriptionEndDate);
+}
 
 function buySubscription() {
     const subscriptionType = document.getElementById('subscriptionSelect').value;
@@ -797,8 +1327,8 @@ function buySubscription() {
                 showInvoiceDetails(transaction);
                 showNotification(`Forfait ${subscriptionType} activé avec succès !`, 'success');
                 
-                // Récompenser le parrain
-                await rewardReferrer(currentUser.username, price);
+            // Vérifier si c'est le premier achat et récompenser le parrain
+            await checkFirstPurchaseAndRewardReferrer(currentUser.username, price);
             } else {
                 showNotification('Le paiement a été annulé ou a échoué.', 'error');
             }
@@ -854,8 +1384,8 @@ function buyCredits() {
                 showInvoiceDetails(transaction);
                 showNotification(`${creditAmount} crédits ont été ajoutés à votre compte.`, 'success');
                 
-                // Récompenser le parrain
-                await rewardReferrer(currentUser.username, price);
+            // Vérifier si c'est le premier achat et récompenser le parrain
+            await checkFirstPurchaseAndRewardReferrer(currentUser.username, price);
             } else {
                 showNotification('Le paiement a été annulé ou a échoué.', 'error');
             }
@@ -864,34 +1394,86 @@ function buyCredits() {
     fedaPayInstance.open();
 }
 
-async function addCreditsToUser(amount) {
-    currentUser.paidCredits += amount;
-    await syncUserData();
-    document.getElementById('paidCredits').textContent = currentUser.paidCredits;
+// Fonction pour vérifier le premier achat et récompenser le parrain
+async function checkFirstPurchaseAndRewardReferrer(username, amount) {
+    const userRef = db.ref(`users/${username}`);
+    const snapshot = await userRef.once('value');
+    const userData = snapshot.val();
+    
+    if (userData && !userData.firstPurchase) {
+        // Marquer que l'utilisateur a effectué son premier achat
+        await userRef.update({ firstPurchase: true });
+        
+        // Récompenser le parrain si l'utilisateur a été parrainé
+        if (userData.referredBy) {
+            const referrerQuery = await db.ref('users').orderByChild('referralCode').equalTo(userData.referredBy).once('value');
+            const referrer = referrerQuery.val();
+            
+            if (referrer) {
+                const referrerUsername = Object.keys(referrer)[0];
+                const referrerRef = db.ref(`users/${referrerUsername}`);
+                
+                await referrerRef.transaction((user) => {
+                    if (user) {
+                        user.paidCredits = (user.paidCredits || 0) + 10;
+                        if (user.referrals && user.referrals[username]) {
+                            user.referrals[username].isActive = true;
+                        }
+                    }
+                    return user;
+                });
+                
+                // Mettre à jour les statistiques de parrainage
+                await updateReferralStats(referrerUsername);
+                
+                showNotification(`Le parrain de ${username} a reçu 10 crédits pour le premier achat de son filleul !`, 'success');
+            }
+        }
+    }
+}
+
+
+
+function getShareMessage(referralLink) {
+    return encodeURIComponent(`🚀 Découvrez le secret pour booster votre apprentissage ! 🧠✨
+
+J'ai trouvé une pépite et je ne peux pas garder ça pour moi. Imaginez avoir un assistant personnel ultra-intelligent, disponible 24/7, pour répondre à toutes vos questions... C'est ce que j'ai avec Eduque moi !
+
+Curieux ? Cliquez sur ce lien magique et embarquez pour une aventure intellectuelle incroyable :
+${referralLink}
+
+PS : En utilisant mon lien, vous me donnez un petit coup de pouce. Mais chut, c'est notre secret ! 😉`);
 }
 
 function shareOnFacebook() {
-    const url = encodeURIComponent(document.getElementById('referralLink').value);
-    const message = encodeURIComponent("Rejoignez-moi sur Eduque moi et apprenons ensemble ! Utilisez mon lien de parrainage pour obtenir des bonus :");
+    const url = document.getElementById('referralLink').value;
+    const message = getShareMessage(url);
     window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${message}`, '_blank');
 }
 
 function shareOnTwitter() {
-    const url = encodeURIComponent(document.getElementById('referralLink').value);
-    const message = encodeURIComponent("Découvrez Eduque moi avec moi ! Utilisez mon lien de parrainage pour commencer votre voyage d'apprentissage :");
+    const url = document.getElementById('referralLink').value;
+    const message = getShareMessage(url);
     window.open(`https://twitter.com/intent/tweet?url=${url}&text=${message}`, '_blank');
 }
 
 function shareOnLinkedIn() {
-    const url = encodeURIComponent(document.getElementById('referralLink').value);
-    const message = encodeURIComponent("Je vous recommande Eduque moi pour améliorer vos connaissances. Utilisez mon lien de parrainage :");
-    window.open(`https://www.linkedin.com/shareArticle?mini=true&url=${url}&title=Rejoignez Eduque moi&summary=${message}`, '_blank');
+    const url = document.getElementById('referralLink').value;
+    const message = getShareMessage(url);
+    window.open(`https://www.linkedin.com/shareArticle?mini=true&url=${url}&title=Boostez votre apprentissage avec Eduque moi&summary=${message}`, '_blank');
 }
 
 function shareOnWhatsApp() {
-    const url = encodeURIComponent(document.getElementById('referralLink').value);
-    const message = encodeURIComponent("Hé ! J'utilise Eduque moi pour apprendre. Rejoins-moi avec ce lien de parrainage : ");
-    window.open(`https://wa.me/?text=${message}${url}`, '_blank');
+    const url = document.getElementById('referralLink').value;
+    const message = getShareMessage(url);
+    window.open(`https://wa.me/?text=${message}`, '_blank');
+}
+
+function copyReferralLink() {
+    const linkInput = document.getElementById('referralLink');
+    linkInput.select();
+    document.execCommand('copy');
+    showNotification('Lien de partage copié !', 'success');
 }
 
 function showNotification(message, type) {
@@ -911,7 +1493,26 @@ function showNotification(message, type) {
     }, 100);
 }
 
+function showPaymentNotification(message) {
+    const notification = document.createElement('div');
+    notification.className = 'notification error';
+    notification.innerHTML = `
+        ${message}<br>
+        <button onclick="buySubscription()">Acheter un abonnement</button>
+        <button onclick="buyCredits()">Acheter des crédits</button>
+    `;
+    document.body.appendChild(notification);
 
+    setTimeout(() => {
+        notification.classList.add('show');
+        setTimeout(() => {
+            notification.classList.remove('show');
+            setTimeout(() => {
+                notification.remove();
+            }, 300);
+        }, 10000);
+    }, 100);
+}
 
 async function showPaymentNotificationWithFreeOption(message) {
     return new Promise((resolve) => {
@@ -959,6 +1560,9 @@ function toggleSidebar() {
     const chatContainer = document.querySelector('.chat-container');
     sidebar.classList.toggle('visible');
     chatContainer.classList.toggle('sidebar-visible');
+
+    // Enregistre l'état de la sidebar dans le localStorage
+    localStorage.setItem('sidebarState', sidebar.classList.contains('visible'));
 }
 
 function saveConversation() {
@@ -1206,7 +1810,12 @@ function selectPrompt(id, prompt) {
     updatePinnedPrompt();
     closePromptModal();
     showNotification('Prompt sélectionné', 'success');
-}
+  
+    // Insérer le texte indicatif dans la zone de saisie en tant que placeholder
+    const userInput = document.getElementById('userInput');
+    userInput.placeholder = pinnedPrompt.indicativeText || 'Tapez votre texte ici...';
+    adjustTextareaHeight();
+  }
 
 function closePromptModal() {
     document.getElementById('promptListModal').style.display = 'none';
@@ -1218,10 +1827,50 @@ function togglePromptList() {
     loadPromptCategories();
 }
 
+function updatePinnedPrompt() {
+    const pinnedItems = document.getElementById('pinnedItems');
+    const existingPrompt = pinnedItems.querySelector('.pinned-item[data-type="prompt"]');
+    if (existingPrompt) {
+        existingPrompt.remove();
+    }
+    if (pinnedPrompt) {
+        const item = document.createElement('div');
+        item.className = 'pinned-item';
+        item.setAttribute('data-type', 'prompt');
+        item.innerHTML =`
+            <span class="icon">💬</span>
+            <span class="name" title="${pinnedPrompt.title}">${pinnedPrompt.title}</span>
+            <span class="remove" onclick="removePinnedPrompt()">❌</span>
+        `;
+        pinnedItems.appendChild(item);
+    }
+}
 
+function removePinnedPrompt() {
+    pinnedPrompt = null;
+    updatePinnedPrompt();
+}
 
+function openLibrary() {
+    console.log("Tentative d'ouverture de la bibliothèque");
+    if (currentUser) {
+        console.log("Utilisateur connecté:", currentUser);
+        const userData = {
+            username: currentUser.username,
+            freeCredits: currentUser.freeCredits,
+            paidCredits: currentUser.paidCredits,
+            subscription: currentUser.subscription
+        };
+        localStorage.setItem('eduqueMoiUserData', JSON.stringify(userData));
+        console.log("Données utilisateur enregistrées dans localStorage");
+        window.location.href = 'Bibliothèque.html';
+    } else {
+        console.log("Utilisateur non connecté");
+        alert("Veuillez vous connecter pour accéder à la bibliothèque.");
+    }
+}
 
-// Fonction pour afficher la modal de parrainage
+// Fonction pour afficher la modal de parrainage (mise à jour)
 async function showReferralModal() {
     const modal = document.getElementById('referralModal');
     modal.style.display = 'block';
@@ -1240,7 +1889,8 @@ async function showReferralModal() {
         document.getElementById('referralLink').value = "Erreur lors de la récupération du code de parrainage.";
     }
     
-    updateReferralStats();
+    // Mettre à jour les statistiques de parrainage
+    await updateReferralStats(currentUser.username);
 }
 
 // Fonction pour générer un code de parrainage unique
@@ -1265,18 +1915,10 @@ async function getOrCreateReferralCode() {
     }
 }
 
-function copyReferralLink() {
-    const linkInput = document.getElementById('referralLink');
-    linkInput.select();
-    document.execCommand('copy');
-    showNotification('Lien de parrainage copié !', 'success');
-}
 
 // Fonction pour mettre à jour les statistiques de parrainage
-async function updateReferralStats() {
-    if (!currentUser) return;
-    
-    const userRef = db.ref('users/' + currentUser.username);
+async function updateReferralStats(referrerUsername) {
+    const userRef = db.ref(`users/${referrerUsername}`);
     const snapshot = await userRef.once('value');
     const userData = snapshot.val();
     
@@ -1285,35 +1927,15 @@ async function updateReferralStats() {
         const totalReferrals = Object.keys(referrals).length;
         const activeReferrals = Object.values(referrals).filter(r => r.isActive).length;
         
-        document.getElementById('totalReferrals').textContent = totalReferrals;
-        document.getElementById('activeReferrals').textContent = activeReferrals;
-    } else {
-        document.getElementById('totalReferrals').textContent = '0';
-        document.getElementById('activeReferrals').textContent = '0';
-    }
-}
+        await userRef.update({
+            totalReferrals: totalReferrals,
+            activeReferrals: activeReferrals
+        });
 
-async function rewardReferrer(username, amount) {
-    const userRef = db.ref(`users/${username}`);
-    const snapshot = await userRef.once('value');
-    const userData = snapshot.val();
-    
-    if (userData && userData.referredBy) {
-        const referrerQuery = await db.ref('users').orderByChild('referralCode').equalTo(userData.referredBy).once('value');
-        const referrer = referrerQuery.val();
-        
-        if (referrer) {
-            const referrerUsername = Object.keys(referrer)[0];
-            const referrerRef = db.ref(`users/${referrerUsername}`);
-            
-            await referrerRef.transaction((user) => {
-                if (user) {
-                    user.paidCredits = (user.paidCredits || 0) + 2;
-                }
-                return user;
-            });
-            
-            showNotification(`Votre parrain a reçu 2 crédits grâce à votre achat !`, 'success');
+        // Si l'utilisateur courant est le parrain, mettre à jour l'interface
+        if (currentUser && currentUser.username === referrerUsername) {
+            document.getElementById('totalReferrals').textContent = totalReferrals;
+            document.getElementById('activeReferrals').textContent = activeReferrals;
         }
     }
 }
@@ -1375,9 +1997,6 @@ window.onload = async function() {
         modelSelect.value = 'gemini-1.5-flash';
     }
 
-    // Appeler resetImportedFilesCount au chargement de la page et toutes les 24 heures
-    await resetImportedFilesCount();
-    setInterval(resetImportedFilesCount, 24 * 60 * 60 * 1000);
 };
 
 function setupUIEventListeners() {
@@ -1445,6 +2064,17 @@ function initModals() {
     });
 }
 
+// Vérification au chargement de la page pour les utilisateurs existants
+window.addEventListener('load', async () => {
+    if (currentUser) {
+        const hasSeenTour = await checkGuidedTourStatus(currentUser.username);
+        if (!hasSeenTour) {
+            startGuidedTour();
+            await markGuidedTourAsSeen(currentUser.username);
+        }
+    }
+});
+
 document.addEventListener('keydown', function(event) {
     if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
@@ -1503,6 +2133,22 @@ function restoreAppState() {
     }
 }
 
+// Fonction pour vérifier si le modèle sélectionné est un modèle de génération d'image
+function isImageGenerationModel(model) {
+    return model.startsWith('recraft-');
+}
+
+// Fonction pour convertir le modèle sélectionné en style Recraft
+function getRecraftStyle(model) {
+    const styles = {
+        'recraft-realistic': 'realistic_image',
+        'recraft-digital': 'digital_illustration',
+        'recraft-vector': 'vector_illustration',
+        'recraft-icon': 'icon'
+    };
+    return styles[model] || 'realistic_image';
+}
+
 // Fonction pour mettre à jour régulièrement l'interface utilisateur
 function updateUI() {
     if (currentUser) {
@@ -1511,6 +2157,35 @@ function updateUI() {
         document.getElementById('subscription').textContent = currentUser.subscription || 'Aucun';
     }
 }
+
+
+
+document.addEventListener('click', function(event) {
+    const sidebar = document.querySelector('.sidebar');
+    const menuButton = document.querySelector('.toggle-sidebar');
+
+    if (sidebar.classList.contains('visible') && !sidebar.contains(event.target) && !menuButton.contains(event.target)) {
+        toggleSidebar(); // Ferme la barre latérale si elle est ouverte et que le clic est en dehors
+        event.preventDefault(); // Empêche l'action par défaut du bouton retour (navigation)
+    }
+});
+
+
+window.onpopstate = function(event) {
+    const sidebar = document.querySelector('.sidebar');
+    if (sidebar.classList.contains('visible')) {
+        toggleSidebar(); // Ferme la sidebar lorsque le bouton retour est utilisé
+        // Empêcher le rechargement de la page ou d'autres actions par défaut du bouton retour
+        event.preventDefault(); 
+        history.pushState({}, '', ''); // Maintenir l'état actuel de l'historique
+        return false; // Empêcher le comportement par défaut du navigateur
+
+    }
+};
+
+
+// Modifier l'input de fichier pour accepter les fichiers docx et doc
+document.getElementById('fileInput').accept = '.pdf,.jpg,.jpeg,.png,.docx,.doc';
 
 // Appel de updateUI toutes les 5 minutes
 setInterval(updateUI, 300000);
