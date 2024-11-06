@@ -1724,28 +1724,3 @@ button:hover {
     color: #ff9800;
     font-weight: bold;
 }
-
-/* Style pour les boutons d'action sur les images générées */
-.ai-message .message-actions {
-    display: flex;
-    gap: 10px;
-    margin-top: 10px;
-}
-
-.ai-message .message-actions button {
-    background-color: var(--input-background);
-    border: none;
-    padding: 8px;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-}
-
-.ai-message .message-actions button:hover {
-    background-color: var(--hover-color);
-}
-
-.ai-message .message-actions i {
-    color: var(--text-color);
-    font-size: 1.1em;
-}
