@@ -1,93 +1,245 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
-  <title>Test d'intégration Google Drive</title>
-  <script src="https://apis.google.com/js/api.js"></script>
-  <script>
-    // ID client de votre application Google
-    const CLIENT_ID = '277143630015-ngrjab0fe0l6q7t77e7jt9ukbmrm9hfk.apps.googleusercontent.com';
-
-    // URI de redirection autorisée pour votre application
-    const REDIRECT_URI = 'https://eduquemoi.netlify.app/oauth2callback'; 
-
-    // Portée des autorisations demandées
-    const SCOPE = 'https://www.googleapis.com/auth/drive';
-
-    // Fonction pour charger l'API Google Drive et initialiser l'authentification
-    function handleClientLoad() {
-      gapi.load('client:auth2', initClient);
-    }
-
-    // Fonction pour initialiser l'API Google Drive et gérer l'authentification
-    function initClient() {
-      gapi.client.init({
-        clientId: CLIENT_ID,
-        discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-        scope: SCOPE
-      }).then(function () {
-        // Écouteur d'événements pour les changements d'état d'authentification
-        gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
-
-        // Mettre à jour l'état de connexion initial
-        updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
-
-        // Attacher des gestionnaires d'événements aux boutons
-        document.getElementById('signin-button').onclick = handleAuthClick;
-        document.getElementById('signout-button').onclick = handleSignoutClick;
-        document.getElementById('create-file-button').onclick = createFile;
-      });
-    }
-
-    // Fonction pour mettre à jour l'interface utilisateur en fonction de l'état de connexion
-    function updateSigninStatus(isSignedIn) {
-      if (isSignedIn) {
-        document.getElementById('signin-button').style.display = 'none';
-        document.getElementById('signout-button').style.display = 'block';
-        document.getElementById('create-file-button').style.display = 'block';
-      } else {
-        document.getElementById('signin-button').style.display = 'block';
-        document.getElementById('signout-button').style.display = 'none';
-        document.getElementById('create-file-button').style.display = 'none';
-      }
-    }
-
-    // Fonction pour gérer le clic sur le bouton de connexion
-    function handleAuthClick(event) {
-      gapi.auth2.getAuthInstance().signIn();
-    }
-
-    // Fonction pour gérer le clic sur le bouton de déconnexion
-    function handleSignoutClick(event) {
-      gapi.auth2.getAuthInstance().signOut();
-    }
-
-    // Fonction pour créer un nouveau fichier dans Google Drive
-    function createFile() {
-      gapi.client.drive.files.create({
-        resource: {
-          name: 'Nouveau fichier',
-          mimeType: 'text/plain'
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Générateur d'Images IA</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
-      }).then(function(response) {
-        console.log('Fichier créé avec succès :', response);
-        alert('Fichier créé avec succès !');
-      }, function(reason) {
-        console.error('Erreur lors de la création du fichier :', reason);
-        alert('Erreur lors de la création du fichier.');
-      });
-    }
-  </script>
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            line-height: 1.6;
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #555;
+        }
+
+        input[type="text"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        textarea:focus,
+        select:focus {
+            border-color: #4a90e2;
+            outline: none;
+        }
+
+        button {
+            background-color: #4a90e2;
+            color: white;
+            padding: 0.75rem 2rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #357abd;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .image-container {
+            position: relative;
+            padding-top: 100%;
+            background-color: #f8f8f8;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .image-container img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .error {
+            color: #dc3545;
+            margin-top: 0.5rem;
+            display: none;
+        }
+    </style>
 </head>
 <body>
-  <h1>Test d'intégration Google Drive</h1>
+    <div class="container">
+        <h1>Générateur d'Images IA</h1>
+        
+        <form id="imageForm">
+            <div class="form-group">
+                <label for="prompt">Description de l'image souhaitée</label>
+                <textarea id="prompt" rows="3" required></textarea>
+            </div>
 
-  <button id="signin-button">Se connecter avec Google</button>
-  <button id="signout-button" style="display: none;">Se déconnecter</button>
-  <button id="create-file-button" style="display: none;">Créer un fichier</button>
+            <div class="form-group">
+                <label for="negative-prompt">Description à éviter (optionnel)</label>
+                <textarea id="negative-prompt" rows="2"></textarea>
+            </div>
 
-  <script async defer src="https://apis.google.com/js/api.js"
-    onload="this.onload=function(){};handleClientLoad()"
-    onreadystatechange="if (this.readyState === 'complete') this.onload()">
-  </script>
+            <div class="form-group">
+                <label for="number">Nombre d'images</label>
+                <select id="number">
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4" selected>4</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="aspect-ratio">Format d'image</label>
+                <select id="aspect-ratio">
+                    <option value="1:1">Carré (1:1)</option>
+                    <option value="3:4">Portrait (3:4)</option>
+                    <option value="4:3">Paysage (4:3)</option>
+                    <option value="9:16">Portrait long (9:16)</option>
+                    <option value="16:9">Paysage large (16:9)</option>
+                </select>
+            </div>
+
+            <button type="submit" id="generate-btn">Générer les images</button>
+            <div class="error" id="error-message"></div>
+        </form>
+
+        <div class="loading" id="loading">
+            Génération des images en cours...
+        </div>
+
+        <div class="image-grid" id="image-grid"></div>
+    </div>
+
+    <script>
+        const API_KEY = 'AIzaSyA2q1emsUfYd7MnH5Yz0ERKwXm5zpHWLBU'; // Note: Dans un environnement de production, ne jamais exposer la clé API côté client
+        const MODEL_NAME = 'imagen-3.0-generate-001';
+        
+        const form = document.getElementById('imageForm');
+        const generateBtn = document.getElementById('generate-btn');
+        const loading = document.getElementById('loading');
+        const imageGrid = document.getElementById('image-grid');
+        const errorMessage = document.getElementById('error-message');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const prompt = document.getElementById('prompt').value;
+            const negativePrompt = document.getElementById('negative-prompt').value;
+            const numberOfImages = document.getElementById('number').value;
+            const aspectRatio = document.getElementById('aspect-ratio').value;
+
+            generateBtn.disabled = true;
+            loading.classList.add('active');
+            imageGrid.innerHTML = '';
+            errorMessage.style.display = 'none';
+
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateImages`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${API_KEY}`
+                    },
+                    body: JSON.stringify({
+                        prompt: {
+                            text: prompt
+                        },
+                        negative_prompt: negativePrompt || undefined,
+                        number_of_images: parseInt(numberOfImages),
+                        aspect_ratio: aspectRatio,
+                        safety_filter_level: "block_only_high",
+                        person_generation: "allow_adult"
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Erreur API: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                if (data.images) {
+                    data.images.forEach(image => {
+                        const container = document.createElement('div');
+                        container.className = 'image-container';
+                        
+                        const img = document.createElement('img');
+                        img.src = `data:image/png;base64,${image.data}`;
+                        img.alt = prompt;
+                        
+                        container.appendChild(img);
+                        imageGrid.appendChild(container);
+                    });
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                errorMessage.textContent = `Une erreur est survenue lors de la génération des images: ${error.message}`;
+                errorMessage.style.display = 'block';
+            } finally {
+                generateBtn.disabled = false;
+                loading.classList.remove('active');
+            }
+        });
+    </script>
 </body>
 </html>
