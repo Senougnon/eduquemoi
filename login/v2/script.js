@@ -4,6 +4,7 @@ let currentUser = null;
 let pinnedFiles = [];
 let currentConversation = [];
 let conversations = {};
+let currentApiKeyIndex = 0;
 
 const FREE_CREDITS_PER_DAY = 3;
 const FREE_CREDITS_REGISTER = 10;
@@ -95,18 +96,55 @@ function getRandomApiKey() {
     return apiKeyList[randomIndex];
 }
 
-// Fonction pour initialiser l'API Gemini (modifiée)
+// Fonction pour obtenir la prochaine clé API dans la rotation
+function getNextApiKey() {
+    if (apiKeyList.length === 0) {
+        console.error("La liste des clés API est vide.");
+        return null;
+    }
+    
+    // Obtenir la clé actuelle
+    const currentKey = apiKeyList[currentApiKeyIndex];
+    
+    // Passer à la clé suivante
+    currentApiKeyIndex = (currentApiKeyIndex + 1) % apiKeyList.length;
+    
+    return currentKey;
+}
+
+// Fonction pour initialiser la rotation des clés API
+function initializeApiKeyRotation() {
+    // Première initialisation
+    if (apiKeyList.length > 0) {
+        genAI = new GoogleGenerativeAI(getNextApiKey());
+    }
+
+    // Mettre en place la rotation automatique toutes les 5 secondes
+    setInterval(() => {
+        const newKey = getNextApiKey();
+        if (newKey) {
+            genAI = new GoogleGenerativeAI(newKey);
+            console.log("Rotation de la clé API effectuée");
+            
+            // Réinitialiser le modèle avec la nouvelle clé
+            model = genAI.getGenerativeModel({
+                model: document.getElementById('modelSelect').value,
+                systemInstruction: SYSTEM_INSTRUCTION
+            });
+        }
+    }, 5000); // 5000 ms = 5 secondes
+}
+
+// Modifier la fonction initializeGeminiAPI existante
 function initializeGeminiAPI() {
-    const apiKey = getRandomApiKey(); 
+    const apiKey = getNextApiKey();
     if (apiKey) {
         genAI = new GoogleGenerativeAI(apiKey);
-        // Définir le message système ici
         model = genAI.getGenerativeModel({
-            model: document.getElementById('modelSelect').value, // Obtenir le modèle sélectionné
-            systemInstruction: SYSTEM_INSTRUCTION 
+            model: document.getElementById('modelSelect').value,
+            systemInstruction: SYSTEM_INSTRUCTION
         });
     } else {
-        // Gérer le cas où aucune clé API n'est disponible
         showNotification("Erreur : Impossible d'initialiser l'API. Aucune clé API disponible.", 'error');
     }
 }
@@ -808,7 +846,7 @@ function createPinnedResponsesElement(responses) {
     return pinnedPromptElement;
   }
 
-async function sendMessage() {
+  async function sendMessage() {
     if (!currentUser) {
         showNotification("Veuillez vous connecter pour envoyer des messages.", "error");
         return;
@@ -839,14 +877,6 @@ async function sendMessage() {
             if (!generationStatus.canGenerate) {
                 showPaymentNotification(generationStatus.message);
                 return;
-            }
-
-            // Si l'utilisateur doit utiliser des crédits, demander confirmation
-            if (!generationStatus.useFreeGeneration) {
-                const useCredits = await confirmCreditUsage(generationStatus.message);
-                if (!useCredits) {
-                    return;
-                }
             }
 
             // Générer l'image
@@ -1268,74 +1298,79 @@ function hasEnoughCredits(model, fileCount) {
 }
 
 async function updateCredits(model, requiredCredits) {
-    if (hasValidSubscription()) return;
+    // Ne pas retourner si c'est un modèle de texte pour un non-abonné
+    if (hasValidSubscription() && !isImageGenerationModel(model)) return;
 
-    // Vérifier si c'est un modèle de génération d'image
-    const isImageModel = isImageGenerationModel(model);
-    // Pour les modèles d'image, le coût est fixé à 5 crédits
-    const creditsNeeded = isImageModel ? 5 : requiredCredits;
-
-    // Mettre à jour les crédits sur Firebase en utilisant une transaction
+    // Mise à jour des crédits sur Firebase avec transaction
     const userRef = db.ref('users/' + currentUser.username);
-    await userRef.transaction((userData) => {
-        if (userData) {
-            if (model === 'gemini-1.5-flash') {
-                // Pour Gemini 1.5 Flash, utiliser d'abord les crédits payants
-                if (userData.paidCredits >= creditsNeeded) {
-                    userData.paidCredits -= creditsNeeded;
-                } else {
-                    userData.freeCredits -= creditsNeeded;
-                }
-            } else if (model === 'gemini-1.0-pro') {
-                // Pour Gemini 1.0 Pro, utiliser d'abord les crédits gratuits
-                if (userData.freeCredits >= creditsNeeded) {
-                    userData.freeCredits -= creditsNeeded;
-                } else {
-                    // Si pas assez de crédits gratuits, utiliser une combinaison
-                    const remainingCredits = creditsNeeded - userData.freeCredits;
-                    userData.freeCredits = 0;
-                    userData.paidCredits = Math.max(0, userData.paidCredits - remainingCredits);
-                }
-            } else if (isImageModel) {
-                // Pour les modèles de génération d'image
-                // Utiliser d'abord les crédits payants, puis les gratuits si nécessaire
-                if (userData.paidCredits >= creditsNeeded) {
-                    userData.paidCredits -= creditsNeeded;
-                } else if (userData.freeCredits >= creditsNeeded) {
-                    userData.freeCredits -= creditsNeeded;
-                } else {
-                    // Si une combinaison est nécessaire
-                    const availablePaidCredits = userData.paidCredits;
-                    const remainingCredits = creditsNeeded - availablePaidCredits;
-                    userData.paidCredits = 0;
-                    userData.freeCredits = Math.max(0, userData.freeCredits - remainingCredits);
-                }
-            } else {
-                // Pour les modèles avancés, utiliser uniquement les crédits payants
-                userData.paidCredits = Math.max(0, userData.paidCredits - creditsNeeded);
-            }
-
-            // S'assurer que les valeurs ne sont pas négatives
-            userData.freeCredits = Math.max(0, userData.freeCredits);
-            userData.paidCredits = Math.max(0, userData.paidCredits);
-        }
-        return userData;
-    });
-
+    
     try {
-        // Mettre à jour les crédits en local à partir de Firebase
+        await userRef.transaction((userData) => {
+            if (userData) {
+                if (isImageGenerationModel(model)) {
+                    // Logique pour les modèles de génération d'image
+                    if (hasValidSubscription()) {
+                        const imageCount = userData.imageGeneration?.dailyCount || 0;
+                        if (imageCount >= 5) {
+                            if (userData.paidCredits >= 5) {
+                                userData.paidCredits -= 5;
+                            } else {
+                                userData.freeCredits = Math.max(0, userData.freeCredits - 5);
+                            }
+                        }
+                    } else {
+                        if (userData.paidCredits >= 5) {
+                            userData.paidCredits -= 5;
+                        } else {
+                            userData.freeCredits = Math.max(0, userData.freeCredits - 5);
+                        }
+                    }
+                } else {
+                    // Logique pour les modèles de texte
+                    if (!hasValidSubscription()) {  // Seulement pour les non-abonnés
+                        if (model === 'gemini-1.5-flash') {
+                            // Utiliser d'abord les crédits payants
+                            if (userData.paidCredits >= requiredCredits) {
+                                userData.paidCredits -= requiredCredits;
+                            } else {
+                                userData.freeCredits -= requiredCredits;
+                            }
+                        } else if (model === 'gemini-1.0-pro') {
+                            // Utiliser d'abord les crédits gratuits
+                            if (userData.freeCredits >= requiredCredits) {
+                                userData.freeCredits -= requiredCredits;
+                            } else {
+                                const remainingCredits = requiredCredits - userData.freeCredits;
+                                userData.freeCredits = 0;
+                                userData.paidCredits = Math.max(0, userData.paidCredits - remainingCredits);
+                            }
+                        } else {
+                            // Pour les autres modèles, utiliser uniquement les crédits payants
+                            userData.paidCredits = Math.max(0, userData.paidCredits - requiredCredits);
+                        }
+                    }
+                }
+
+                // Maintenir les valeurs positives
+                userData.freeCredits = Math.max(0, userData.freeCredits);
+                userData.paidCredits = Math.max(0, userData.paidCredits);
+            }
+            return userData;
+        });
+
+        // Mise à jour des données locales
         const snapshot = await userRef.once('value');
         const userData = snapshot.val();
         
         if (userData) {
             currentUser.freeCredits = userData.freeCredits;
             currentUser.paidCredits = userData.paidCredits;
-
-            // Mettre à jour l'affichage des crédits dans l'interface
+            
+            // Mise à jour de l'interface
             document.getElementById('freeCredits').textContent = currentUser.freeCredits;
             document.getElementById('paidCredits').textContent = currentUser.paidCredits;
-
-            // Afficher une notification si les crédits sont bas
+            
+            // Notification de crédits bas
             if (currentUser.freeCredits === 0 && currentUser.paidCredits < 5) {
                 showNotification('Attention : vos crédits sont presque épuisés !', 'warning');
             }
@@ -1344,9 +1379,6 @@ async function updateCredits(model, requiredCredits) {
         console.error('Erreur lors de la mise à jour des crédits:', error);
         showNotification('Erreur lors de la mise à jour des crédits', 'error');
     }
-
-    // Vérifier et mettre à jour le statut de l'abonnement
-    await checkSubscriptionStatus();
 }
 
 async function addCreditsToUser(amount) {
@@ -1364,42 +1396,7 @@ async function addCreditsToUser(amount) {
   document.getElementById('paidCredits').textContent = currentUser.paidCredits;
 }
 
-function addMessageToChat(sender, message) {
-    const messageContainer = document.getElementById('messageContainer');
-    const messageElement = document.createElement('div');
-    messageElement.classList.add('message', sender === 'user' ? 'user-message' : 'ai-message');
 
-    if (sender === 'ai') {
-// Remplacer les ** en début de ligne par des sauts de ligne
-message = message.replace(/^\*\*/gm, '\n'); 
-// Supprimer les autres ** dans le texte
-message = message.replace(/\*\*/g, '');
-
-        const textElement = document.createElement('div');
-        messageElement.appendChild(textElement);
-
-        animateResponse(textElement, message);
-
-        const actionsElement = document.createElement('div');
-        actionsElement.classList.add('message-actions');
-        actionsElement.innerHTML = `
-            <button onclick="copyResponse(this.parentNode.parentNode)"><i class="fas fa-copy"></i></button>
-            <button onclick="exportResponse(this.parentNode.parentNode, 'pdf')"><i class="fas fa-file-pdf"></i></button>
-            <button onclick="shareResponse(this.parentNode.parentNode)"><i class="fas fa-share-alt"></i></button>
-            <button class="reply-button" onclick="pinResponse(this.parentNode.parentNode)"><i class="fas fa-reply"></i></button> 
-        `;
-        messageElement.appendChild(actionsElement);
-    } else {
-        messageElement.textContent = message;
-    }
-
-    messageContainer.appendChild(messageElement);
-    messageContainer.scrollTop = messageContainer.scrollHeight;
-
-    currentConversation.push({ sender, content: message });
-
-    return messageElement;
-}
 
 function copyResponse(messageElement) {
     const responseText = messageElement.querySelector('div:first-child').textContent;
@@ -2154,6 +2151,12 @@ window.onload = async function() {
         await syncUserData();
     }
 
+        // Charger la liste des clés API
+        await loadApiKeyList();
+    
+        // Initialiser la rotation des clés API
+        initializeApiKeyRotation();
+
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.body.setAttribute('data-theme', savedTheme);
     updateThemeIcon(savedTheme);
@@ -2397,7 +2400,7 @@ async function incrementImageGenerationCount(username) {
     });
 }
 
-// Modifier la fonction de vérification des capacités de génération d'images
+// Modifier la fonction canGenerateImage pour retirer la demande de confirmation
 async function canGenerateImage() {
     const imageCount = await getImageGenerationCount(currentUser.username);
     const hasSubscription = hasValidSubscription();
@@ -2412,31 +2415,20 @@ async function canGenerateImage() {
         };
     }
     
-    // Cas 2: Abonné ayant épuisé ses générations gratuites mais ayant des crédits
-    if (hasSubscription && imageCount >= 5 && hasEnoughCredits) {
+    // Cas 2: Abonné ayant épuisé ses générations gratuites ou non abonné avec assez de crédits
+    if (hasEnoughCredits) {
         return {
             canGenerate: true,
             useFreeGeneration: false,
-            message: "Vous avez épuisé vos générations gratuites. Utilisez vos crédits (5 crédits par image)?"
+            message: "Génération avec consommation de 5 crédits"
         };
     }
     
-    // Cas 3: Non abonné avec crédits suffisants
-    if (!hasSubscription && hasEnoughCredits) {
-        return {
-            canGenerate: true,
-            useFreeGeneration: false,
-            message: "Génération possible avec 5 crédits."
-        };
-    }
-    
-    // Cas 4: Aucune possibilité de génération
+    // Cas 3: Pas assez de crédits
     return {
         canGenerate: false,
         useFreeGeneration: false,
-        message: hasSubscription ? 
-            "Vous avez épuisé vos générations gratuites et n'avez pas assez de crédits." :
-            "Vous n'avez pas assez de crédits pour générer une image."
+        message: "Vous n'avez pas assez de crédits pour générer une image."
     };
 }
 
@@ -2476,6 +2468,155 @@ function confirmCreditUsage(message) {
         });
     });
 }
+
+// Fonction améliorée pour convertir le Markdown en HTML
+function parseMarkdownTable(markdown) {
+    const lines = markdown.trim().split('\n');
+    if (lines.length < 3) return null;
+
+    // Vérifier si c'est un tableau valide
+    const isValidTable = lines.every(line => line.trim().startsWith('|') && line.trim().endsWith('|'));
+    if (!isValidTable) return null;
+
+    // Extraire les cellules
+    const rows = lines.map(line => {
+        const cells = line.trim()
+            .slice(1, -1) // Enlever les pipes externes
+            .split('|')
+            .map(cell => cell.trim());
+        return cells;
+    });
+
+    // Ignorer la ligne de séparation
+    const headerRow = rows[0];
+    const bodyRows = rows.slice(2);
+
+    // Construire le HTML
+    let html = '<div class="table-wrapper"><table><thead><tr>';
+    
+    // En-têtes
+    headerRow.forEach(header => {
+        html += `<th>${header}</th>`;
+    });
+    
+    html += '</tr></thead><tbody>';
+    
+    // Corps du tableau
+    bodyRows.forEach(row => {
+        html += '<tr>';
+        row.forEach(cell => {
+            html += `<td>${cell}</td>`;
+        });
+        html += '</tr>';
+    });
+    
+    html += '</tbody></table>';
+    
+    // Ajouter les actions du tableau
+    html += `<div class="table-actions">
+        <button onclick="copyTable(this.closest('.table-wrapper'))">
+            <i class="fas fa-copy"></i> Copier
+        </button>
+        <button onclick="exportTableAsCSV(this.closest('.table-wrapper'))">
+            <i class="fas fa-download"></i> CSV
+        </button>
+    </div></div>`;
+    
+    return html;
+}
+
+// Fonction pour détecter et convertir les tableaux dans le message
+function processMessageContent(content) {
+    // Détecter les blocs de tableau Markdown
+    const tableRegex = /\|[\s\S]+?\n[-|\s]+\n[\s\S]+?\n(?=\n|$)/g;
+    return content.replace(tableRegex, match => {
+        const tableHtml = parseMarkdownTable(match);
+        return tableHtml || match;
+    });
+}
+
+
+
+function addMessageToChat(sender, message) {
+    const messageContainer = document.getElementById('messageContainer');
+    const messageElement = document.createElement('div');
+    messageElement.classList.add('message', sender === 'user' ? 'user-message' : 'ai-message');
+
+    if (sender === 'ai') {
+        // Traitement des ** avant le formatage des tableaux
+        let processedMessage = message;
+        // Remplacer les ** en début de ligne par des sauts de ligne
+        processedMessage = processedMessage.replace(/^\*\*/gm, '\n');
+        // Supprimer les autres ** dans le texte
+        processedMessage = processedMessage.replace(/\*\*/g, '');
+
+        // Formatage des tableaux après le traitement des **
+        processedMessage = formatMarkdownTable(processedMessage);
+
+        const textElement = document.createElement('div');
+        textElement.innerHTML = processedMessage;
+        messageElement.appendChild(textElement);
+
+        // Ajouter les actions
+        const actionsElement = document.createElement('div');
+        actionsElement.classList.add('message-actions');
+        actionsElement.innerHTML = `
+            <button onclick="copyResponse(this.parentNode.parentNode)"><i class="fas fa-copy"></i></button>
+            <button onclick="exportResponse(this.parentNode.parentNode, 'pdf')"><i class="fas fa-file-pdf"></i></button>
+            <button onclick="shareResponse(this.parentNode.parentNode)"><i class="fas fa-share-alt"></i></button>
+            <button class="reply-button" onclick="pinResponse(this.parentNode.parentNode)"><i class="fas fa-reply"></i></button>
+        `;
+        messageElement.appendChild(actionsElement);
+
+    } else {
+        messageElement.textContent = message;
+    }
+
+    messageContainer.appendChild(messageElement);
+    messageContainer.scrollTop = messageContainer.scrollHeight;
+
+    return messageElement;
+}
+
+// Fonction pour le formatage des tableaux Markdown
+function formatMarkdownTable(text) {
+    // Regex pour détecter les tableaux Markdown
+    const tableRegex = /\|(.+)\|\n\|(?:[-:|]+\|)+\n(\|(?:.+\|)+\n?)+/g;
+    
+    return text.replace(tableRegex, function(table) {
+        // Diviser les lignes du tableau
+        const lines = table.trim().split('\n');
+        if (lines.length < 3) return table;
+
+        // Construire le HTML du tableau
+        let html = '<div class="table-scroll-container"><table>';
+        
+        // En-tête
+        const headers = lines[0].split('|').filter(cell => cell.trim());
+        html += '<thead><tr>';
+        headers.forEach(header => {
+            html += `<th>${header.trim()}</th>`;
+        });
+        html += '</tr></thead>';
+        
+        // Corps du tableau
+        html += '<tbody>';
+        lines.slice(2).forEach(line => {
+            const cells = line.split('|').filter(cell => cell.trim());
+            if (cells.length > 0) {
+                html += '<tr>';
+                cells.forEach(cell => {
+                    html += `<td>${cell.trim()}</td>`;
+                });
+                html += '</tr>';
+            }
+        });
+        html += '</tbody></table></div>';
+        
+        return html;
+    });
+}
+
 // Fonction pour mettre à jour régulièrement l'interface utilisateur
 function updateUI() {
     if (currentUser) {
