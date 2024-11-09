@@ -967,12 +967,7 @@ function createPinnedResponsesElement(responses) {
     const userInput = document.getElementById("userInput").value.trim();
     const selectedModel = document.getElementById("modelSelect").value;
 
-    if (
-        !userInput &&
-        pinnedFiles.length === 0 &&
-        pinnedResponses.length === 0 &&
-        !pinnedPrompt
-    ) {
+    if (!userInput && pinnedFiles.length === 0 && pinnedResponses.length === 0 && !pinnedPrompt) {
         showNotification(
             "Veuillez entrer un message, joindre un fichier, épingler une réponse ou sélectionner un prompt.",
             "error"
@@ -980,10 +975,22 @@ function createPinnedResponsesElement(responses) {
         return;
     }
 
+    // Construire le prompt final en combinant le prompt épinglé et l'entrée utilisateur
+    let finalPrompt = userInput;
+    if (pinnedPrompt) {
+        if (pinnedPrompt.type === 'image') {
+            // Format spécial pour les prompts de génération d'image
+            finalPrompt = `${pinnedPrompt.content}
+                Détails spécifiques: ${userInput}`;
+        } else {
+            // Format standard pour les prompts texte
+            finalPrompt = `${pinnedPrompt.content}\n\n${userInput}`;
+        }
+    }
+
     // Traitement spécial pour les modèles de génération d'image
     if (isImageGenerationModel(selectedModel)) {
         try {
-            // Vérifier la capacité de génération
             const generationStatus = await canGenerateImage();
 
             if (!generationStatus.canGenerate) {
@@ -991,12 +998,11 @@ function createPinnedResponsesElement(responses) {
                 return;
             }
 
-            // Générer l'image
-            const imageSize = document.getElementById('imageSizeSelect').value;
-            const style = getRecraftStyle(selectedModel);
-            
             // Afficher un indicateur de chargement
             const loadingMessage = addLoadingMessage('Génération de l\'image en cours...');
+            
+            const imageSize = document.getElementById('imageSizeSelect').value;
+            const style = getRecraftStyle(selectedModel);
             
             const response = await fetch('https://external.api.recraft.ai/v1/images/generations', {
                 method: 'POST',
@@ -1005,13 +1011,12 @@ function createPinnedResponsesElement(responses) {
                     'Authorization': `Bearer ${RECRAFT_API_KEY}`
                 },
                 body: JSON.stringify({
-                    prompt: userInput,
+                    prompt: finalPrompt, // Utiliser le prompt combiné
                     style: style,
                     size: imageSize
                 })
             });
 
-            // Supprimer le message de chargement
             loadingMessage.remove();
 
             if (!response.ok) {
@@ -1026,7 +1031,7 @@ function createPinnedResponsesElement(responses) {
             messageElement.className = 'message ai-message';
             messageElement.innerHTML = `
                 <img src="${imageUrl}" alt="Image générée" style="max-width: 100%; border-radius: 5px;">
-                <p>Image générée à partir du prompt : "${userInput}"</p>
+                <p>Image générée à partir du prompt : "${finalPrompt}"</p>
                 <div class="message-metadata">
                     <span class="generation-info">Style: ${style.replace('_', ' ').toUpperCase()}</span>
                     <span class="generation-info">Taille: ${imageSize}</span>
@@ -1050,7 +1055,7 @@ function createPinnedResponsesElement(responses) {
             `;
 
             document.getElementById('messageContainer').appendChild(messageElement);
-            
+
             // Mettre à jour les compteurs et crédits
             if (generationStatus.useFreeGeneration) {
                 await incrementImageGenerationCount(currentUser.username);
@@ -1060,16 +1065,18 @@ function createPinnedResponsesElement(responses) {
                 await updateCredits(selectedModel, 5);
                 showNotification('Image générée avec succès! 5 crédits ont été déduits.', 'success');
             }
-            
-            // Réinitialiser l'input
-            document.getElementById('userInput').value = '';
-            resetTextareaHeight();
-            return;
+
         } catch (error) {
             console.error('Erreur de génération d\'image:', error);
             showNotification('Erreur lors de la génération de l\'image. Veuillez réessayer.', 'error');
-            return;
+        } finally {
+            // Réinitialiser l'input et les éléments épinglés
+            document.getElementById('userInput').value = '';
+            resetTextareaHeight();
+            pinnedPrompt = null;
+            updatePinnedItems();
         }
+        return;
     }
 
     // Traitement normal pour les modèles de texte (Gemini)
