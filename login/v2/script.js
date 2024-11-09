@@ -11,6 +11,12 @@ const FREE_CREDITS_REGISTER = 10;
 const FREE_MODEL_MAX_WORDS = 50000;
 const FREE_MODEL_MAX_RESPONSE = 2000;
 
+// Configuration du système de retry
+const RETRY_CONFIG = {
+    maxAttempts: 3,  // Nombre maximum de tentatives avec différentes clés
+    retryDelay: 1000 // Délai entre les tentatives en millisecondes
+};
+
 // Message système à définir
 const SYSTEM_INSTRUCTION = `Tu es Eduque moi, un assistant IA développé par Evisions. Ta mission principale est d'aider les utilisateurs à apprendre et à améliorer leurs compétences dans divers domaines.
 
@@ -147,6 +153,112 @@ function initializeGeminiAPI() {
     } else {
         showNotification("Erreur : Impossible d'initialiser l'API. Aucune clé API disponible.", 'error');
     }
+}
+
+
+// Classe pour gérer les erreurs d'API
+class ApiError extends Error {
+    constructor(message, status) {
+        super(message);
+        this.status = status;
+        this.name = 'ApiError';
+    }
+}
+
+// Gestionnaire de clés API avec retry
+class ApiKeyManager {
+    constructor(apiKeys) {
+        this.apiKeys = apiKeys;
+        this.currentIndex = 0;
+        this.usedKeys = new Set();
+    }
+
+    // Obtenir la prochaine clé non utilisée
+    getNextUnusedKey() {
+        const startIndex = this.currentIndex;
+        
+        do {
+            this.currentIndex = (this.currentIndex + 1) % this.apiKeys.length;
+            if (!this.usedKeys.has(this.apiKeys[this.currentIndex])) {
+                return this.apiKeys[this.currentIndex];
+            }
+        } while (this.currentIndex !== startIndex);
+
+        return null; // Toutes les clés ont été essayées
+    }
+
+    // Réinitialiser les clés utilisées
+    resetUsedKeys() {
+        this.usedKeys.clear();
+    }
+
+    // Marquer une clé comme utilisée
+    markKeyAsUsed(key) {
+        this.usedKeys.add(key);
+    }
+}
+
+// Fonction pour effectuer une requête avec retry
+async function executeWithRetry(requestFunction) {
+    const apiKeyManager = new ApiKeyManager(apiKeyList);
+    let lastError = null;
+    let attempts = 0;
+
+    while (attempts < RETRY_CONFIG.maxAttempts) {
+        const apiKey = apiKeyManager.getNextUnusedKey();
+        
+        if (!apiKey) {
+            throw new Error("Toutes les clés API ont été épuisées sans succès");
+        }
+
+        try {
+            // Initialiser l'API avec la nouvelle clé
+            genAI = new GoogleGenerativeAI(apiKey);
+            model = genAI.getGenerativeModel({
+                model: document.getElementById('modelSelect').value,
+                systemInstruction: SYSTEM_INSTRUCTION
+            });
+
+            // Exécuter la requête
+            const result = await requestFunction();
+            console.log(`Requête réussie avec la clé API ${apiKey}`);
+            return result;
+
+        } catch (error) {
+            lastError = error;
+            apiKeyManager.markKeyAsUsed(apiKey);
+            attempts++;
+
+            console.log(`Échec de la requête avec la clé API ${apiKey}. Tentative ${attempts}/${RETRY_CONFIG.maxAttempts}`);
+
+            // Si ce n'est pas la dernière tentative, attendre avant de réessayer
+            if (attempts < RETRY_CONFIG.maxAttempts) {
+                await new Promise(resolve => setTimeout(resolve, RETRY_CONFIG.retryDelay));
+            }
+        }
+    }
+
+    // Si toutes les tentatives ont échoué
+    throw new Error(`Échec après ${attempts} tentatives. Dernière erreur: ${lastError.message}`);
+}
+
+
+// Fonction utilitaire pour vérifier si une erreur justifie un retry
+function shouldRetry(error) {
+    // Liste des codes d'erreur qui justifient un retry
+    const retryableErrors = [
+        'RESOURCE_EXHAUSTED',
+        'UNAVAILABLE',
+        'DEADLINE_EXCEEDED',
+        'INTERNAL',
+        'CANCELLED'
+    ];
+
+    return retryableErrors.includes(error.code) || 
+           error.message.includes('quota exceeded') ||
+           error.message.includes('rate limit') ||
+           error.status === 429 || // Too Many Requests
+           error.status >= 500;    // Server Errors
 }
 
 // Fonction pour créer et positionner le pointeur
@@ -1136,6 +1248,211 @@ function createPinnedResponsesElement(responses) {
         sendButton.classList.remove("loading");
         sendButton.disabled = false;
     }
+}
+
+// Fonctions auxiliaires
+
+function resetPinnedItems() {
+    pinnedFiles = [];
+    pinnedResponses = [];
+    pinnedPrompt = null;
+    updatePinnedItems();
+}
+
+function buildConversationContext() {
+    let context = "";
+    const recentMessages = currentConversation.slice(-5);
+    recentMessages.forEach((message) => {
+        context += `${message.sender === "user" ? "user" : "model"}: ${message.content}\n`;
+    });
+    return context;
+}
+
+async function addFilesToParts(parts, files) {
+    for (const file of files) {
+        if (file.type === 'text/plain') {
+            parts.push({ text: `Analyse ce fichier texte: ${file.content}` });
+        } else {
+            const fileData = await readFileAsBase64(file);
+            parts.push({
+                inlineData: {
+                    data: fileData,
+                    mimeType: file.type,
+                }
+            });
+            parts.push({ text: `Analyse le fichier ${file.name} (${file.type}).` });
+        }
+    }
+}
+
+async function validateCreditsAndModel(selectedModel, requiredCredits) {
+    if (selectedModel === "gemini-1.5-flash") {
+        if (currentUser.paidCredits >= requiredCredits) {
+            showNotification("Utilisation de crédits payants pour Gemini 1.5 Flash.", "info");
+            return true;
+        } else if (currentUser.freeCredits >= requiredCredits) {
+            showNotification("Utilisation de crédits gratuits pour Gemini 1.5 Flash.", "info");
+            return true;
+        }
+    } else if (!["gemini-1.0-pro"].includes(selectedModel)) {
+        if (currentUser.paidCredits < requiredCredits) {
+            showPaymentNotification("Vous n'avez pas assez de crédits payants pour ce modèle avancé.");
+            return false;
+        }
+    } else {
+        if (currentUser.freeCredits < requiredCredits && currentUser.paidCredits < requiredCredits) {
+            showPaymentNotification("Vous n'avez pas assez de crédits pour envoyer ce message.");
+            return false;
+        }
+    }
+    return true;
+}
+
+async function processAndDisplayAIResponse(aiResponse, selectedModel, requiredCredits) {
+    let aiMessageElement;
+    if (selectedModel === "gemini-1.0-pro" || 
+        (selectedModel === "gemini-1.5-flash" && currentUser.paidCredits < requiredCredits)) {
+        
+        const words = aiResponse.split(/\s+/);
+        if (words.length > FREE_MODEL_MAX_RESPONSE) {
+            aiResponse = words.slice(0, FREE_MODEL_MAX_RESPONSE).join(" ") +
+                "...(Utilisez un modèle avancé pour avoir la suite de ma réponse)";
+            showNotification(`La réponse a été tronquée à ${FREE_MODEL_MAX_RESPONSE} mots.`, "info");
+            aiMessageElement = addMessageToChat("ai", aiResponse);
+            showUpgradeButton(aiMessageElement);
+        } else {
+            aiMessageElement = addMessageToChat("ai", aiResponse);
+        }
+    } else {
+        aiMessageElement = addMessageToChat("ai", aiResponse);
+    }
+    return aiMessageElement;
+}
+
+function updateConversation(userInput, aiResponse) {
+    currentConversation.push({ sender: "user", content: userInput });
+    currentConversation.push({ sender: "ai", content: aiResponse });
+}
+
+// Fonction corrigée pour la génération d'images
+async function handleImageGeneration(userInput, selectedModel, generationStatus) {
+    try {
+        // Vérifier si l'utilisateur a les crédits nécessaires
+        if (!generationStatus.canGenerate) {
+            showPaymentNotification(generationStatus.message);
+            return;
+        }
+
+        const imageSize = document.getElementById('imageSizeSelect').value;
+        const style = getRecraftStyle(selectedModel);
+        
+        // Afficher l'indicateur de chargement
+        const loadingMessage = addLoadingMessage('Génération de l\'image en cours...');
+        
+        const response = await fetch('https://api.recraft.ai/api/v2/generate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${RECRAFT_API_KEY}`
+            },
+            body: JSON.stringify({
+                prompt: userInput,
+                style: style,
+                size: imageSize,
+                // nombre d'images à générer (par défaut 1)
+                n: 1
+            })
+        });
+
+        // Supprimer le message de chargement
+        loadingMessage.remove();
+
+        if (!response.ok) {
+            throw new Error(`Erreur HTTP: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!data.data || !data.data[0] || !data.data[0].url) {
+            throw new Error('Format de réponse invalide de l\'API Recraft');
+        }
+
+        const imageUrl = data.data[0].url;
+
+        // Créer un message avec l'image générée
+        const messageElement = document.createElement('div');
+        messageElement.className = 'message ai-message';
+        messageElement.innerHTML = `
+            <img src="${imageUrl}" alt="Image générée" style="max-width: 100%; border-radius: 5px;">
+            <p>Image générée à partir du prompt : "${userInput}"</p>
+            <div class="message-metadata">
+                <span class="generation-info">Style: ${style.replace('_', ' ').toUpperCase()}</span>
+                <span class="generation-info">Taille: ${imageSize}</span>
+                <span class="generation-info">
+                    ${generationStatus.useFreeGeneration ? 
+                      'Génération gratuite (abonnement)' : 
+                      'Génération payante (5 crédits)'}
+                </span>
+            </div>
+            <div class="message-actions">
+                <button onclick="downloadImage('${imageUrl}', 'image-generee.png')">
+                    <i class="fas fa-download"></i>
+                </button>
+                <button onclick="copyImage('${imageUrl}')">
+                    <i class="fas fa-copy"></i>
+                </button>
+                <button onclick="shareImage('${imageUrl}')">
+                    <i class="fas fa-share-alt"></i>
+                </button>
+            </div>
+        `;
+
+        document.getElementById('messageContainer').appendChild(messageElement);
+        
+        // Mettre à jour les compteurs et crédits
+        if (generationStatus.useFreeGeneration) {
+            await incrementImageGenerationCount(currentUser.username);
+            const newCount = await getImageGenerationCount(currentUser.username);
+            showNotification(`Image générée avec succès! Il vous reste ${5 - newCount} générations gratuites aujourd'hui.`, 'success');
+        } else {
+            await updateCredits(selectedModel, 5);
+            showNotification('Image générée avec succès! 5 crédits ont été déduits.', 'success');
+        }
+        
+        // Réinitialiser l'input
+        document.getElementById('userInput').value = '';
+        resetTextareaHeight();
+
+    } catch (error) {
+        console.error('Erreur lors de la génération d\'image:', error);
+        showNotification('Erreur lors de la génération de l\'image. Veuillez réessayer.', 'error');
+    }
+}
+
+
+
+function createUserMessageElement(displayMessage, pinnedFiles, pinnedResponses, pinnedPrompt) {
+    const messageElement = document.createElement("div");
+    messageElement.className = "message user-message";
+
+    if (pinnedFiles.length > 0) {
+        messageElement.appendChild(createPinnedFilesElement(pinnedFiles));
+    }
+
+    if (pinnedResponses.length > 0) {
+        messageElement.appendChild(createPinnedResponsesElement(pinnedResponses));
+    }
+
+    if (pinnedPrompt) {
+        messageElement.appendChild(createPinnedPromptElement(pinnedPrompt));
+    }
+
+    if (displayMessage) {
+        const textElement = document.createElement("p");
+        textElement.textContent = displayMessage;
+        messageElement.appendChild(textElement);
+    }
+
+    return messageElement;
 }
 
 // Fonctions utilitaires pour la manipulation des images générées
