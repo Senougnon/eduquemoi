@@ -1724,3 +1724,316 @@ button:hover {
     color: #ff9800;
     font-weight: bold;
 }
+/* Base message styles */
+.message {
+    margin-bottom: 15px;
+    padding: 15px;
+    border-radius: 10px;
+    max-width: 80%;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.user-message {
+    background-color: var(--user-message-color);
+    color: var(--text-color);
+    align-self: flex-end;
+    border-bottom-right-radius: 0;
+}
+
+.ai-message {
+    background-color: var(--ai-message-color);
+    color: var(--text-color);
+    align-self: flex-start;
+    border-bottom-left-radius: 0;
+}
+
+/* Table specific styles */
+.message table {
+    width: 100%;
+    margin: 15px 0;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    background-color: var(--background-color);
+}
+
+.message thead {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.message th {
+    background-color: var(--primary-color);
+    color: white;
+    font-weight: 600;
+    text-align: left;
+    padding: 12px 15px;
+    border: 1px solid var(--primary-color);
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.message td {
+    padding: 12px 15px;
+    border: 1px solid var(--button-color);
+    background-color: var(--background-color);
+    transition: background-color 0.2s ease;
+}
+
+/* Table wrapper for scrolling */
+.table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    margin: 15px 0;
+    position: relative;
+    border-radius: 8px;
+    background-color: var(--background-color);
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary-color) transparent;
+}
+
+/* Scrollbar styles */
+.table-wrapper::-webkit-scrollbar {
+    height: 6px;
+}
+
+.table-wrapper::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb {
+    background-color: var(--primary-color);
+    border-radius: 3px;
+}
+
+/* Scroll indicator */
+.table-wrapper::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 30px;
+    background: linear-gradient(to right, transparent, rgba(0,0,0,0.1));
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.table-wrapper.has-scroll::after {
+    opacity: 1;
+}
+
+/* Dark mode styles */
+[data-theme="dark"] .message table {
+    border-color: var(--button-color);
+}
+
+[data-theme="dark"] .message th {
+    background-color: var(--sidebar-color);
+    border-color: var(--sidebar-color);
+}
+
+[data-theme="dark"] .message td {
+    border-color: var(--button-color);
+    background-color: var(--input-background);
+}
+
+[data-theme="dark"] .table-wrapper {
+    scrollbar-color: var(--button-color) transparent;
+}
+
+[data-theme="dark"] .table-wrapper::-webkit-scrollbar-thumb {
+    background-color: var(--button-color);
+}
+
+/* Row styling */
+.message tbody tr:nth-child(even) td {
+    background-color: var(--input-area-color);
+}
+
+.message tbody tr:hover td {
+    background-color: var(--hover-color);
+}
+
+/* Table actions */
+.table-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+    justify-content: flex-end;
+    padding: 0 5px;
+}
+
+.table-actions button {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: none;
+    border: none;
+    color: var(--text-color);
+    cursor: pointer;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    transition: all 0.2s ease;
+}
+
+.table-actions button:hover {
+    background-color: var(--hover-color);
+}
+
+.table-actions button i {
+    font-size: 1.1em;
+}
+
+/* Empty cell styling */
+.message td:empty::after {
+    content: "-";
+    color: var(--button-color);
+    opacity: 0.5;
+}
+
+/* Cell content alignment */
+.message td[data-align="right"],
+.message th[data-align="right"] {
+    text-align: right;
+}
+
+.message td[data-align="center"],
+.message th[data-align="center"] {
+    text-align: center;
+}
+
+/* Table caption if needed */
+.message table caption {
+    padding: 10px;
+    font-style: italic;
+    color: var(--text-color);
+    opacity: 0.8;
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 768px) {
+    .message table {
+        font-size: 0.9em;
+    }
+
+    .message th,
+    .message td {
+        padding: 8px 10px;
+    }
+
+    .table-actions {
+        flex-wrap: wrap;
+    }
+
+    .table-actions button {
+        padding: 4px 8px;
+        font-size: 0.8em;
+    }
+}
+
+/* Loading state */
+.table-wrapper.loading {
+    position: relative;
+    min-height: 100px;
+}
+
+.table-wrapper.loading::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+}
+
+.table-wrapper.loading::after {
+    content: 'Chargement...';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--text-color);
+    z-index: 3;
+}
+
+/* Print styles */
+@media print {
+    .table-wrapper {
+        overflow: visible;
+    }
+
+    .table-actions {
+        display: none;
+    }
+
+    .message table {
+        box-shadow: none;
+        border: 1px solid #000;
+    }
+
+    .message th,
+    .message td {
+        border: 1px solid #000;
+    }
+}
+
+/* Accessibility focus styles */
+.table-actions button:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+.table-wrapper:focus-within {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* Table footer if needed */
+.message tfoot td {
+    font-weight: bold;
+    border-top: 2px solid var(--button-color);
+}
+
+/* Column header sorting indicators */
+.message th.sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.message th.sortable::after {
+    content: '⇕';
+    margin-left: 5px;
+    opacity: 0.5;
+}
+
+.message th.sorted-asc::after {
+    content: '↑';
+    opacity: 1;
+}
+
+.message th.sorted-desc::after {
+    content: '↓';
+    opacity: 1;
+}
+
+/* Selection styles */
+.message td.selected,
+.message th.selected {
+    background-color: var(--hover-color);
+}
