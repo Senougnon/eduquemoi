@@ -2037,3 +2037,130 @@ button:hover {
 .message th.selected {
     background-color: var(--hover-color);
 }
+/* Style pour l'indicateur de chargement */
+.typing-indicator {
+    display: flex;
+    gap: 5px;
+    padding: 15px;
+    align-items: center;
+}
+
+.typing-indicator span {
+    width: 8px;
+    height: 8px;
+    background-color: var(--button-color);
+    border-radius: 1%;
+    opacity: 0.4;
+    animation: typing 1s infinite;
+}
+
+.typing-indicator span:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.typing-indicator span:nth-child(2) {
+    animation-delay: 0.3s;
+}
+
+.typing-indicator span:nth-child(3) {
+    animation-delay: 0.6s;
+}
+
+@keyframes typing {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 0.4;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 1;
+    }
+}
+
+/* Style pour l'animation du texte */
+.ai-message {
+    transition: all 0.3s ease;
+}
+
+.ai-message.animating {
+    border-left: 3px solid var(--primary-color);
+}
+
+/* Styles pour l'en-tête du modèle */
+.model-header {
+    background-color: var(--input-background);
+    padding: 8px 12px;
+    border-radius: 8px 8px 0 0;
+    margin: -15px -15px 15px -15px;
+    border-bottom: 2px solid var(--primary-color);
+    animation: slideDown 0.3s ease-out;
+}
+
+.model-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9em;
+    color: var(--text-color);
+}
+
+.model-info i {
+    color: var(--primary-color);
+    font-size: 1.1em;
+}
+
+/* Animation d'entrée pour l'en-tête */
+@keyframes slideDown {
+    from {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Styles pour l'indicateur de frappe */
+.typing-indicator {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 12px 15px;
+    background-color: var(--input-background);
+    border-radius: 8px;
+    margin-top: 5px;
+}
+
+.typing-indicator span {
+    width: 8px;
+    height: 8px;
+    background-color: var(--primary-color);
+    border-radius: 50%;
+    opacity: 0.4;
+    display: inline-block;
+    animation: typing 1.4s infinite;
+}
+
+.typing-indicator span:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.typing-indicator span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes typing {
+    0%, 100% {
+        transform: translateY(0);
+        opacity: 0.4;
+    }
+    50% {
+        transform: translateY(-4px);
+        opacity: 1;
+    }
+}
