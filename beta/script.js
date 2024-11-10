@@ -4,11 +4,18 @@ let currentUser = null;
 let pinnedFiles = [];
 let currentConversation = [];
 let conversations = {};
+let currentApiKeyIndex = 0;
 
 const FREE_CREDITS_PER_DAY = 3;
 const FREE_CREDITS_REGISTER = 10;
 const FREE_MODEL_MAX_WORDS = 50000;
 const FREE_MODEL_MAX_RESPONSE = 2000;
+
+// Configuration du système de retry
+const RETRY_CONFIG = {
+    maxAttempts: 3,  // Nombre maximum de tentatives avec différentes clés
+    retryDelay: 1000 // Délai entre les tentatives en millisecondes
+};
 
 // Message système à définir
 const SYSTEM_INSTRUCTION = `Tu es Eduque moi, un assistant IA développé par Evisions. Ta mission principale est d'aider les utilisateurs à apprendre et à améliorer leurs compétences dans divers domaines.
@@ -95,20 +102,163 @@ function getRandomApiKey() {
     return apiKeyList[randomIndex];
 }
 
-// Fonction pour initialiser l'API Gemini (modifiée)
+// Fonction pour obtenir la prochaine clé API dans la rotation
+function getNextApiKey() {
+    if (apiKeyList.length === 0) {
+        console.error("La liste des clés API est vide.");
+        return null;
+    }
+    
+    // Obtenir la clé actuelle
+    const currentKey = apiKeyList[currentApiKeyIndex];
+    
+    // Passer à la clé suivante
+    currentApiKeyIndex = (currentApiKeyIndex + 1) % apiKeyList.length;
+    
+    return currentKey;
+}
+
+// Fonction pour initialiser la rotation des clés API
+function initializeApiKeyRotation() {
+    // Première initialisation
+    if (apiKeyList.length > 0) {
+        genAI = new GoogleGenerativeAI(getNextApiKey());
+    }
+
+    // Mettre en place la rotation automatique toutes les 5 secondes
+    setInterval(() => {
+        const newKey = getNextApiKey();
+        if (newKey) {
+            genAI = new GoogleGenerativeAI(newKey);
+            console.log("Rotation de la clé API effectuée");
+            
+            // Réinitialiser le modèle avec la nouvelle clé
+            model = genAI.getGenerativeModel({
+                model: document.getElementById('modelSelect').value,
+                systemInstruction: SYSTEM_INSTRUCTION
+            });
+        }
+    }, 5000); // 5000 ms = 5 secondes
+}
+
+// Modifier la fonction initializeGeminiAPI existante
 function initializeGeminiAPI() {
-    const apiKey = getRandomApiKey(); 
+    const apiKey = getNextApiKey();
     if (apiKey) {
         genAI = new GoogleGenerativeAI(apiKey);
-        // Définir le message système ici
         model = genAI.getGenerativeModel({
-            model: document.getElementById('modelSelect').value, // Obtenir le modèle sélectionné
-            systemInstruction: SYSTEM_INSTRUCTION 
+            model: document.getElementById('modelSelect').value,
+            systemInstruction: SYSTEM_INSTRUCTION
         });
     } else {
-        // Gérer le cas où aucune clé API n'est disponible
         showNotification("Erreur : Impossible d'initialiser l'API. Aucune clé API disponible.", 'error');
     }
+}
+
+
+// Classe pour gérer les erreurs d'API
+class ApiError extends Error {
+    constructor(message, status) {
+        super(message);
+        this.status = status;
+        this.name = 'ApiError';
+    }
+}
+
+// Gestionnaire de clés API avec retry
+class ApiKeyManager {
+    constructor(apiKeys) {
+        this.apiKeys = apiKeys;
+        this.currentIndex = 0;
+        this.usedKeys = new Set();
+    }
+
+    // Obtenir la prochaine clé non utilisée
+    getNextUnusedKey() {
+        const startIndex = this.currentIndex;
+        
+        do {
+            this.currentIndex = (this.currentIndex + 1) % this.apiKeys.length;
+            if (!this.usedKeys.has(this.apiKeys[this.currentIndex])) {
+                return this.apiKeys[this.currentIndex];
+            }
+        } while (this.currentIndex !== startIndex);
+
+        return null; // Toutes les clés ont été essayées
+    }
+
+    // Réinitialiser les clés utilisées
+    resetUsedKeys() {
+        this.usedKeys.clear();
+    }
+
+    // Marquer une clé comme utilisée
+    markKeyAsUsed(key) {
+        this.usedKeys.add(key);
+    }
+}
+
+// Fonction pour effectuer une requête avec retry
+async function executeWithRetry(requestFunction) {
+    const apiKeyManager = new ApiKeyManager(apiKeyList);
+    let lastError = null;
+    let attempts = 0;
+
+    while (attempts < RETRY_CONFIG.maxAttempts) {
+        const apiKey = apiKeyManager.getNextUnusedKey();
+        
+        if (!apiKey) {
+            throw new Error("Toutes les clés API ont été épuisées sans succès");
+        }
+
+        try {
+            // Initialiser l'API avec la nouvelle clé
+            genAI = new GoogleGenerativeAI(apiKey);
+            model = genAI.getGenerativeModel({
+                model: document.getElementById('modelSelect').value,
+                systemInstruction: SYSTEM_INSTRUCTION
+            });
+
+            // Exécuter la requête
+            const result = await requestFunction();
+            console.log(`Requête réussie avec la clé API ${apiKey}`);
+            return result;
+
+        } catch (error) {
+            lastError = error;
+            apiKeyManager.markKeyAsUsed(apiKey);
+            attempts++;
+
+            console.log(`Échec de la requête avec la clé API ${apiKey}. Tentative ${attempts}/${RETRY_CONFIG.maxAttempts}`);
+
+            // Si ce n'est pas la dernière tentative, attendre avant de réessayer
+            if (attempts < RETRY_CONFIG.maxAttempts) {
+                await new Promise(resolve => setTimeout(resolve, RETRY_CONFIG.retryDelay));
+            }
+        }
+    }
+
+    // Si toutes les tentatives ont échoué
+    throw new Error(`Échec après ${attempts} tentatives. Dernière erreur: ${lastError.message}`);
+}
+
+
+// Fonction utilitaire pour vérifier si une erreur justifie un retry
+function shouldRetry(error) {
+    // Liste des codes d'erreur qui justifient un retry
+    const retryableErrors = [
+        'RESOURCE_EXHAUSTED',
+        'UNAVAILABLE',
+        'DEADLINE_EXCEEDED',
+        'INTERNAL',
+        'CANCELLED'
+    ];
+
+    return retryableErrors.includes(error.code) || 
+           error.message.includes('quota exceeded') ||
+           error.message.includes('rate limit') ||
+           error.status === 429 || // Too Many Requests
+           error.status >= 500;    // Server Errors
 }
 
 // Fonction pour créer et positionner le pointeur
@@ -491,19 +641,37 @@ async function login(username, password) {
         const snapshot = await userRef.once('value');
         if (snapshot.exists() && snapshot.val().password === password) {
             const userData = snapshot.val();
+            
+            // Initialisation des données utilisateur
             currentUser = { 
-                username, 
-                freeCredits: userData.freeCredits,
-                paidCredits: userData.paidCredits,
-                subscription: userData.subscription,
-                subscriptionEndDate: userData.subscriptionEndDate,
-                lastFreeCreditsReset: userData.lastFreeCreditsReset
+                username,
+                freeCredits: userData.freeCredits || 0,
+                paidCredits: userData.paidCredits || 0,
+                subscription: userData.subscription || null,
+                subscriptionEndDate: userData.subscriptionEndDate || null,
+                lastFreeCreditsReset: userData.lastFreeCreditsReset || new Date().toISOString(),
+                referralCode: userData.referralCode || null,
+                totalReferrals: userData.totalReferrals || 0,
+                activeReferrals: userData.activeReferrals || 0
             };
+
+            // Réinitialiser les crédits gratuits si nécessaire
             await resetFreeCreditsIfNeeded();
+
+            // Vérifier le statut de l'abonnement
+            await checkSubscriptionStatus();
+
+            // Initialiser le suivi des générations d'images
+            await initializeImageGenerationTracking(username);
+
+            // Mettre à jour l'interface utilisateur
             updateUIForLoggedInUser();
-            showNotification('Connexion réussie !', 'success');
-            closeModal('loginModal');
+
+            // Sauvegarder les informations de connexion
             storeLoginInfo(username, password);
+
+            // Charger l'historique des conversations
+            loadConversationHistory();
 
             // Vérifier si l'utilisateur a déjà vu la visite guidée
             const hasSeenTour = await checkGuidedTourStatus(username);
@@ -513,12 +681,71 @@ async function login(username, password) {
                 // Marquer la visite guidée comme vue
                 await markGuidedTourAsSeen(username);
             }
+
+            // Mise à jour des statistiques de parrainage
+            if (userData.referrals) {
+                await updateReferralStats(username);
+            }
+
+            // Initialiser le suivi des fichiers importés
+            importedFilesCount = userData.importedFilesCount || 0;
+            lastImportReset = new Date(userData.lastImportReset || new Date());
+
+            // Synchroniser les données utilisateur
+            await syncUserData();
+
+            showNotification('Connexion réussie !', 'success');
+            closeModal('loginModal');
+
+            // Charger les prompts personnalisés de l'utilisateur s'ils existent
+            if (userData.customPrompts) {
+                loadCustomPrompts(userData.customPrompts);
+            }
+
+            // Vérifier les notifications en attente
+            checkPendingNotifications();
+
+            // Initialiser l'API avec les paramètres de l'utilisateur
+            initializeGeminiAPI();
+
+            // Créer une nouvelle conversation
+            createNewConversation();
+
         } else {
-            showNotification('Nom dutilisateur ou mot de passe incorrect.', 'error');
+            showNotification('Nom d\'utilisateur ou mot de passe incorrect.', 'error');
         }
     } catch (error) {
         console.error('Erreur lors de la connexion:', error);
         showNotification('Erreur lors de la connexion. Veuillez réessayer.', 'error');
+    }
+}
+
+// Fonction auxiliaire pour vérifier les notifications en attente
+async function checkPendingNotifications() {
+    if (currentUser.subscription) {
+        const endDate = new Date(currentUser.subscriptionEndDate);
+        const now = new Date();
+        const daysUntilExpiration = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
+
+        if (daysUntilExpiration <= 3 && daysUntilExpiration > 0) {
+            showNotification(`Votre abonnement expire dans ${daysUntilExpiration} jour${daysUntilExpiration > 1 ? 's' : ''}.`, 'warning');
+        }
+    }
+
+    // Vérifier les crédits faibles
+    if (!currentUser.subscription && currentUser.paidCredits < 10 && currentUser.freeCredits < 3) {
+        showNotification('Vos crédits sont faibles. Pensez à recharger votre compte.', 'warning');
+    }
+}
+
+// Fonction auxiliaire pour charger les prompts personnalisés
+function loadCustomPrompts(customPrompts) {
+    if (Array.isArray(customPrompts)) {
+        customPrompts.forEach(prompt => {
+            if (!prompts[prompt.id]) {
+                prompts[prompt.id] = prompt;
+            }
+        });
     }
 }
 
@@ -549,9 +776,24 @@ async function resetFreeCreditsIfNeeded() {
     }
 }
 
-function checkModelAccess() {
+// Modification de la fonction checkModelAccess
+async function checkModelAccess() {
     const selectedModel = document.getElementById('modelSelect').value;
-    if (!['gemini-1.5-flash', 'gemini-1.0-pro'].includes(selectedModel) && !hasValidSubscription() && currentUser.paidCredits <= 0) {
+    const imageSizeSelect = document.getElementById('imageSizeSelect');
+    
+    // Afficher/masquer le sélecteur de taille d'image
+    imageSizeSelect.style.display = isImageGenerationModel(selectedModel) ? 'block' : 'none';
+
+    if (isImageGenerationModel(selectedModel)) {
+        if (!hasValidSubscription() && currentUser.paidCredits < 5 && currentUser.freeCredits < 5) {
+            showPaymentNotification('La génération d\'images nécessite 5 crédits.');
+            document.getElementById('modelSelect').value = 'gemini-1.5-flash';
+            imageSizeSelect.style.display = 'none';
+            return;
+        }
+    } else if (!['gemini-1.5-flash', 'gemini-1.0-pro'].includes(selectedModel) && 
+               !hasValidSubscription() && 
+               currentUser.paidCredits <= 0) {
         showPaymentNotification('Ce modèle nécessite un abonnement ou des crédits payants.');
         document.getElementById('modelSelect').value = 'gemini-1.5-flash';
     }
@@ -715,147 +957,351 @@ function createPinnedResponsesElement(responses) {
   
     return pinnedPromptElement;
   }
+// Fonction pour créer l'en-tête du modèle
+function createModelHeader(modelName) {
+    // Convertir le nom technique du modèle en un nom plus lisible
+    const modelDisplayNames = {
+        'gemini-1.5-flash': 'Gemini 1.5 Flash',
+        'gemini-1.5-pro': 'Gemini 1.5 Pro',
+        'gemini-1.5-pro-latest': 'Gemini 1.5 Pro Latest',
+        'gemini-1.0-pro': 'Gemini 1.0 Pro',
+        'recraft-realistic': 'Image Réaliste',
+        'recraft-digital': 'Illustration Digitale',
+        'recraft-vector': 'Illustration Vectorielle'
+    };
 
-  async function sendMessage() {
+    const displayName = modelDisplayNames[modelName] || modelName;
+    
+    return `
+        <div class="model-header">
+            <div class="model-info">
+                <i class="${isImageGenerationModel(modelName) ? 'fas fa-image' : 'fas fa-robot'}"></i>
+                <span>${displayName}</span>
+            </div>
+        </div>
+    `;
+}
+
+async function sendMessage() {
     if (!currentUser) {
-      showNotification("Veuillez vous connecter pour envoyer des messages.", "error");
-      return;
+        showNotification("Veuillez vous connecter pour envoyer des messages.", "error");
+        return;
     }
-  
+
     const userInput = document.getElementById("userInput").value.trim();
     const selectedModel = document.getElementById("modelSelect").value;
-  
-    if (
-      !userInput &&
-      pinnedFiles.length === 0 &&
-      pinnedResponses.length === 0 &&
-      !pinnedPrompt
-    ) {
-      showNotification(
-        "Veuillez entrer un message, joindre un fichier, épingler une réponse ou sélectionner un prompt.",
-        "error"
-      );
-      return;
+
+    if (!userInput && pinnedFiles.length === 0 && pinnedResponses.length === 0 && !pinnedPrompt) {
+        showNotification(
+            "Veuillez entrer un message, joindre un fichier, épingler une réponse ou sélectionner un prompt.",
+            "error"
+        );
+        return;
     }
-  
-    // Calculer le nombre total de crédits requis
-    let requiredCredits = 1; // Crédit de base pour le message texte
-    requiredCredits += pinnedFiles.filter(file => file.type !== 'text/plain').length; // Ajouter des crédits pour les images et les PDF
-    requiredCredits += pinnedResponses.length;
-  
-    // Vérification des crédits et sélection du modèle
-    if (!hasValidSubscription()) {
-      if (selectedModel === "gemini-1.5-flash") {
-        if (currentUser.paidCredits >= requiredCredits) {
-          showNotification("Utilisation de crédits payants pour Gemini 1.5 Flash.", "info");
-        } else if (currentUser.freeCredits >= requiredCredits) {
-          showNotification("Utilisation de crédits gratuits pour Gemini 1.5 Flash.", "info");
+
+    // Construire le prompt final
+    let finalPrompt = userInput;
+    if (pinnedPrompt) {
+        if (pinnedPrompt.type === 'image') {
+            finalPrompt = `${pinnedPrompt.content}\nDétails spécifiques: ${userInput}`;
         } else {
-          showPaymentNotification("Vous n'avez pas assez de crédits pour utiliser Gemini 1.5 Flash.");
-          return;
+            finalPrompt = `${pinnedPrompt.content}\n\n${userInput}`;
         }
-      } else if (!["gemini-1.0-pro"].includes(selectedModel)) {
-        // Modèles avancés (hors Gemini 1.0 Pro)
-        if (currentUser.paidCredits < requiredCredits) {
-          showPaymentNotification("Vous n'avez pas assez de crédits payants pour ce modèle avancé.");
-          return;
-        }
-      } else {
-        // Gemini 1.0 Pro (modèle gratuit)
-        if (currentUser.freeCredits < requiredCredits && currentUser.paidCredits < requiredCredits) {
-          showPaymentNotification("Vous n'avez pas assez de crédits pour envoyer ce message.");
-          return;
-        }
-      }
     }
-  
+
+    // Fonction pour créer l'en-tête du modèle
+    function createModelHeader(modelName) {
+        const modelDisplayNames = {
+            'gemini-1.5-flash': 'Gemini 1.5 Flash',
+            'gemini-1.5-pro': 'Gemini 1.5 Pro',
+            'gemini-1.5-pro-latest': 'Gemini 1.5 Pro Latest',
+            'gemini-1.0-pro': 'Gemini 1.0 Pro',
+            'recraft-realistic': 'Image Réaliste',
+            'recraft-digital': 'Illustration Digitale',
+            'recraft-vector': 'Illustration Vectorielle'
+        };
+
+        const displayName = modelDisplayNames[modelName] || modelName;
+        return `
+            <div class="model-header">
+                <div class="model-info">
+                    <i class="${isImageGenerationModel(modelName) ? 'fas fa-image' : 'fas fa-robot'}"></i>
+                    <span>${displayName}</span>
+                </div>
+            </div>
+        `;
+    }
+
+    // Traitement pour les modèles de génération d'image
+    if (isImageGenerationModel(selectedModel)) {
+        try {
+            const generationStatus = await canGenerateImage();
+
+            if (!generationStatus.canGenerate) {
+                showPaymentNotification(generationStatus.message);
+                return;
+            }
+
+            // Créer et afficher le message de chargement
+            const loadingMessage = document.createElement('div');
+            loadingMessage.className = 'message ai-message';
+            loadingMessage.innerHTML = `
+                ${createModelHeader(selectedModel)}
+                <div class="typing-indicator">
+                    <span></span><span></span><span></span>
+                </div>
+            `;
+            document.getElementById('messageContainer').appendChild(loadingMessage);
+            
+            const imageSize = document.getElementById('imageSizeSelect').value;
+            const style = getRecraftStyle(selectedModel);
+            
+            const response = await fetch('https://external.api.recraft.ai/v1/images/generations', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${RECRAFT_API_KEY}`
+                },
+                body: JSON.stringify({
+                    prompt: finalPrompt,
+                    style: style,
+                    size: imageSize
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Erreur lors de la génération de l\'image');
+            }
+
+            const data = await response.json();
+            const imageUrl = data.data[0].url;
+
+            loadingMessage.innerHTML = `
+                ${createModelHeader(selectedModel)}
+                <img src="${imageUrl}" alt="Image générée" style="max-width: 100%; border-radius: 5px;">
+                <p>Image générée à partir du prompt : "${finalPrompt}"</p>
+                <div class="message-metadata">
+                    <span class="generation-info">Style: ${style.replace('_', ' ').toUpperCase()}</span>
+                    <span class="generation-info">Taille: ${imageSize}</span>
+                    <span class="generation-info">
+                        ${generationStatus.useFreeGeneration ? 
+                          'Génération gratuite (abonnement)' : 
+                          'Génération payante (5 crédits)'}
+                    </span>
+                </div>
+                <div class="message-actions">
+                    <button onclick="downloadImage('${imageUrl}', 'image-generee.png')">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button onclick="copyImage('${imageUrl}')">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                    <button onclick="shareImage('${imageUrl}')">
+                        <i class="fas fa-share-alt"></i>
+                    </button>
+                </div>
+            `;
+
+            if (generationStatus.useFreeGeneration) {
+                await incrementImageGenerationCount(currentUser.username);
+                const newCount = await getImageGenerationCount(currentUser.username);
+                showNotification(`Image générée avec succès! Il vous reste ${5 - newCount} générations gratuites aujourd'hui.`, 'success');
+            } else {
+                await updateCredits(selectedModel, 5);
+                showNotification('Image générée avec succès! 5 crédits ont été déduits.', 'success');
+            }
+
+        } catch (error) {
+            console.error('Erreur de génération d\'image:', error);
+            showNotification('Erreur lors de la génération de l\'image. Veuillez réessayer.', 'error');
+        } finally {
+            document.getElementById('userInput').value = '';
+            resetTextareaHeight();
+            pinnedPrompt = null;
+            updatePinnedItems();
+        }
+        return;
+    }
+
+    // Traitement pour les modèles de texte
+    let requiredCredits = 1;
+    requiredCredits += pinnedFiles.filter(file => file.type !== 'text/plain').length;
+    requiredCredits += pinnedResponses.length;
+
+    if (!hasValidSubscription()) {
+        if (selectedModel === "gemini-1.5-flash") {
+            if (currentUser.paidCredits >= requiredCredits) {
+                showNotification("Utilisation de crédits payants pour Gemini 1.5 Flash.", "info");
+            } else if (currentUser.freeCredits >= requiredCredits) {
+                showNotification("Utilisation de crédits gratuits pour Gemini 1.5 Flash.", "info");
+            } else {
+                showPaymentNotification("Vous n'avez pas assez de crédits pour utiliser Gemini 1.5 Flash.");
+                return;
+            }
+        } else if (!["gemini-1.0-pro"].includes(selectedModel)) {
+            if (currentUser.paidCredits < requiredCredits) {
+                showPaymentNotification("Vous n'avez pas assez de crédits payants pour ce modèle avancé.");
+                return;
+            }
+        } else if (currentUser.freeCredits < requiredCredits && currentUser.paidCredits < requiredCredits) {
+            showPaymentNotification("Vous n'avez pas assez de crédits pour envoyer ce message.");
+            return;
+        }
+    }
+
     let displayMessage = userInput;
     let fullMessage = userInput;
-  
-    // Stocker les éléments épinglés avant de les réinitialiser
+
     const pinnedFilesToSend = [...pinnedFiles];
     const pinnedResponsesToSend = [...pinnedResponses];
     const pinnedPromptToSend = pinnedPrompt;
-  
-    // Réinitialiser les éléments épinglés dès que la requête est envoyée
+
     pinnedFiles = [];
     pinnedResponses = [];
     pinnedPrompt = null;
     updatePinnedItems();
-  
-    // Créer l'élément du message de l'utilisateur
+
+    // Message utilisateur
     const messageElement = document.createElement("div");
     messageElement.className = "message user-message";
-  
-    // Ajouter les fichiers épinglés au message de l'utilisateur
+
     if (pinnedFilesToSend.length > 0) {
         const pinnedFilesElement = createPinnedFilesElement(pinnedFilesToSend);
         messageElement.appendChild(pinnedFilesElement);
-
         fullMessage += "\n\n**Fichiers joints:**\n";
         pinnedFilesToSend.forEach((file) => {
             fullMessage += `- ${file.name} (${file.type})\n`;
         });
     }
-  
-    // Ajouter les réponses épinglées au message de l'utilisateur
+
     if (pinnedResponsesToSend.length > 0) {
-      const pinnedResponsesElement = createPinnedResponsesElement(pinnedResponsesToSend);
-      messageElement.appendChild(pinnedResponsesElement);
-  
-      fullMessage += "\n\n**Réponses épinglées:**\n";
-      pinnedResponsesToSend.forEach((response) => {
-        fullMessage += `- ${response.displayText}\n`;
-      });
+        const pinnedResponsesElement = createPinnedResponsesElement(pinnedResponsesToSend);
+        messageElement.appendChild(pinnedResponsesElement);
+        fullMessage += "\n\n**Réponses épinglées:**\n";
+        pinnedResponsesToSend.forEach((response) => {
+            fullMessage += `- ${response.text}\n`;
+        });
     }
-  
-    // Ajouter le prompt épinglé au début du message
+
     if (pinnedPromptToSend) {
-      const pinnedPromptElement = createPinnedPromptElement(pinnedPromptToSend);
-      messageElement.appendChild(pinnedPromptElement);
-  
-      fullMessage = pinnedPromptToSend.content + "\n\n" + fullMessage;
+        const pinnedPromptElement = createPinnedPromptElement(pinnedPromptToSend);
+        messageElement.appendChild(pinnedPromptElement);
+        fullMessage = pinnedPromptToSend.content + "\n\n" + fullMessage;
     }
-  
-    // Ajouter le texte du message de l'utilisateur
-    const textElement = document.createElement("p");
-    textElement.textContent = displayMessage;
-    messageElement.appendChild(textElement);
-  
-    // Ajouter le message au conteneur
+
+    if (displayMessage) {
+        const textElement = document.createElement("p");
+        textElement.textContent = displayMessage;
+        messageElement.appendChild(textElement);
+    }
+
     const messageContainer = document.getElementById("messageContainer");
     messageContainer.appendChild(messageElement);
     messageContainer.scrollTop = messageContainer.scrollHeight;
-  
+
     document.getElementById("userInput").value = "";
     resetTextareaHeight();
-  
-    // Affiche l'animation de chargement et cache le bouton d'envoi
-    const sendButton = document.querySelector(".input-actions button:last-child");
-    sendButton.classList.add("loading");
-    sendButton.disabled = true;
-  
+
+    // Message de chargement avec l'en-tête du modèle
+    const loadingMessage = document.createElement('div');
+    loadingMessage.className = 'message ai-message';
+    loadingMessage.innerHTML = `
+        ${createModelHeader(selectedModel)}
+        <div class="typing-indicator">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+    `;
+    messageContainer.appendChild(loadingMessage);
+    messageContainer.scrollTop = messageContainer.scrollHeight;
+
     try {
-      const parts = [];
-  
-      // Ajouter le contexte de la conversation
-      let conversationContext = "";
-      const recentMessages = currentConversation.slice(-5); // Garder les 5 derniers messages
-  
-      recentMessages.forEach((message) => {
-        if (message.sender === "user") {
-          conversationContext += `user: ${message.content}\n`;
-        } else {
-          conversationContext += `model: ${message.content}\n`;
+        const parts = [];
+
+        let conversationContext = "";
+        const recentMessages = currentConversation.slice(-5);
+        recentMessages.forEach((message) => {
+            conversationContext += `${message.sender === "user" ? "user" : "model"}: ${message.content}\n`;
+        });
+
+        fullMessage = conversationContext + "\n" + fullMessage;
+        parts.push({ text: fullMessage });
+
+        for (const file of pinnedFilesToSend) {
+            if (file.type === 'text/plain') {
+                parts.push({ text: `Analyse ce fichier texte: ${file.content}` });
+            } else {
+                const fileData = await readFileAsBase64(file);
+                parts.push({
+                    inlineData: {
+                        data: fileData,
+                        mimeType: file.type,
+                    }
+                });
+                parts.push({ text: `Analyse le fichier ${file.name} (${file.type}) que je viens de t'envoyer.` });
+            }
         }
-      });
-  
-      // Ajouter le contexte de la conversation et le message de l'utilisateur
-      fullMessage = conversationContext + "\n" + fullMessage;
-      parts.push({ text: fullMessage });
-  
-      // Traiter les fichiers épinglés
-      for (const file of pinnedFilesToSend) {
+
+        model = genAI.getGenerativeModel({
+            model: selectedModel,
+            systemInstruction: SYSTEM_INSTRUCTION,
+        });
+
+        const result = await model.generateContent(parts);
+        const response = await result.response;
+        let aiResponse = response.text();
+
+        if (selectedModel === "gemini-1.0-pro" || 
+            (selectedModel === "gemini-1.5-flash" && currentUser.paidCredits < requiredCredits)) {
+            const words = aiResponse.split(/\s+/);
+            if (words.length > FREE_MODEL_MAX_RESPONSE) {
+                aiResponse = words.slice(0, FREE_MODEL_MAX_RESPONSE).join(" ") +
+                    "...(Utilisez un modèle avancé pour avoir la suite de ma réponse)";
+                showNotification(`La réponse a été tronquée à ${FREE_MODEL_MAX_RESPONSE} mots.`, "info");
+            }
+        }
+
+        // Conserver l'en-tête du modèle et animer la réponse
+        const modelHeader = loadingMessage.querySelector('.model-header');
+        loadingMessage.innerHTML = '';
+        loadingMessage.appendChild(modelHeader);
+        
+        await animateText(loadingMessage, aiResponse);
+        
+        currentConversation.push({ sender: "user", content: userInput });
+        currentConversation.push({ sender: "ai", content: aiResponse });
+
+        await updateCredits(selectedModel, requiredCredits);
+        saveConversation();
+
+    } catch (error) {
+        console.error("Erreur lors de la génération de la réponse:", error);
+        loadingMessage.remove();
+        showNotification(`Erreur : ${error.message}. Veuillez réessayer.`, "error");
+    }
+}
+
+// Fonctions auxiliaires
+
+function resetPinnedItems() {
+    pinnedFiles = [];
+    pinnedResponses = [];
+    pinnedPrompt = null;
+    updatePinnedItems();
+}
+
+function buildConversationContext() {
+    let context = "";
+    const recentMessages = currentConversation.slice(-5);
+    recentMessages.forEach((message) => {
+        context += `${message.sender === "user" ? "user" : "model"}: ${message.content}\n`;
+    });
+    return context;
+}
+
+async function addFilesToParts(parts, files) {
+    for (const file of files) {
         if (file.type === 'text/plain') {
             parts.push({ text: `Analyse ce fichier texte: ${file.content}` });
         } else {
@@ -866,62 +1312,232 @@ function createPinnedResponsesElement(responses) {
                     mimeType: file.type,
                 }
             });
-            // Ajouter une instruction pour chaque fichier non textuel
-            parts.push({ text: `Analyse le fichier ${file.name} (${file.type}) que je viens de t'envoyer.` });
+            parts.push({ text: `Analyse le fichier ${file.name} (${file.type}).` });
         }
     }
-  
-      // Mettre à jour le modèle avec la nouvelle sélection
-      model = genAI.getGenerativeModel({
-        model: selectedModel,
-        systemInstruction: SYSTEM_INSTRUCTION,
-      });
-  
-      // Générer la réponse avec le modèle mis à jour
-      const result = await model.generateContent(parts);
-      const response = await result.response;
-      let aiResponse = response.text();
-  
-      let aiMessageElement;
-      if (
-        selectedModel === "gemini-1.0-pro" ||
-        (selectedModel === "gemini-1.5-flash" &&
-          currentUser.paidCredits < requiredCredits)
-      ) {
+}
+
+async function validateCreditsAndModel(selectedModel, requiredCredits) {
+    if (selectedModel === "gemini-1.5-flash") {
+        if (currentUser.paidCredits >= requiredCredits) {
+            showNotification("Utilisation de crédits payants pour Gemini 1.5 Flash.", "info");
+            return true;
+        } else if (currentUser.freeCredits >= requiredCredits) {
+            showNotification("Utilisation de crédits gratuits pour Gemini 1.5 Flash.", "info");
+            return true;
+        }
+    } else if (!["gemini-1.0-pro"].includes(selectedModel)) {
+        if (currentUser.paidCredits < requiredCredits) {
+            showPaymentNotification("Vous n'avez pas assez de crédits payants pour ce modèle avancé.");
+            return false;
+        }
+    } else {
+        if (currentUser.freeCredits < requiredCredits && currentUser.paidCredits < requiredCredits) {
+            showPaymentNotification("Vous n'avez pas assez de crédits pour envoyer ce message.");
+            return false;
+        }
+    }
+    return true;
+}
+
+async function processAndDisplayAIResponse(aiResponse, selectedModel, requiredCredits) {
+    let aiMessageElement;
+    if (selectedModel === "gemini-1.0-pro" || 
+        (selectedModel === "gemini-1.5-flash" && currentUser.paidCredits < requiredCredits)) {
+        
         const words = aiResponse.split(/\s+/);
         if (words.length > FREE_MODEL_MAX_RESPONSE) {
-          aiResponse =
-            words.slice(0, FREE_MODEL_MAX_RESPONSE).join(" ") +
-            "...(Utilisez un modèle avancé pour avoir la suite de ma réponse)";
-          showNotification(
-            `La réponse a été tronquée à ${FREE_MODEL_MAX_RESPONSE} mots.`,
-            "info"
-          );
-          aiMessageElement = addMessageToChat("ai", aiResponse);
-          showUpgradeButton(aiMessageElement);
+            aiResponse = words.slice(0, FREE_MODEL_MAX_RESPONSE).join(" ") +
+                "...(Utilisez un modèle avancé pour avoir la suite de ma réponse)";
+            showNotification(`La réponse a été tronquée à ${FREE_MODEL_MAX_RESPONSE} mots.`, "info");
+            aiMessageElement = addMessageToChat("ai", aiResponse);
+            showUpgradeButton(aiMessageElement);
         } else {
-          aiMessageElement = addMessageToChat("ai", aiResponse);
+            aiMessageElement = addMessageToChat("ai", aiResponse);
         }
-      } else {
+    } else {
         aiMessageElement = addMessageToChat("ai", aiResponse);
-      }
-  
-      // Ajouter le message de l'utilisateur à l'historique
-      currentConversation.push({ sender: "user", content: userInput });
-  
-      // Ajouter le message de Gemini à l'historique
-      currentConversation.push({ sender: "ai", content: aiResponse });
-  
-      await updateCredits(selectedModel, requiredCredits);
-      saveConversation();
-    } catch (error) {
-      console.error("Erreur lors de la génération de la réponse:", error);
-      showNotification(`Erreur : ${error.message}. Veuillez réessayer.`, "error");
-    } finally {
-      sendButton.classList.remove("loading");
-      sendButton.disabled = false;
     }
-  }
+    return aiMessageElement;
+}
+
+function updateConversation(userInput, aiResponse) {
+    currentConversation.push({ sender: "user", content: userInput });
+    currentConversation.push({ sender: "ai", content: aiResponse });
+}
+
+// Fonction corrigée pour la génération d'images
+async function handleImageGeneration(userInput, selectedModel, generationStatus) {
+    try {
+        // Vérifier si l'utilisateur a les crédits nécessaires
+        if (!generationStatus.canGenerate) {
+            showPaymentNotification(generationStatus.message);
+            return;
+        }
+
+        const imageSize = document.getElementById('imageSizeSelect').value;
+        const style = getRecraftStyle(selectedModel);
+        
+        // Afficher l'indicateur de chargement
+        const loadingMessage = addLoadingMessage('Génération de l\'image en cours...');
+        
+        const response = await fetch('https://api.recraft.ai/api/v2/generate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${RECRAFT_API_KEY}`
+            },
+            body: JSON.stringify({
+                prompt: userInput,
+                style: style,
+                size: imageSize,
+                // nombre d'images à générer (par défaut 1)
+                n: 1
+            })
+        });
+
+        // Supprimer le message de chargement
+        loadingMessage.remove();
+
+        if (!response.ok) {
+            throw new Error(`Erreur HTTP: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!data.data || !data.data[0] || !data.data[0].url) {
+            throw new Error('Format de réponse invalide de l\'API Recraft');
+        }
+
+        const imageUrl = data.data[0].url;
+
+        // Créer un message avec l'image générée
+        const messageElement = document.createElement('div');
+        messageElement.className = 'message ai-message';
+        messageElement.innerHTML = `
+            <img src="${imageUrl}" alt="Image générée" style="max-width: 100%; border-radius: 5px;">
+            <p>Image générée à partir du prompt : "${userInput}"</p>
+            <div class="message-metadata">
+                <span class="generation-info">Style: ${style.replace('_', ' ').toUpperCase()}</span>
+                <span class="generation-info">Taille: ${imageSize}</span>
+                <span class="generation-info">
+                    ${generationStatus.useFreeGeneration ? 
+                      'Génération gratuite (abonnement)' : 
+                      'Génération payante (5 crédits)'}
+                </span>
+            </div>
+            <div class="message-actions">
+                <button onclick="downloadImage('${imageUrl}', 'image-generee.png')">
+                    <i class="fas fa-download"></i>
+                </button>
+                <button onclick="copyImage('${imageUrl}')">
+                    <i class="fas fa-copy"></i>
+                </button>
+                <button onclick="shareImage('${imageUrl}')">
+                    <i class="fas fa-share-alt"></i>
+                </button>
+            </div>
+        `;
+
+        document.getElementById('messageContainer').appendChild(messageElement);
+        
+        // Mettre à jour les compteurs et crédits
+        if (generationStatus.useFreeGeneration) {
+            await incrementImageGenerationCount(currentUser.username);
+            const newCount = await getImageGenerationCount(currentUser.username);
+            showNotification(`Image générée avec succès! Il vous reste ${5 - newCount} générations gratuites aujourd'hui.`, 'success');
+        } else {
+            await updateCredits(selectedModel, 5);
+            showNotification('Image générée avec succès! 5 crédits ont été déduits.', 'success');
+        }
+        
+        // Réinitialiser l'input
+        document.getElementById('userInput').value = '';
+        resetTextareaHeight();
+
+    } catch (error) {
+        console.error('Erreur lors de la génération d\'image:', error);
+        showNotification('Erreur lors de la génération de l\'image. Veuillez réessayer.', 'error');
+    }
+}
+
+
+
+function createUserMessageElement(displayMessage, pinnedFiles, pinnedResponses, pinnedPrompt) {
+    const messageElement = document.createElement("div");
+    messageElement.className = "message user-message";
+
+    if (pinnedFiles.length > 0) {
+        messageElement.appendChild(createPinnedFilesElement(pinnedFiles));
+    }
+
+    if (pinnedResponses.length > 0) {
+        messageElement.appendChild(createPinnedResponsesElement(pinnedResponses));
+    }
+
+    if (pinnedPrompt) {
+        messageElement.appendChild(createPinnedPromptElement(pinnedPrompt));
+    }
+
+    if (displayMessage) {
+        const textElement = document.createElement("p");
+        textElement.textContent = displayMessage;
+        messageElement.appendChild(textElement);
+    }
+
+    return messageElement;
+}
+
+// Fonctions utilitaires pour la manipulation des images générées
+function addLoadingMessage(text) {
+    const loadingElement = document.createElement('div');
+    loadingElement.className = 'message ai-message loading-message';
+    loadingElement.innerHTML = `
+        <div class="loading-spinner"></div>
+        <p>${text}</p>
+    `;
+    document.getElementById('messageContainer').appendChild(loadingElement);
+    return loadingElement;
+}
+
+async function downloadImage(url, filename) {
+    try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+        showNotification('Erreur lors du téléchargement de l\'image.', 'error');
+    }
+}
+
+function copyImage(url) {
+    navigator.clipboard.writeText(url)
+        .then(() => showNotification('Lien de l\'image copié dans le presse-papiers!', 'success'))
+        .catch(() => showNotification('Erreur lors de la copie du lien.', 'error'));
+}
+
+function shareImage(url) {
+    if (navigator.share) {
+        navigator.share({
+            title: 'Image générée par Eduque moi',
+            text: 'Regardez cette image générée par IA!',
+            url: url
+        })
+        .then(() => showNotification('Image partagée avec succès!', 'success'))
+        .catch((error) => {
+            console.error('Erreur lors du partage:', error);
+            showNotification('Erreur lors du partage de l\'image.', 'error');
+        });
+    } else {
+        copyImage(url);
+    }
+}
 
 // Fonction pour épingler une réponse à la barre de saisie
 function pinResponse(messageElement) {
@@ -1031,40 +1647,87 @@ function hasEnoughCredits(model, fileCount) {
 }
 
 async function updateCredits(model, requiredCredits) {
-  if (hasValidSubscription()) return;
+    // Ne pas retourner si c'est un modèle de texte pour un non-abonné
+    if (hasValidSubscription() && !isImageGenerationModel(model)) return;
 
-  // Mettre à jour les crédits sur Firebase en utilisant une transaction
-  const userRef = db.ref('users/' + currentUser.username);
-  await userRef.transaction((userData) => {
-    if (userData) {
-      if (model === 'gemini-1.5-flash') {
-        if (userData.paidCredits >= requiredCredits) {
-          userData.paidCredits -= requiredCredits;
-        } else {
-          userData.freeCredits -= requiredCredits;
+    // Mise à jour des crédits sur Firebase avec transaction
+    const userRef = db.ref('users/' + currentUser.username);
+    
+    try {
+        await userRef.transaction((userData) => {
+            if (userData) {
+                if (isImageGenerationModel(model)) {
+                    // Logique pour les modèles de génération d'image
+                    if (hasValidSubscription()) {
+                        const imageCount = userData.imageGeneration?.dailyCount || 0;
+                        if (imageCount >= 5) {
+                            if (userData.paidCredits >= 5) {
+                                userData.paidCredits -= 5;
+                            } else {
+                                userData.freeCredits = Math.max(0, userData.freeCredits - 5);
+                            }
+                        }
+                    } else {
+                        if (userData.paidCredits >= 5) {
+                            userData.paidCredits -= 5;
+                        } else {
+                            userData.freeCredits = Math.max(0, userData.freeCredits - 5);
+                        }
+                    }
+                } else {
+                    // Logique pour les modèles de texte
+                    if (!hasValidSubscription()) {  // Seulement pour les non-abonnés
+                        if (model === 'gemini-1.5-flash') {
+                            // Utiliser d'abord les crédits payants
+                            if (userData.paidCredits >= requiredCredits) {
+                                userData.paidCredits -= requiredCredits;
+                            } else {
+                                userData.freeCredits -= requiredCredits;
+                            }
+                        } else if (model === 'gemini-1.0-pro') {
+                            // Utiliser d'abord les crédits gratuits
+                            if (userData.freeCredits >= requiredCredits) {
+                                userData.freeCredits -= requiredCredits;
+                            } else {
+                                const remainingCredits = requiredCredits - userData.freeCredits;
+                                userData.freeCredits = 0;
+                                userData.paidCredits = Math.max(0, userData.paidCredits - remainingCredits);
+                            }
+                        } else {
+                            // Pour les autres modèles, utiliser uniquement les crédits payants
+                            userData.paidCredits = Math.max(0, userData.paidCredits - requiredCredits);
+                        }
+                    }
+                }
+
+                // Maintenir les valeurs positives
+                userData.freeCredits = Math.max(0, userData.freeCredits);
+                userData.paidCredits = Math.max(0, userData.paidCredits);
+            }
+            return userData;
+        });
+
+        // Mise à jour des données locales
+        const snapshot = await userRef.once('value');
+        const userData = snapshot.val();
+        
+        if (userData) {
+            currentUser.freeCredits = userData.freeCredits;
+            currentUser.paidCredits = userData.paidCredits;
+            
+            // Mise à jour de l'interface
+            document.getElementById('freeCredits').textContent = currentUser.freeCredits;
+            document.getElementById('paidCredits').textContent = currentUser.paidCredits;
+            
+            // Notification de crédits bas
+            if (currentUser.freeCredits === 0 && currentUser.paidCredits < 5) {
+                showNotification('Attention : vos crédits sont presque épuisés !', 'warning');
+            }
         }
-      } else if (model === 'gemini-1.0-pro') {
-        if (userData.freeCredits >= requiredCredits) {
-          userData.freeCredits -= requiredCredits;
-        } else {
-          const remainingCredits = requiredCredits - userData.freeCredits;
-          userData.freeCredits = 0;
-          userData.paidCredits = Math.max(0, userData.paidCredits - remainingCredits);
-        }
-      } else {
-        // Modèles avancés
-        userData.paidCredits = Math.max(0, userData.paidCredits - requiredCredits);
-      }
+    } catch (error) {
+        console.error('Erreur lors de la mise à jour des crédits:', error);
+        showNotification('Erreur lors de la mise à jour des crédits', 'error');
     }
-    return userData; // Retourner les données mises à jour pour la transaction
-  });
-
-  // Mettre à jour les crédits en local à partir de Firebase
-  currentUser.freeCredits = (await userRef.child('freeCredits').once('value')).val();
-  currentUser.paidCredits = (await userRef.child('paidCredits').once('value')).val();
-
-  document.getElementById('freeCredits').textContent = currentUser.freeCredits;
-  document.getElementById('paidCredits').textContent = currentUser.paidCredits;
 }
 
 async function addCreditsToUser(amount) {
@@ -1082,42 +1745,7 @@ async function addCreditsToUser(amount) {
   document.getElementById('paidCredits').textContent = currentUser.paidCredits;
 }
 
-function addMessageToChat(sender, message) {
-    const messageContainer = document.getElementById('messageContainer');
-    const messageElement = document.createElement('div');
-    messageElement.classList.add('message', sender === 'user' ? 'user-message' : 'ai-message');
 
-    if (sender === 'ai') {
-// Remplacer les ** en début de ligne par des sauts de ligne
-message = message.replace(/^\*\*/gm, '\n'); 
-// Supprimer les autres ** dans le texte
-message = message.replace(/\*\*/g, '');
-
-        const textElement = document.createElement('div');
-        messageElement.appendChild(textElement);
-
-        animateResponse(textElement, message);
-
-        const actionsElement = document.createElement('div');
-        actionsElement.classList.add('message-actions');
-        actionsElement.innerHTML = `
-            <button onclick="copyResponse(this.parentNode.parentNode)"><i class="fas fa-copy"></i></button>
-            <button onclick="exportResponse(this.parentNode.parentNode, 'pdf')"><i class="fas fa-file-pdf"></i></button>
-            <button onclick="shareResponse(this.parentNode.parentNode)"><i class="fas fa-share-alt"></i></button>
-            <button class="reply-button" onclick="pinResponse(this.parentNode.parentNode)"><i class="fas fa-reply"></i></button> 
-        `;
-        messageElement.appendChild(actionsElement);
-    } else {
-        messageElement.textContent = message;
-    }
-
-    messageContainer.appendChild(messageElement);
-    messageContainer.scrollTop = messageContainer.scrollHeight;
-
-    currentConversation.push({ sender, content: message });
-
-    return messageElement;
-}
 
 function copyResponse(messageElement) {
     const responseText = messageElement.querySelector('div:first-child').textContent;
@@ -1872,6 +2500,12 @@ window.onload = async function() {
         await syncUserData();
     }
 
+        // Charger la liste des clés API
+        await loadApiKeyList();
+    
+        // Initialiser la rotation des clés API
+        initializeApiKeyRotation();
+
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.body.setAttribute('data-theme', savedTheme);
     updateThemeIcon(savedTheme);
@@ -2042,6 +2676,380 @@ function restoreAppState() {
         });
     }
 }
+
+// Fonction pour vérifier si le modèle sélectionné est un modèle de génération d'image
+function isImageGenerationModel(model) {
+    return model.startsWith('recraft-');
+}
+
+// Fonction pour convertir le modèle sélectionné en style Recraft
+function getRecraftStyle(model) {
+    const styles = {
+        'recraft-realistic': 'realistic_image',
+        'recraft-digital': 'digital_illustration',
+        'recraft-vector': 'vector_illustration',
+        'recraft-icon': 'icon'
+    };
+    return styles[model] || 'realistic_image';
+}
+
+// Structure de données pour le suivi des générations d'images
+async function initializeImageGenerationTracking(username) {
+    const userRef = db.ref(`users/${username}`);
+    const snapshot = await userRef.child('imageGeneration').once('value');
+    const data = snapshot.val();
+    
+    if (!data || isNewDay(data.lastReset)) {
+        // Initialiser ou réinitialiser le compteur pour un nouveau jour
+        await userRef.child('imageGeneration').set({
+            dailyCount: 0,
+            lastReset: new Date().toISOString()
+        });
+    }
+}
+
+function isNewDay(lastResetDate) {
+    if (!lastResetDate) return true;
+    
+    const last = new Date(lastResetDate);
+    const now = new Date();
+    
+    return last.getDate() !== now.getDate() || 
+           last.getMonth() !== now.getMonth() || 
+           last.getFullYear() !== now.getFullYear();
+}
+
+async function getImageGenerationCount(username) {
+    const userRef = db.ref(`users/${username}`);
+    const snapshot = await userRef.child('imageGeneration').once('value');
+    const data = snapshot.val();
+    
+    if (!data || isNewDay(data.lastReset)) {
+        await initializeImageGenerationTracking(username);
+        return 0;
+    }
+    
+    return data.dailyCount;
+}
+
+async function incrementImageGenerationCount(username) {
+    const userRef = db.ref(`users/${username}`);
+    await userRef.child('imageGeneration').transaction((data) => {
+        if (!data || isNewDay(data.lastReset)) {
+            return {
+                dailyCount: 1,
+                lastReset: new Date().toISOString()
+            };
+        }
+        
+        return {
+            dailyCount: data.dailyCount + 1,
+            lastReset: data.lastReset
+        };
+    });
+}
+
+// Modifier la fonction canGenerateImage pour retirer la demande de confirmation
+async function canGenerateImage() {
+    const imageCount = await getImageGenerationCount(currentUser.username);
+    const hasSubscription = hasValidSubscription();
+    const hasEnoughCredits = currentUser.paidCredits >= 5 || currentUser.freeCredits >= 5;
+    
+    // Cas 1: Abonné avec générations gratuites disponibles
+    if (hasSubscription && imageCount < 5) {
+        return {
+            canGenerate: true,
+            useFreeGeneration: true,
+            message: `Il vous reste ${5 - imageCount} générations gratuites aujourd'hui.`
+        };
+    }
+    
+    // Cas 2: Abonné ayant épuisé ses générations gratuites ou non abonné avec assez de crédits
+    if (hasEnoughCredits) {
+        return {
+            canGenerate: true,
+            useFreeGeneration: false,
+            message: "Génération avec consommation de 5 crédits"
+        };
+    }
+    
+    // Cas 3: Pas assez de crédits
+    return {
+        canGenerate: false,
+        useFreeGeneration: false,
+        message: "Vous n'avez pas assez de crédits pour générer une image."
+    };
+}
+
+// Fonction pour demander confirmation avant d'utiliser des crédits
+function confirmCreditUsage(message) {
+    return new Promise((resolve) => {
+        const notification = document.createElement('div');
+        notification.className = 'notification warning';
+        notification.innerHTML = `
+            <div class="notification-content">
+                <p>${message}</p>
+                <div class="notification-actions">
+                    <button onclick="this.closest('.notification').setAttribute('data-response', 'true')">
+                        Utiliser mes crédits
+                    </button>
+                    <button onclick="this.closest('.notification').setAttribute('data-response', 'false')">
+                        Annuler
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        setTimeout(() => notification.classList.add('show'), 100);
+
+        function handleResponse(e) {
+            const response = e.target.closest('.notification').getAttribute('data-response');
+            notification.classList.remove('show');
+            setTimeout(() => {
+                notification.remove();
+                resolve(response === 'true');
+            }, 300);
+        }
+
+        notification.querySelectorAll('button').forEach(button => {
+            button.addEventListener('click', handleResponse);
+        });
+    });
+}
+
+// Fonction améliorée pour convertir le Markdown en HTML
+function parseMarkdownTable(markdown) {
+    const lines = markdown.trim().split('\n');
+    if (lines.length < 3) return null;
+
+    // Vérifier si c'est un tableau valide
+    const isValidTable = lines.every(line => line.trim().startsWith('|') && line.trim().endsWith('|'));
+    if (!isValidTable) return null;
+
+    // Extraire les cellules
+    const rows = lines.map(line => {
+        const cells = line.trim()
+            .slice(1, -1) // Enlever les pipes externes
+            .split('|')
+            .map(cell => cell.trim());
+        return cells;
+    });
+
+    // Ignorer la ligne de séparation
+    const headerRow = rows[0];
+    const bodyRows = rows.slice(2);
+
+    // Construire le HTML
+    let html = '<div class="table-wrapper"><table><thead><tr>';
+    
+    // En-têtes
+    headerRow.forEach(header => {
+        html += `<th>${header}</th>`;
+    });
+    
+    html += '</tr></thead><tbody>';
+    
+    // Corps du tableau
+    bodyRows.forEach(row => {
+        html += '<tr>';
+        row.forEach(cell => {
+            html += `<td>${cell}</td>`;
+        });
+        html += '</tr>';
+    });
+    
+    html += '</tbody></table>';
+    
+    // Ajouter les actions du tableau
+    html += `<div class="table-actions">
+        <button onclick="copyTable(this.closest('.table-wrapper'))">
+            <i class="fas fa-copy"></i> Copier
+        </button>
+        <button onclick="exportTableAsCSV(this.closest('.table-wrapper'))">
+            <i class="fas fa-download"></i> CSV
+        </button>
+    </div></div>`;
+    
+    return html;
+}
+
+// Fonction pour détecter et convertir les tableaux dans le message
+function processMessageContent(content) {
+    // Détecter les blocs de tableau Markdown
+    const tableRegex = /\|[\s\S]+?\n[-|\s]+\n[\s\S]+?\n(?=\n|$)/g;
+    return content.replace(tableRegex, match => {
+        const tableHtml = parseMarkdownTable(match);
+        return tableHtml || match;
+    });
+}
+
+
+
+function addMessageToChat(sender, message) {
+    const messageContainer = document.getElementById('messageContainer');
+    const messageElement = document.createElement('div');
+    messageElement.classList.add('message', sender === 'user' ? 'user-message' : 'ai-message');
+
+    if (sender === 'ai') {
+        // Traitement des ** avant le formatage des tableaux
+        let processedMessage = message;
+        // Remplacer les ** en début de ligne par des sauts de ligne
+        processedMessage = processedMessage.replace(/^\*\*/gm, '\n');
+        // Supprimer les autres ** dans le texte
+        processedMessage = processedMessage.replace(/\*\*/g, '');
+
+        // Formatage des tableaux après le traitement des **
+        processedMessage = formatMarkdownTable(processedMessage);
+
+        const textElement = document.createElement('div');
+        textElement.innerHTML = processedMessage;
+        messageElement.appendChild(textElement);
+
+        // Ajouter les actions
+        const actionsElement = document.createElement('div');
+        actionsElement.classList.add('message-actions');
+        actionsElement.innerHTML = `
+            <button onclick="copyResponse(this.parentNode.parentNode)"><i class="fas fa-copy"></i></button>
+            <button onclick="exportResponse(this.parentNode.parentNode, 'pdf')"><i class="fas fa-file-pdf"></i></button>
+            <button onclick="shareResponse(this.parentNode.parentNode)"><i class="fas fa-share-alt"></i></button>
+            <button class="reply-button" onclick="pinResponse(this.parentNode.parentNode)"><i class="fas fa-reply"></i></button>
+        `;
+        messageElement.appendChild(actionsElement);
+
+    } else {
+        messageElement.textContent = message;
+    }
+
+    messageContainer.appendChild(messageElement);
+    messageContainer.scrollTop = messageContainer.scrollHeight;
+
+    return messageElement;
+}
+
+// Fonction pour le formatage des tableaux Markdown
+function formatMarkdownTable(text) {
+    // Regex pour détecter les tableaux Markdown
+    const tableRegex = /\|(.+)\|\n\|(?:[-:|]+\|)+\n(\|(?:.+\|)+\n?)+/g;
+    
+    return text.replace(tableRegex, function(table) {
+        // Diviser les lignes du tableau
+        const lines = table.trim().split('\n');
+        if (lines.length < 3) return table;
+
+        // Construire le HTML du tableau
+        let html = '<div class="table-scroll-container"><table>';
+        
+        // En-tête
+        const headers = lines[0].split('|').filter(cell => cell.trim());
+        html += '<thead><tr>';
+        headers.forEach(header => {
+            html += `<th>${header.trim()}</th>`;
+        });
+        html += '</tr></thead>';
+        
+        // Corps du tableau
+        html += '<tbody>';
+        lines.slice(2).forEach(line => {
+            const cells = line.split('|').filter(cell => cell.trim());
+            if (cells.length > 0) {
+                html += '<tr>';
+                cells.forEach(cell => {
+                    html += `<td>${cell.trim()}</td>`;
+                });
+                html += '</tr>';
+            }
+        });
+        html += '</tbody></table></div>';
+        
+        return html;
+    });
+}
+
+// Fonction pour créer un message de chargement
+function createLoadingMessage() {
+    const loadingElement = document.createElement('div');
+    loadingElement.className = 'message ai-message';
+    loadingElement.innerHTML = `
+        <div class="typing-indicator">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+    `;
+    document.getElementById('messageContainer').appendChild(loadingElement);
+    return loadingElement;
+}
+
+// Fonction pour animer l'affichage du texte caractère par caractère
+async function animateText(element, text) {
+    const contentDiv = document.createElement('div');
+    element.innerHTML = ''; // Nettoyer le contenu précédent
+    element.appendChild(contentDiv);
+    
+    // Ajouter les actions du message
+    const actionsElement = document.createElement('div');
+    actionsElement.className = 'message-actions';
+    actionsElement.innerHTML = `
+        <button onclick="copyResponse(this.parentNode.parentNode)"><i class="fas fa-copy"></i></button>
+        <button onclick="exportResponse(this.parentNode.parentNode, 'pdf')"><i class="fas fa-file-pdf"></i></button>
+        <button onclick="shareResponse(this.parentNode.parentNode)"><i class="fas fa-share-alt"></i></button>
+        <button class="reply-button" onclick="pinResponse(this.parentNode.parentNode)"><i class="fas fa-reply"></i></button>
+    `;
+    
+    let currentText = '';
+    const delay = 10; // Délai entre chaque caractère (en ms)
+    
+    // Fonction pour vérifier si on est au début d'un tableau Markdown
+    function isStartOfTable(text, position) {
+        return text.slice(position).startsWith('\n|') || text.slice(position).startsWith('|');
+    }
+    
+    // Fonction pour extraire le tableau complet
+    function extractTable(text, startPos) {
+        const lines = text.slice(startPos).split('\n');
+        let tableLines = [];
+        let i = 0;
+        while (i < lines.length && lines[i].trim().startsWith('|')) {
+            tableLines.push(lines[i]);
+            i++;
+        }
+        return tableLines.join('\n');
+    }
+    
+    for (let i = 0; i < text.length; i++) {
+        // Vérifier si nous sommes au début d'un tableau
+        if (isStartOfTable(text, i)) {
+            const table = extractTable(text, i);
+            if (table) {
+                // Ajouter le tableau complet d'un coup et formater
+                currentText += table;
+                contentDiv.innerHTML = formatMarkdownTable(currentText);
+                i += table.length - 1; // Ajuster l'index pour sauter le tableau
+                continue;
+            }
+        }
+        
+        currentText += text[i];
+        
+        // Mise à jour du contenu avec formatage Markdown
+        const formattedText = formatMarkdownTable(currentText);
+        contentDiv.innerHTML = formattedText;
+        
+        // Faire défiler jusqu'au bas du conteneur
+        const messageContainer = document.getElementById('messageContainer');
+        messageContainer.scrollTop = messageContainer.scrollHeight;
+        
+        // Attendre le délai avant d'afficher le prochain caractère
+        await new Promise(resolve => setTimeout(resolve, delay));
+    }
+    
+    // Ajouter les actions une fois l'animation terminée
+    element.appendChild(actionsElement);
+}
+
+
+
 
 // Fonction pour mettre à jour régulièrement l'interface utilisateur
 function updateUI() {

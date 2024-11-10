@@ -34,6 +34,9 @@
         import { GoogleGenerativeAI } from "@google/generative-ai";
         window.GoogleGenerativeAI = GoogleGenerativeAI;
     </script>
+        <script>
+            const RECRAFT_API_KEY = 'aJE0agNtftcETLBX5EBJhoy2CKvMVfA7SSr6bqsAydjrWl7imvzLHG7E90jp7Rjs';
+            </script>
 </head>
 <body>
     <div class="header">
@@ -76,13 +79,24 @@
                     <option value="gemini-1.5-pro-002">Gemini 1.5 Pro 002</option>
                     <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
                     <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro</option>
-
+                </optgroup>
+                <optgroup label="Modèles de génération d'image">
+                    <option value="recraft-realistic">Image Réaliste</option>
+                    <option value="recraft-digital">Illustration Digitale</option>
+                    <option value="recraft-vector">Illustration Vectorielle</option>
                 </optgroup>
                 <optgroup label="Modèles beta">
                     <option value="gemini-1.5-flash-exp-0827">Gemini 1.5 Flash Exp 0827</option>
                     <option value="gemini-1.5-pro-exp-0827">Gemini 1.5 Pro Exp 0827</option>  
                     <option value="gemini-1.5-flash-8b-exp-0924">Gemini 1.5 Flash 8B Exp 0924</option>    
                 </optgroup>
+            </select>
+        
+            <!-- Ajouter un sélecteur de taille d'image (initialement caché) -->
+            <select id="imageSizeSelect" style="display: none;">
+                <option value="1024x1024">1024x1024</option>
+                <option value="1365x1024">1365x1024</option>
+                <option value="1024x1365">1024x1365</option>
             </select>
 
             <h3>Forfaits illimités</h3>
