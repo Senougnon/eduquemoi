@@ -495,7 +495,24 @@ function initializeNewDiscussion() {
     currentConversation = [];
     const messageContainer = document.getElementById('messageContainer');
     messageContainer.innerHTML = '';
-    addMessageToChat('ai', 'Bienvenue dans une nouvelle conversation ! Comment puis-je vous aider aujourd\'hui ?');
+    
+    const welcomeMessage = `Bienvenue dans une nouvelle conversation ! Comment puis-je vous aider aujourd'hui ?
+
+🔔 ANNONCE IMPORTANTE 🔔
+
+Ton numéro passe de 8 à 10 chiffres 
+Comment faire pour changer en un clic tous les contacts d'un répertoire ? 🤔
+
+Evisions vous propose une solution digitale entièrement gratuite. Vous pouvez l'explorer dès maintenant afin d'assurer cette transition dans les prochains jours.
+
+📱 Démonstration : https://youtube.com/shorts/lWCeK6ndraA?si=EqMufbBIa0JVhgSH
+🌐 Essayez la solution : https://econtacts.netlify.app/
+📞 Nous joindre : +229 60374877
+
+---
+Revenons à notre conversation. Que puis-je faire pour vous ?`;
+
+    addMessageToChat('ai', welcomeMessage);
     updateConversationHistory();
 }
 
