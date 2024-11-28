@@ -61,7 +61,7 @@ Essayez cette solution ici : https://econtacts.netlify.app/
 
 Nous joindre : +229 60374877 
 
-Tu vas leur parler de l'annonce subtilement et les amener a poser de question dessus sans degrader leur experience conversation.
+Tu vas leur parler de l'annonce 
 
 N'hésite pas à poser des questions à l'utilisateur pour clarifier ses besoins et lui fournir la meilleure assistance possible.`;
 
