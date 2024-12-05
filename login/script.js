@@ -49,20 +49,6 @@ Un utilisateur peut te demander de :
 * "Corriger les fautes d'orthographe et de grammaire dans cette dissertation."
 * "Me donner des exemples d'utilisation de la loi de Newton."
 
-Voici une annonce : Ton numéro passe de 8 à 10 chiffres 
-
-Comment faire pour changer en un clic tous les contacts d'un répertoire ?🤔
-
-Evisions vous propose une solution digitale entièrement gratuite. Vous pouvez l'explorer dès maintenant afin d'assurer cette transition dans les prochains jours.
-
-Demo: https://youtube.com/shorts/lWCeK6ndraA?si=EqMufbBIa0JVhgSH
-
-Essayez cette solution ici : https://econtacts.netlify.app/
-
-Nous joindre : +229 60374877 
-
-Tu vas leur parler de l'annonce 
-
 N'hésite pas à poser des questions à l'utilisateur pour clarifier ses besoins et lui fournir la meilleure assistance possible.`;
 
 // Configuration Firebase
@@ -1178,6 +1164,21 @@ async function sendMessage() {
     // Message utilisateur
     const messageElement = document.createElement("div");
     messageElement.className = "message user-message";
+    
+    // Créer le conteneur pour le message
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message-content';
+    messageElement.appendChild(contentDiv);
+    
+    // Ajouter le bouton de relance
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'message-actions';
+    actionsDiv.innerHTML = `
+        <button onclick="resubmitMessage('${encodeURIComponent(displayMessage)}')" class="resubmit-button" title="Relancer cette demande">
+            <i class="fas fa-redo-alt"></i>
+        </button>
+    `;
+    messageElement.appendChild(actionsDiv);
 
     if (pinnedFilesToSend.length > 0) {
         const pinnedFilesElement = createPinnedFilesElement(pinnedFilesToSend);
@@ -2905,24 +2906,23 @@ function addMessageToChat(sender, message) {
     const messageElement = document.createElement('div');
     messageElement.classList.add('message', sender === 'user' ? 'user-message' : 'ai-message');
 
-    if (sender === 'ai') {
-        // Traitement des ** avant le formatage des tableaux
-        let processedMessage = message;
-        // Remplacer les ** en début de ligne par des sauts de ligne
-        processedMessage = processedMessage.replace(/^\*\*/gm, '\n');
-        // Supprimer les autres ** dans le texte
-        processedMessage = processedMessage.replace(/\*\*/g, '');
-
-        // Formatage des tableaux après le traitement des **
-        processedMessage = formatMarkdownTable(processedMessage);
-
+    if (sender === 'user') {
+        messageElement.innerHTML = `
+            <div class="message-content">${message}</div>
+            <div class="message-actions">
+                <button onclick="resubmitMessage('${encodeURIComponent(message)}')" class="resubmit-button" title="Relancer cette demande">
+                    <i class="fas fa-redo-alt"></i>
+                </button>
+            </div>
+        `;
+    } else {
+        // Conserver le code existant pour les messages AI
         const textElement = document.createElement('div');
-        textElement.innerHTML = processedMessage;
+        textElement.innerHTML = message;
         messageElement.appendChild(textElement);
 
-        // Ajouter les actions
         const actionsElement = document.createElement('div');
-        actionsElement.classList.add('message-actions');
+        actionsElement.className = 'message-actions';
         actionsElement.innerHTML = `
             <button onclick="copyResponse(this.parentNode.parentNode)"><i class="fas fa-copy"></i></button>
             <button onclick="exportResponse(this.parentNode.parentNode, 'pdf')"><i class="fas fa-file-pdf"></i></button>
@@ -2930,15 +2930,72 @@ function addMessageToChat(sender, message) {
             <button class="reply-button" onclick="pinResponse(this.parentNode.parentNode)"><i class="fas fa-reply"></i></button>
         `;
         messageElement.appendChild(actionsElement);
-
-    } else {
-        messageElement.textContent = message;
     }
 
     messageContainer.appendChild(messageElement);
     messageContainer.scrollTop = messageContainer.scrollHeight;
-
     return messageElement;
+}
+
+async function resubmitMessage(encodedMessage) {
+    const message = decodeURIComponent(encodedMessage);
+    
+    // Création du message de chargement
+    const loadingMessage = document.createElement('div');
+    loadingMessage.className = 'message ai-message';
+    loadingMessage.innerHTML = `
+        ${createModelHeader(document.getElementById('modelSelect').value)}
+        <div class="typing-indicator">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+    `;
+    document.getElementById('messageContainer').appendChild(loadingMessage);
+    
+    try {
+        // Récupérer le modèle sélectionné
+        const selectedModel = document.getElementById('modelSelect').value;
+        
+        // Si c'est un modèle de génération d'image
+        if (isImageGenerationModel(selectedModel)) {
+            const generationStatus = await canGenerateImage();
+            await handleImageGeneration(message, selectedModel, generationStatus);
+            loadingMessage.remove();
+            return;
+        }
+
+        // Pour les modèles de texte
+        model = genAI.getGenerativeModel({
+            model: selectedModel,
+            systemInstruction: SYSTEM_INSTRUCTION
+        });
+
+        const result = await model.generateContent(message);
+        const response = await result.response;
+        let aiResponse = response.text();
+
+        loadingMessage.innerHTML = '';
+        const modelHeader = createModelHeader(selectedModel);
+        loadingMessage.innerHTML = modelHeader;
+        
+        await animateText(loadingMessage, aiResponse);
+        
+        // Mettre à jour la conversation
+        currentConversation.push({ sender: "user", content: message });
+        currentConversation.push({ sender: "ai", content: aiResponse });
+        
+        // Mettre à jour les crédits si nécessaire
+        await updateCredits(selectedModel, 1);
+        
+        // Sauvegarder la conversation
+        saveConversation();
+
+    } catch (error) {
+        console.error("Erreur lors de la relance du message:", error);
+        loadingMessage.remove();
+        showNotification(`Erreur : ${error.message}. Veuillez réessayer.`, "error");
+    }
 }
 
 // Fonction pour le formatage des tableaux Markdown
