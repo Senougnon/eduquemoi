@@ -5,6 +5,10 @@ let pinnedFiles = [];
 let currentConversation = [];
 let conversations = {};
 let currentApiKeyIndex = 0;
+// Variable globale pour suivre si l'utilisateur fait défiler manuellement
+let userScrolling = false;
+let lastScrollTop = 0;
+let scrollTimeout;
 
 const FREE_CREDITS_PER_DAY = 3;
 const FREE_CREDITS_REGISTER = 10;
@@ -992,57 +996,27 @@ async function sendMessage() {
     const selectedModel = document.getElementById("modelSelect").value;
 
     if (!userInput && pinnedFiles.length === 0 && pinnedResponses.length === 0 && !pinnedPrompt) {
-        showNotification(
-            "Veuillez entrer un message, joindre un fichier, épingler une réponse ou sélectionner un prompt.",
-            "error"
-        );
+        showNotification("Veuillez entrer un message, joindre un fichier, épingler une réponse ou sélectionner un prompt.", "error");
         return;
     }
 
-    // Construire le prompt final
+    // Construction du prompt final
     let finalPrompt = userInput;
     if (pinnedPrompt) {
-        if (pinnedPrompt.type === 'image') {
-            finalPrompt = `${pinnedPrompt.content}\nDétails spécifiques: ${userInput}`;
-        } else {
-            finalPrompt = `${pinnedPrompt.content}\n\n${userInput}`;
-        }
+        finalPrompt = pinnedPrompt.type === 'image' 
+            ? `${pinnedPrompt.content}\nDétails spécifiques: ${userInput}`
+            : `${pinnedPrompt.content}\n\n${userInput}`;
     }
 
-    // Fonction pour créer l'en-tête du modèle
-    function createModelHeader(modelName) {
-        const modelDisplayNames = {
-            'gemini-1.5-flash': 'Gemini 1.5 Flash',
-            'gemini-1.5-pro': 'Gemini 1.5 Pro',
-            'gemini-1.5-pro-latest': 'Gemini 1.5 Pro Latest',
-            'gemini-1.0-pro': 'Gemini 1.0 Pro',
-            'recraft-realistic': 'Image Réaliste',
-            'recraft-digital': 'Illustration Digitale',
-            'recraft-vector': 'Illustration Vectorielle'
-        };
-
-        const displayName = modelDisplayNames[modelName] || modelName;
-        return `
-            <div class="model-header">
-                <div class="model-info">
-                    <i class="${isImageGenerationModel(modelName) ? 'fas fa-image' : 'fas fa-robot'}"></i>
-                    <span>${displayName}</span>
-                </div>
-            </div>
-        `;
-    }
-
-    // Traitement pour les modèles de génération d'image
+    // Traitement des modèles de génération d'image
     if (isImageGenerationModel(selectedModel)) {
         try {
             const generationStatus = await canGenerateImage();
-
             if (!generationStatus.canGenerate) {
                 showPaymentNotification(generationStatus.message);
                 return;
             }
 
-            // Créer et afficher le message de chargement
             const loadingMessage = document.createElement('div');
             loadingMessage.className = 'message ai-message';
             loadingMessage.innerHTML = `
@@ -1056,7 +1030,7 @@ async function sendMessage() {
             const imageSize = document.getElementById('imageSizeSelect').value;
             const style = getRecraftStyle(selectedModel);
             
-            const response = await fetch('https://external.api.recraft.ai/v1/images/generations', {
+            const response = await fetch('https://api.recraft.ai/api/v2/generate', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1069,9 +1043,7 @@ async function sendMessage() {
                 })
             });
 
-            if (!response.ok) {
-                throw new Error('Erreur lors de la génération de l\'image');
-            }
+            if (!response.ok) throw new Error('Erreur lors de la génération de l\'image');
 
             const data = await response.json();
             const imageUrl = data.data[0].url;
@@ -1123,101 +1095,27 @@ async function sendMessage() {
         return;
     }
 
-    // Traitement pour les modèles de texte
+    // Traitement des modèles de texte
     let requiredCredits = 1;
     requiredCredits += pinnedFiles.filter(file => file.type !== 'text/plain').length;
     requiredCredits += pinnedResponses.length;
 
     if (!hasValidSubscription()) {
         if (selectedModel === "gemini-1.5-flash") {
-            if (currentUser.paidCredits >= requiredCredits) {
-                showNotification("Utilisation de crédits payants pour Gemini 1.5 Flash.", "info");
-            } else if (currentUser.freeCredits >= requiredCredits) {
-                showNotification("Utilisation de crédits gratuits pour Gemini 1.5 Flash.", "info");
-            } else {
-                showPaymentNotification("Vous n'avez pas assez de crédits pour utiliser Gemini 1.5 Flash.");
+            if (currentUser.paidCredits < requiredCredits && currentUser.freeCredits < requiredCredits) {
+                showPaymentNotification("Vous n'avez pas assez de crédits pour envoyer ce message.");
                 return;
             }
-        } else if (!["gemini-1.0-pro"].includes(selectedModel)) {
-            if (currentUser.paidCredits < requiredCredits) {
-                showPaymentNotification("Vous n'avez pas assez de crédits payants pour ce modèle avancé.");
-                return;
-            }
-        } else if (currentUser.freeCredits < requiredCredits && currentUser.paidCredits < requiredCredits) {
-            showPaymentNotification("Vous n'avez pas assez de crédits pour envoyer ce message.");
+        } else if (!["gemini-1.0-pro"].includes(selectedModel) && currentUser.paidCredits < requiredCredits) {
+            showPaymentNotification("Vous n'avez pas assez de crédits payants pour ce modèle avancé.");
             return;
         }
     }
 
-    let displayMessage = userInput;
-    let fullMessage = userInput;
+    // Ajout du message utilisateur
+    const userMessageElement = addMessageToChat("user", finalPrompt);
 
-    const pinnedFilesToSend = [...pinnedFiles];
-    const pinnedResponsesToSend = [...pinnedResponses];
-    const pinnedPromptToSend = pinnedPrompt;
-
-    pinnedFiles = [];
-    pinnedResponses = [];
-    pinnedPrompt = null;
-    updatePinnedItems();
-
-    // Message utilisateur
-    const messageElement = document.createElement("div");
-    messageElement.className = "message user-message";
-    
-    // Créer le conteneur pour le message
-    const contentDiv = document.createElement('div');
-    contentDiv.className = 'message-content';
-    messageElement.appendChild(contentDiv);
-    
-    // Ajouter le bouton de relance
-    const actionsDiv = document.createElement('div');
-    actionsDiv.className = 'message-actions';
-    actionsDiv.innerHTML = `
-        <button onclick="resubmitMessage('${encodeURIComponent(displayMessage)}')" class="resubmit-button" title="Relancer cette demande">
-            <i class="fas fa-redo-alt"></i>
-        </button>
-    `;
-    messageElement.appendChild(actionsDiv);
-
-    if (pinnedFilesToSend.length > 0) {
-        const pinnedFilesElement = createPinnedFilesElement(pinnedFilesToSend);
-        messageElement.appendChild(pinnedFilesElement);
-        fullMessage += "\n\n**Fichiers joints:**\n";
-        pinnedFilesToSend.forEach((file) => {
-            fullMessage += `- ${file.name} (${file.type})\n`;
-        });
-    }
-
-    if (pinnedResponsesToSend.length > 0) {
-        const pinnedResponsesElement = createPinnedResponsesElement(pinnedResponsesToSend);
-        messageElement.appendChild(pinnedResponsesElement);
-        fullMessage += "\n\n**Réponses épinglées:**\n";
-        pinnedResponsesToSend.forEach((response) => {
-            fullMessage += `- ${response.text}\n`;
-        });
-    }
-
-    if (pinnedPromptToSend) {
-        const pinnedPromptElement = createPinnedPromptElement(pinnedPromptToSend);
-        messageElement.appendChild(pinnedPromptElement);
-        fullMessage = pinnedPromptToSend.content + "\n\n" + fullMessage;
-    }
-
-    if (displayMessage) {
-        const textElement = document.createElement("p");
-        textElement.textContent = displayMessage;
-        messageElement.appendChild(textElement);
-    }
-
-    const messageContainer = document.getElementById("messageContainer");
-    messageContainer.appendChild(messageElement);
-    messageContainer.scrollTop = messageContainer.scrollHeight;
-
-    document.getElementById("userInput").value = "";
-    resetTextareaHeight();
-
-    // Message de chargement avec l'en-tête du modèle
+    // Création de l'indicateur de chargement
     const loadingMessage = document.createElement('div');
     loadingMessage.className = 'message ai-message';
     loadingMessage.innerHTML = `
@@ -1228,22 +1126,23 @@ async function sendMessage() {
             <span></span>
         </div>
     `;
-    messageContainer.appendChild(loadingMessage);
-    messageContainer.scrollTop = messageContainer.scrollHeight;
+    document.getElementById('messageContainer').appendChild(loadingMessage);
 
     try {
+        // Préparation du contexte et des fichiers
         const parts = [];
-
         let conversationContext = "";
+        
         const recentMessages = currentConversation.slice(-5);
         recentMessages.forEach((message) => {
             conversationContext += `${message.sender === "user" ? "user" : "model"}: ${message.content}\n`;
         });
 
-        fullMessage = conversationContext + "\n" + fullMessage;
-        parts.push({ text: fullMessage });
+        finalPrompt = conversationContext + "\n" + finalPrompt;
+        parts.push({ text: finalPrompt });
 
-        for (const file of pinnedFilesToSend) {
+        // Ajout des fichiers
+        for (const file of pinnedFiles) {
             if (file.type === 'text/plain') {
                 parts.push({ text: `Analyse ce fichier texte: ${file.content}` });
             } else {
@@ -1258,15 +1157,18 @@ async function sendMessage() {
             }
         }
 
+        // Initialisation du modèle avec les instructions système
         model = genAI.getGenerativeModel({
             model: selectedModel,
             systemInstruction: SYSTEM_INSTRUCTION,
         });
 
+        // Génération de la réponse
         const result = await model.generateContent(parts);
         const response = await result.response;
         let aiResponse = response.text();
 
+        // Vérification des limites pour les modèles gratuits
         if (selectedModel === "gemini-1.0-pro" || 
             (selectedModel === "gemini-1.5-flash" && currentUser.paidCredits < requiredCredits)) {
             const words = aiResponse.split(/\s+/);
@@ -1277,16 +1179,12 @@ async function sendMessage() {
             }
         }
 
-        // Conserver l'en-tête du modèle et animer la réponse
-        const modelHeader = loadingMessage.querySelector('.model-header');
-        loadingMessage.innerHTML = '';
-        loadingMessage.appendChild(modelHeader);
-        
+        // Animation de la réponse
         await animateText(loadingMessage, aiResponse);
         
+        // Mise à jour de la conversation et des crédits
         currentConversation.push({ sender: "user", content: userInput });
         currentConversation.push({ sender: "ai", content: aiResponse });
-
         await updateCredits(selectedModel, requiredCredits);
         saveConversation();
 
@@ -1294,8 +1192,22 @@ async function sendMessage() {
         console.error("Erreur lors de la génération de la réponse:", error);
         loadingMessage.remove();
         showNotification(`Erreur : ${error.message}. Veuillez réessayer.`, "error");
+    } finally {
+        // Nettoyage
+        document.getElementById("userInput").value = "";
+        resetTextareaHeight();
+        pinnedFiles = [];
+        pinnedResponses = [];
+        pinnedPrompt = null;
+        updatePinnedItems();
+        
+        // Réinitialisation du scroll
+        resetScrollState();
     }
 }
+
+// Appeler initializeScrollListener au chargement de la page
+document.addEventListener('DOMContentLoaded', initializeScrollListener);
 
 // Fonctions auxiliaires
 
@@ -2901,104 +2813,274 @@ function processMessageContent(content) {
 
 
 
+// Fonction de relance améliorée avec animation
+async function resubmitRequest(aiMessageElement) {
+    try {
+        // Trouver le message utilisateur correspondant
+        const messages = document.querySelectorAll('.message');
+        let userMessageElement = null;
+        let userMessage = '';
+        
+        // Rechercher le message utilisateur associé
+        for (let i = Array.from(messages).indexOf(aiMessageElement) - 1; i >= 0; i--) {
+            if (messages[i].classList.contains('user-message')) {
+                userMessageElement = messages[i];
+                userMessage = messages[i].querySelector('div:first-child').textContent;
+                break;
+            }
+        }
+
+        if (!userMessage) {
+            throw new Error('Message utilisateur introuvable');
+        }
+
+        // Créer l'indicateur de chargement
+        const loadingMessage = document.createElement('div');
+        loadingMessage.className = 'message ai-message';
+        loadingMessage.innerHTML = `
+            ${createModelHeader(document.getElementById('modelSelect').value)}
+            <div class="typing-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        `;
+
+        // Remplacer l'ancienne réponse par l'indicateur de chargement
+        aiMessageElement.replaceWith(loadingMessage);
+
+        // Préparation des parts pour le modèle
+        const selectedModel = document.getElementById('modelSelect').value;
+        const parts = [{ text: userMessage }];
+
+        // Appeler l'API pour obtenir une nouvelle réponse
+        model = genAI.getGenerativeModel({
+            model: selectedModel,
+            systemInstruction: SYSTEM_INSTRUCTION
+        });
+
+        const result = await model.generateContent(parts);
+        const response = await result.response;
+        const newResponse = response.text();
+
+        // Animer la nouvelle réponse
+        await animateText(loadingMessage, newResponse);
+
+        // Mettre à jour l'historique de la conversation
+        currentConversation.push({ sender: "ai", content: newResponse });
+        saveConversation();
+
+        showNotification('Demande relancée avec succès', 'success');
+
+    } catch (error) {
+        console.error('Erreur lors de la relance:', error);
+        showNotification('Erreur lors de la relance de la demande', 'error');
+        
+        // Restaurer l'ancien message en cas d'erreur
+        if (loadingMessage && aiMessageElement) {
+            loadingMessage.replaceWith(aiMessageElement);
+        }
+    }
+}
+
+// Fonction pour copier le message utilisateur
+function copyUserMessage(messageElement) {
+    // Récupérer uniquement le contenu textuel du message, en excluant les boutons d'action
+    const textContent = messageElement.querySelector('div:first-child').textContent;
+    
+    // Utiliser l'API Clipboard pour copier le texte
+    navigator.clipboard.writeText(textContent)
+        .then(() => {
+            showNotification('Message copié dans le presse-papiers', 'success');
+        })
+        .catch(err => {
+            console.error('Erreur lors de la copie:', err);
+            showNotification('Erreur lors de la copie du message', 'error');
+        });
+}
+
+// Fonction pour ajouter un message utilisateur au chat avec bouton de copie
 function addMessageToChat(sender, message) {
     const messageContainer = document.getElementById('messageContainer');
     const messageElement = document.createElement('div');
     messageElement.classList.add('message', sender === 'user' ? 'user-message' : 'ai-message');
 
+    // Créer le conteneur de texte
+    const textElement = document.createElement('div');
+    textElement.textContent = message;
+    messageElement.appendChild(textElement);
+
+    // Ajouter les actions appropriées selon le type de message
+    const actionsElement = document.createElement('div');
+    actionsElement.classList.add('message-actions');
+
     if (sender === 'user') {
-        messageElement.innerHTML = `
-            <div class="message-content">${message}</div>
-            <div class="message-actions">
-                <button onclick="resubmitMessage('${encodeURIComponent(message)}')" class="resubmit-button" title="Relancer cette demande">
-                    <i class="fas fa-redo-alt"></i>
-                </button>
-            </div>
+        // Actions pour les messages utilisateur
+        actionsElement.innerHTML = `
+            <button onclick="copyUserMessage(this.parentNode.parentNode)" title="Copier le message">
+                <i class="fas fa-copy"></i>
+            </button>
         `;
     } else {
-        // Conserver le code existant pour les messages AI
-        const textElement = document.createElement('div');
-        textElement.innerHTML = message;
-        messageElement.appendChild(textElement);
-
-        const actionsElement = document.createElement('div');
-        actionsElement.className = 'message-actions';
+        // Actions pour les messages AI
         actionsElement.innerHTML = `
-            <button onclick="copyResponse(this.parentNode.parentNode)"><i class="fas fa-copy"></i></button>
-            <button onclick="exportResponse(this.parentNode.parentNode, 'pdf')"><i class="fas fa-file-pdf"></i></button>
-            <button onclick="shareResponse(this.parentNode.parentNode)"><i class="fas fa-share-alt"></i></button>
-            <button class="reply-button" onclick="pinResponse(this.parentNode.parentNode)"><i class="fas fa-reply"></i></button>
+            <button onclick="copyResponse(this.parentNode.parentNode)" title="Copier">
+                <i class="fas fa-copy"></i>
+            </button>
+            <button onclick="exportResponse(this.parentNode.parentNode, 'pdf')" title="Exporter en PDF">
+                <i class="fas fa-file-pdf"></i>
+            </button>
+            <button onclick="shareResponse(this.parentNode.parentNode)" title="Partager">
+                <i class="fas fa-share-alt"></i>
+            </button>
+            <button onclick="pinResponse(this.parentNode.parentNode)" title="Épingler">
+                <i class="fas fa-reply"></i>
+            </button>
+            <button onclick="resubmitRequest(this.parentNode.parentNode)" title="Relancer la demande">
+                <i class="fas fa-redo"></i>
+            </button>
         `;
-        messageElement.appendChild(actionsElement);
     }
 
+    messageElement.appendChild(actionsElement);
     messageContainer.appendChild(messageElement);
     messageContainer.scrollTop = messageContainer.scrollHeight;
+
     return messageElement;
 }
 
-async function resubmitMessage(encodedMessage) {
-    const message = decodeURIComponent(encodedMessage);
-    
-    // Création du message de chargement
-    const loadingMessage = document.createElement('div');
-    loadingMessage.className = 'message ai-message';
-    loadingMessage.innerHTML = `
-        ${createModelHeader(document.getElementById('modelSelect').value)}
+
+
+
+
+
+// Fonction pour créer un message de chargement
+function createLoadingMessage() {
+    const loadingElement = document.createElement('div');
+    loadingElement.className = 'message ai-message';
+    loadingElement.innerHTML = `
         <div class="typing-indicator">
             <span></span>
             <span></span>
             <span></span>
         </div>
     `;
-    document.getElementById('messageContainer').appendChild(loadingMessage);
-    
-    try {
-        // Récupérer le modèle sélectionné
-        const selectedModel = document.getElementById('modelSelect').value;
-        
-        // Si c'est un modèle de génération d'image
-        if (isImageGenerationModel(selectedModel)) {
-            const generationStatus = await canGenerateImage();
-            await handleImageGeneration(message, selectedModel, generationStatus);
-            loadingMessage.remove();
-            return;
-        }
-
-        // Pour les modèles de texte
-        model = genAI.getGenerativeModel({
-            model: selectedModel,
-            systemInstruction: SYSTEM_INSTRUCTION
-        });
-
-        const result = await model.generateContent(message);
-        const response = await result.response;
-        let aiResponse = response.text();
-
-        loadingMessage.innerHTML = '';
-        const modelHeader = createModelHeader(selectedModel);
-        loadingMessage.innerHTML = modelHeader;
-        
-        await animateText(loadingMessage, aiResponse);
-        
-        // Mettre à jour la conversation
-        currentConversation.push({ sender: "user", content: message });
-        currentConversation.push({ sender: "ai", content: aiResponse });
-        
-        // Mettre à jour les crédits si nécessaire
-        await updateCredits(selectedModel, 1);
-        
-        // Sauvegarder la conversation
-        saveConversation();
-
-    } catch (error) {
-        console.error("Erreur lors de la relance du message:", error);
-        loadingMessage.remove();
-        showNotification(`Erreur : ${error.message}. Veuillez réessayer.`, "error");
-    }
+    document.getElementById('messageContainer').appendChild(loadingElement);
+    return loadingElement;
 }
 
-// Fonction pour le formatage des tableaux Markdown
+// Ajouter l'écouteur d'événements pour le défilement
+function initializeScrollListener() {
+    const messageContainer = document.getElementById('messageContainer');
+    
+    messageContainer.addEventListener('scroll', function() {
+        clearTimeout(scrollTimeout);
+        
+        // Détecter si l'utilisateur scrolle vers le haut
+        if (messageContainer.scrollTop < lastScrollTop) {
+            userScrolling = true;
+        }
+        
+        lastScrollTop = messageContainer.scrollTop;
+        
+        // Réinitialiser userScrolling après 1 seconde sans scroll
+        scrollTimeout = setTimeout(() => {
+            // Réactiver le scroll automatique seulement si on est près du bas
+            const isNearBottom = messageContainer.scrollHeight - messageContainer.scrollTop - messageContainer.clientHeight < 100;
+            if (isNearBottom) {
+                userScrolling = false;
+            }
+        }, 1000);
+    });
+}
+
+// Fonction pour vérifier si on doit scroller automatiquement
+function shouldAutoScroll() {
+    if (userScrolling) return false;
+    
+    const messageContainer = document.getElementById('messageContainer');
+    const isNearBottom = messageContainer.scrollHeight - messageContainer.scrollTop - messageContainer.clientHeight < 100;
+    return isNearBottom;
+}
+
+// Fonction d'animation de texte mise à jour
+async function animateText(element, text) {
+    const contentDiv = document.createElement('div');
+    element.innerHTML = '';
+    element.appendChild(contentDiv);
+    
+    const actionsElement = document.createElement('div');
+    actionsElement.className = 'message-actions';
+    actionsElement.innerHTML = `
+        <button onclick="copyResponse(this.parentNode.parentNode)" title="Copier">
+            <i class="fas fa-copy"></i>
+        </button>
+        <button onclick="exportResponse(this.parentNode.parentNode, 'pdf')" title="Exporter en PDF">
+            <i class="fas fa-file-pdf"></i>
+        </button>
+        <button onclick="shareResponse(this.parentNode.parentNode)" title="Partager">
+            <i class="fas fa-share-alt"></i>
+        </button>
+        <button onclick="pinResponse(this.parentNode.parentNode)" title="Épingler">
+            <i class="fas fa-reply"></i>
+        </button>
+        <button onclick="resubmitRequest(this.parentNode.parentNode)" title="Relancer la demande">
+            <i class="fas fa-redo"></i>
+        </button>
+    `;
+    
+    let currentText = '';
+    const delay = 10;
+    
+    function isStartOfTable(text, position) {
+        return text.slice(position).startsWith('\n|') || text.slice(position).startsWith('|');
+    }
+    
+    function extractTable(text, startPos) {
+        const lines = text.slice(startPos).split('\n');
+        let tableLines = [];
+        let i = 0;
+        while (i < lines.length && lines[i].trim().startsWith('|')) {
+            tableLines.push(lines[i]);
+            i++;
+        }
+        return tableLines.join('\n');
+    }
+    
+    const messageContainer = document.getElementById('messageContainer');
+    
+    for (let i = 0; i < text.length; i++) {
+        if (isStartOfTable(text, i)) {
+            const table = extractTable(text, i);
+            if (table) {
+                currentText += table;
+                contentDiv.innerHTML = formatMarkdownTable(currentText);
+                i += table.length - 1;
+                continue;
+            }
+        }
+        
+        currentText += text[i];
+        contentDiv.innerHTML = formatMarkdownTable(currentText);
+        
+        // Scroll seulement si nécessaire
+        if (shouldAutoScroll()) {
+            messageContainer.scrollTop = messageContainer.scrollHeight;
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
+    }
+    
+    element.appendChild(actionsElement);
+}
+
+// Fonction pour réinitialiser l'état du scroll
+function resetScrollState() {
+    userScrolling = false;
+    lastScrollTop = 0;
+}
+
+// Fonction auxiliaire pour détecter et formater les tableaux Markdown
 function formatMarkdownTable(text) {
     // Regex pour détecter les tableaux Markdown
     const tableRegex = /\|(.+)\|\n\|(?:[-:|]+\|)+\n(\|(?:.+\|)+\n?)+/g;
@@ -3035,88 +3117,6 @@ function formatMarkdownTable(text) {
         
         return html;
     });
-}
-
-// Fonction pour créer un message de chargement
-function createLoadingMessage() {
-    const loadingElement = document.createElement('div');
-    loadingElement.className = 'message ai-message';
-    loadingElement.innerHTML = `
-        <div class="typing-indicator">
-            <span></span>
-            <span></span>
-            <span></span>
-        </div>
-    `;
-    document.getElementById('messageContainer').appendChild(loadingElement);
-    return loadingElement;
-}
-
-// Fonction pour animer l'affichage du texte caractère par caractère
-async function animateText(element, text) {
-    const contentDiv = document.createElement('div');
-    element.innerHTML = ''; // Nettoyer le contenu précédent
-    element.appendChild(contentDiv);
-    
-    // Ajouter les actions du message
-    const actionsElement = document.createElement('div');
-    actionsElement.className = 'message-actions';
-    actionsElement.innerHTML = `
-        <button onclick="copyResponse(this.parentNode.parentNode)"><i class="fas fa-copy"></i></button>
-        <button onclick="exportResponse(this.parentNode.parentNode, 'pdf')"><i class="fas fa-file-pdf"></i></button>
-        <button onclick="shareResponse(this.parentNode.parentNode)"><i class="fas fa-share-alt"></i></button>
-        <button class="reply-button" onclick="pinResponse(this.parentNode.parentNode)"><i class="fas fa-reply"></i></button>
-    `;
-    
-    let currentText = '';
-    const delay = 10; // Délai entre chaque caractère (en ms)
-    
-    // Fonction pour vérifier si on est au début d'un tableau Markdown
-    function isStartOfTable(text, position) {
-        return text.slice(position).startsWith('\n|') || text.slice(position).startsWith('|');
-    }
-    
-    // Fonction pour extraire le tableau complet
-    function extractTable(text, startPos) {
-        const lines = text.slice(startPos).split('\n');
-        let tableLines = [];
-        let i = 0;
-        while (i < lines.length && lines[i].trim().startsWith('|')) {
-            tableLines.push(lines[i]);
-            i++;
-        }
-        return tableLines.join('\n');
-    }
-    
-    for (let i = 0; i < text.length; i++) {
-        // Vérifier si nous sommes au début d'un tableau
-        if (isStartOfTable(text, i)) {
-            const table = extractTable(text, i);
-            if (table) {
-                // Ajouter le tableau complet d'un coup et formater
-                currentText += table;
-                contentDiv.innerHTML = formatMarkdownTable(currentText);
-                i += table.length - 1; // Ajuster l'index pour sauter le tableau
-                continue;
-            }
-        }
-        
-        currentText += text[i];
-        
-        // Mise à jour du contenu avec formatage Markdown
-        const formattedText = formatMarkdownTable(currentText);
-        contentDiv.innerHTML = formattedText;
-        
-        // Faire défiler jusqu'au bas du conteneur
-        const messageContainer = document.getElementById('messageContainer');
-        messageContainer.scrollTop = messageContainer.scrollHeight;
-        
-        // Attendre le délai avant d'afficher le prochain caractère
-        await new Promise(resolve => setTimeout(resolve, delay));
-    }
-    
-    // Ajouter les actions une fois l'animation terminée
-    element.appendChild(actionsElement);
 }
 
 
