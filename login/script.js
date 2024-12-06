@@ -81,6 +81,224 @@ const API_KEY_LIST_REF = db.ref('API');
 let apiKeyList = [];
 
 
+class GeminiApiManager {
+    constructor() {
+        this.db = firebase.database();
+        this.apiKeyList = [];
+        this.currentKeyIndex = 0;
+        this.retryConfig = {
+            maxAttempts: 3,
+            baseDelay: 1000,
+            maxDelay: 5000
+        };
+        this.errorTracker = new Map(); // Pour suivre les erreurs par clé API
+    }
+
+    // Initialisation
+    async initialize() {
+        try {
+            await this.loadApiKeys();
+            this.startKeyRotation();
+            return true;
+        } catch (error) {
+            console.error('Erreur lors de l\'initialisation du gestionnaire API:', error);
+            return false;
+        }
+    }
+
+    // Chargement des clés API depuis Firebase
+    async loadApiKeys() {
+        const snapshot = await this.db.ref('API').once('value');
+        const data = snapshot.val();
+        if (!data) {
+            throw new Error('Aucune clé API trouvée dans la base de données');
+        }
+        this.apiKeyList = Object.values(data);
+        
+        if (this.apiKeyList.length === 0) {
+            throw new Error('La liste des clés API est vide');
+        }
+    }
+
+    // Obtenir une nouvelle instance de l'API avec la clé courante
+    getCurrentApi() {
+        const currentKey = this.apiKeyList[this.currentKeyIndex];
+        return new GoogleGenerativeAI(currentKey);
+    }
+
+    // Rotation automatique des clés
+    startKeyRotation() {
+        setInterval(() => {
+            this.rotateKey();
+        }, 5000); // Rotation toutes les 5 secondes
+    }
+
+    // Passer à la clé suivante
+    rotateKey() {
+        this.currentKeyIndex = (this.currentKeyIndex + 1) % this.apiKeyList.length;
+        const newKey = this.apiKeyList[this.currentKeyIndex];
+        
+        // Réinitialiser le modèle avec la nouvelle clé
+        try {
+            genAI = new GoogleGenerativeAI(newKey);
+            model = genAI.getGenerativeModel({
+                model: document.getElementById('modelSelect').value,
+                systemInstruction: SYSTEM_INSTRUCTION
+            });
+            console.log('Rotation de clé API effectuée avec succès');
+        } catch (error) {
+            console.error('Erreur lors de la rotation de clé:', error);
+            this.handleKeyError(this.currentKeyIndex);
+        }
+    }
+
+    // Gestion des erreurs de clé API
+    handleKeyError(keyIndex) {
+        const key = this.apiKeyList[keyIndex];
+        if (!this.errorTracker.has(key)) {
+            this.errorTracker.set(key, { count: 0, lastError: Date.now() });
+        }
+
+        const keyErrors = this.errorTracker.get(key);
+        keyErrors.count++;
+        keyErrors.lastError = Date.now();
+
+        // Si trop d'erreurs, désactiver temporairement la clé
+        if (keyErrors.count >= 5) {
+            this.disableKey(keyIndex);
+        }
+    }
+
+    // Désactiver temporairement une clé problématique
+    async disableKey(keyIndex) {
+        const key = this.apiKeyList[keyIndex];
+        console.warn(`Désactivation temporaire de la clé API: ${key.substring(0, 8)}...`);
+        
+        // Marquer la clé comme désactivée dans Firebase
+        try {
+            await this.db.ref(`API/${keyIndex}/disabled`).set({
+                timestamp: Date.now(),
+                reason: 'Trop d\'erreurs consécutives'
+            });
+        } catch (error) {
+            console.error('Erreur lors de la désactivation de la clé:', error);
+        }
+
+        // Planifier la réactivation après 1 heure
+        setTimeout(() => {
+            this.reactivateKey(keyIndex);
+        }, 3600000);
+    }
+
+    // Réactiver une clé désactivée
+    async reactivateKey(keyIndex) {
+        try {
+            await this.db.ref(`API/${keyIndex}/disabled`).remove();
+            this.errorTracker.delete(this.apiKeyList[keyIndex]);
+            console.log(`Clé API réactivée: ${this.apiKeyList[keyIndex].substring(0, 8)}...`);
+        } catch (error) {
+            console.error('Erreur lors de la réactivation de la clé:', error);
+        }
+    }
+
+    // Exécuter une requête avec retry automatique
+    async executeWithRetry(requestFunction) {
+        let attempts = 0;
+        let lastError = null;
+
+        while (attempts < this.retryConfig.maxAttempts) {
+            try {
+                // Utiliser la clé API courante
+                genAI = this.getCurrentApi();
+                model = genAI.getGenerativeModel({
+                    model: document.getElementById('modelSelect').value,
+                    systemInstruction: SYSTEM_INSTRUCTION
+                });
+
+                // Exécuter la requête
+                const result = await requestFunction();
+                return result;
+
+            } catch (error) {
+                lastError = error;
+                attempts++;
+
+                // Vérifier si l'erreur justifie un retry
+                if (!this.shouldRetry(error) || attempts >= this.retryConfig.maxAttempts) {
+                    throw error;
+                }
+
+                // Calculer le délai avant la prochaine tentative
+                const delay = this.calculateRetryDelay(attempts);
+                console.log(`Tentative ${attempts}/${this.retryConfig.maxAttempts} échouée. Nouvelle tentative dans ${delay}ms`);
+                
+                // Rotation de la clé API
+                this.rotateKey();
+                
+                // Attendre avant la prochaine tentative
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
+
+        throw new Error(`Échec après ${attempts} tentatives. Dernière erreur: ${lastError.message}`);
+    }
+
+    // Vérifier si une erreur justifie un retry
+    shouldRetry(error) {
+        const retryableErrors = [
+            'RESOURCE_EXHAUSTED',
+            'UNAVAILABLE',
+            'DEADLINE_EXCEEDED',
+            'INTERNAL',
+            'CANCELLED'
+        ];
+
+        return retryableErrors.includes(error.code) || 
+               error.message.includes('quota exceeded') ||
+               error.message.includes('rate limit') ||
+               error.status === 429 ||
+               error.status >= 500;
+    }
+
+    // Calculer le délai avant la prochaine tentative (exponential backoff)
+    calculateRetryDelay(attempt) {
+        const delay = Math.min(
+            this.retryConfig.maxDelay,
+            this.retryConfig.baseDelay * Math.pow(2, attempt - 1)
+        );
+        return delay + Math.random() * 1000; // Ajouter un jitter
+    }
+
+    // Surveillance des performances des clés API
+    startPerformanceMonitoring() {
+        setInterval(() => {
+            this.analyzeApiPerformance();
+        }, 300000); // Analyse toutes les 5 minutes
+    }
+
+    // Analyser les performances des clés API
+    async analyzeApiPerformance() {
+        const performanceData = Array.from(this.errorTracker.entries())
+            .map(([key, data]) => ({
+                key: key.substring(0, 8),
+                errors: data.count,
+                lastError: new Date(data.lastError).toLocaleString()
+            }));
+
+        console.table(performanceData);
+
+        // Sauvegarder les statistiques dans Firebase
+        try {
+            await this.db.ref('API_stats').push({
+                timestamp: Date.now(),
+                stats: performanceData
+            });
+        } catch (error) {
+            console.error('Erreur lors de la sauvegarde des statistiques:', error);
+        }
+    }
+}
+
 // Fonction pour charger la liste des clés API au chargement de la page
 async function loadApiKeyList() {
     try {
@@ -987,6 +1205,7 @@ function createModelHeader(modelName) {
 }
 
 async function sendMessage() {
+    // Vérification de la connexion utilisateur
     if (!currentUser) {
         showNotification("Veuillez vous connecter pour envoyer des messages.", "error");
         return;
@@ -995,6 +1214,7 @@ async function sendMessage() {
     const userInput = document.getElementById("userInput").value.trim();
     const selectedModel = document.getElementById("modelSelect").value;
 
+    // Vérification de l'entrée utilisateur
     if (!userInput && pinnedFiles.length === 0 && pinnedResponses.length === 0 && !pinnedPrompt) {
         showNotification("Veuillez entrer un message, joindre un fichier, épingler une réponse ou sélectionner un prompt.", "error");
         return;
@@ -1090,6 +1310,8 @@ async function sendMessage() {
             document.getElementById('userInput').value = '';
             resetTextareaHeight();
             pinnedPrompt = null;
+            pinnedFiles = [];
+            pinnedResponses = [];
             updatePinnedItems();
         }
         return;
@@ -1100,6 +1322,7 @@ async function sendMessage() {
     requiredCredits += pinnedFiles.filter(file => file.type !== 'text/plain').length;
     requiredCredits += pinnedResponses.length;
 
+    // Vérification des crédits
     if (!hasValidSubscription()) {
         if (selectedModel === "gemini-1.5-flash") {
             if (currentUser.paidCredits < requiredCredits && currentUser.freeCredits < requiredCredits) {
@@ -1112,8 +1335,23 @@ async function sendMessage() {
         }
     }
 
-    // Ajout du message utilisateur
-    const userMessageElement = addMessageToChat("user", finalPrompt);
+    // Stocker temporairement les fichiers et le texte
+    const tempFiles = [...pinnedFiles];
+    const tempResponses = [...pinnedResponses];
+    const tempPrompt = pinnedPrompt;
+    const tempInput = userInput;
+
+    // Nettoyer l'interface utilisateur
+    document.getElementById('userInput').value = '';
+    resetTextareaHeight();
+    pinnedFiles = [];
+    pinnedResponses = [];
+    pinnedPrompt = null;
+    updatePinnedItems();
+
+    // Ajouter le message utilisateur à l'interface
+    const userMessageElement = createUserMessageElement(tempInput, tempFiles, tempResponses, tempPrompt);
+    document.getElementById('messageContainer').appendChild(userMessageElement);
 
     // Création de l'indicateur de chargement
     const loadingMessage = document.createElement('div');
@@ -1133,6 +1371,7 @@ async function sendMessage() {
         const parts = [];
         let conversationContext = "";
         
+        // Ajout du contexte récent
         const recentMessages = currentConversation.slice(-5);
         recentMessages.forEach((message) => {
             conversationContext += `${message.sender === "user" ? "user" : "model"}: ${message.content}\n`;
@@ -1142,7 +1381,7 @@ async function sendMessage() {
         parts.push({ text: finalPrompt });
 
         // Ajout des fichiers
-        for (const file of pinnedFiles) {
+        for (const file of tempFiles) {
             if (file.type === 'text/plain') {
                 parts.push({ text: `Analyse ce fichier texte: ${file.content}` });
             } else {
@@ -1157,15 +1396,45 @@ async function sendMessage() {
             }
         }
 
-        // Initialisation du modèle avec les instructions système
-        model = genAI.getGenerativeModel({
-            model: selectedModel,
-            systemInstruction: SYSTEM_INSTRUCTION,
-        });
+        // Obtention d'une clé API valide et initialisation du modèle
+        let response;
+        let attempts = 0;
+        const maxAttempts = 3;
+        
+        while (attempts < maxAttempts) {
+            try {
+                // Obtenir une nouvelle clé API
+                const apiKey = getNextApiKey();
+                if (!apiKey) {
+                    throw new Error("Aucune clé API disponible");
+                }
 
-        // Génération de la réponse
-        const result = await model.generateContent(parts);
-        const response = await result.response;
+                // Initialiser l'API avec la nouvelle clé
+                genAI = new GoogleGenerativeAI(apiKey);
+                model = genAI.getGenerativeModel({
+                    model: selectedModel,
+                    systemInstruction: SYSTEM_INSTRUCTION,
+                });
+
+                // Génération de la réponse
+                const result = await model.generateContent(parts);
+                response = await result.response;
+                break; // Sortir de la boucle si la requête réussit
+
+            } catch (error) {
+                attempts++;
+                console.error(`Tentative ${attempts}/${maxAttempts} échouée:`, error);
+
+                if (attempts === maxAttempts) {
+                    throw new Error("Nombre maximum de tentatives atteint");
+                }
+
+                // Attendre avant la prochaine tentative (backoff exponentiel)
+                const delay = Math.min(1000 * Math.pow(2, attempts), 5000);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
+
         let aiResponse = response.text();
 
         // Vérification des limites pour les modèles gratuits
@@ -1183,7 +1452,7 @@ async function sendMessage() {
         await animateText(loadingMessage, aiResponse);
         
         // Mise à jour de la conversation et des crédits
-        currentConversation.push({ sender: "user", content: userInput });
+        currentConversation.push({ sender: "user", content: tempInput });
         currentConversation.push({ sender: "ai", content: aiResponse });
         await updateCredits(selectedModel, requiredCredits);
         saveConversation();
@@ -1193,14 +1462,6 @@ async function sendMessage() {
         loadingMessage.remove();
         showNotification(`Erreur : ${error.message}. Veuillez réessayer.`, "error");
     } finally {
-        // Nettoyage
-        document.getElementById("userInput").value = "";
-        resetTextareaHeight();
-        pinnedFiles = [];
-        pinnedResponses = [];
-        pinnedPrompt = null;
-        updatePinnedItems();
-        
         // Réinitialisation du scroll
         resetScrollState();
     }
@@ -1389,30 +1650,80 @@ async function handleImageGeneration(userInput, selectedModel, generationStatus)
 
 
 
-function createUserMessageElement(displayMessage, pinnedFiles, pinnedResponses, pinnedPrompt) {
+// Fonction améliorée pour créer l'élément de message utilisateur
+function createUserMessageElement(displayMessage, files, responses, prompt) {
     const messageElement = document.createElement("div");
     messageElement.className = "message user-message";
 
-    if (pinnedFiles.length > 0) {
-        messageElement.appendChild(createPinnedFilesElement(pinnedFiles));
+    // Ajouter les fichiers s'il y en a
+    if (files.length > 0) {
+        const filesContainer = document.createElement("div");
+        filesContainer.className = "pinned-files-message";
+        files.forEach(file => {
+            const fileElement = document.createElement("div");
+            fileElement.className = "pinned-file";
+            
+            if (file.type.startsWith('image/')) {
+                const img = document.createElement("img");
+                img.src = URL.createObjectURL(file);
+                img.className = "pinned-image";
+                img.alt = file.name;
+                fileElement.appendChild(img);
+            } else {
+                const icon = document.createElement("span");
+                icon.className = "file-icon";
+                icon.textContent = file.type.startsWith('application/pdf') ? '📄' : '📎';
+                fileElement.appendChild(icon);
+            }
+
+            const fileName = document.createElement("span");
+            fileName.className = "file-name";
+            fileName.textContent = file.name;
+            fileElement.appendChild(fileName);
+            filesContainer.appendChild(fileElement);
+        });
+        messageElement.appendChild(filesContainer);
     }
 
-    if (pinnedResponses.length > 0) {
-        messageElement.appendChild(createPinnedResponsesElement(pinnedResponses));
+    // Ajouter les réponses épinglées s'il y en a
+    if (responses.length > 0) {
+        const responsesContainer = document.createElement("div");
+        responsesContainer.className = "pinned-responses-message";
+        responses.forEach(response => {
+            const responseElement = document.createElement("div");
+            responseElement.className = "pinned-response";
+            responseElement.innerHTML = `
+                <span class="response-icon">💬</span>
+                <span class="response-text">${response.displayText}</span>
+            `;
+            responsesContainer.appendChild(responseElement);
+        });
+        messageElement.appendChild(responsesContainer);
     }
 
-    if (pinnedPrompt) {
-        messageElement.appendChild(createPinnedPromptElement(pinnedPrompt));
+    // Ajouter le prompt épinglé s'il existe
+    if (prompt) {
+        const promptContainer = document.createElement("div");
+        promptContainer.className = "pinned-prompt-message";
+        promptContainer.innerHTML = `
+            <div class="pinned-prompt">
+                <span class="prompt-icon">🤖</span>
+                <span class="prompt-title">${prompt.title}</span>
+            </div>
+        `;
+        messageElement.appendChild(promptContainer);
     }
 
+    // Ajouter le message texte s'il existe
     if (displayMessage) {
-        const textElement = document.createElement("p");
+        const textElement = document.createElement("div");
         textElement.textContent = displayMessage;
         messageElement.appendChild(textElement);
     }
 
     return messageElement;
 }
+
 
 // Fonctions utilitaires pour la manipulation des images générées
 function addLoadingMessage(text) {
@@ -2408,6 +2719,7 @@ async function updateReferralStats(referrerUsername) {
 window.onload = async function() {
     await attemptAutoLogin();
 
+
     if (currentUser) {
         if (currentUser.freeCredits === undefined) currentUser.freeCredits = 0;
         if (currentUser.paidCredits === undefined) currentUser.paidCredits = 0;
@@ -2429,9 +2741,14 @@ window.onload = async function() {
 
         // Charger la liste des clés API
         await loadApiKeyList();
+
+            // Initialiser le gestionnaire d'API
+            await apiManager.initialize();
     
         // Initialiser la rotation des clés API
         initializeApiKeyRotation();
+
+        
 
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.body.setAttribute('data-theme', savedTheme);
@@ -2458,6 +2775,8 @@ window.onload = async function() {
 
     // Charger la liste des clés API au chargement de la page
     await loadApiKeyList();
+        // Initialiser le gestionnaire d'API
+        await apiManager.initialize();
 
     // Initialiser l'API Gemini avec une clé aléatoire
     initializeGeminiAPI();
@@ -2813,7 +3132,67 @@ function processMessageContent(content) {
 
 
 
-// Fonction de relance améliorée avec animation
+// Fonction mise à jour pour ajouter un message au chat
+function addMessageToChat(sender, message) {
+    const messageContainer = document.getElementById('messageContainer');
+    const messageElement = document.createElement('div');
+    messageElement.classList.add('message', sender === 'user' ? 'user-message' : 'ai-message');
+
+    if (sender === 'ai') {
+        // Traitement pour les messages de l'IA
+        let processedMessage = message;
+        processedMessage = processedMessage.replace(/^\*\*/gm, '\n');
+        processedMessage = processedMessage.replace(/\*\*/g, '');
+        processedMessage = formatMarkdownTable(processedMessage);
+
+        const textElement = document.createElement('div');
+        textElement.innerHTML = processedMessage;
+        messageElement.appendChild(textElement);
+
+        // Ajouter immédiatement les actions
+        const actionsElement = document.createElement('div');
+        actionsElement.classList.add('message-actions');
+        actionsElement.innerHTML = `
+            <button onclick="copyResponse(this.parentNode.parentNode)" title="Copier">
+                <i class="fas fa-copy"></i>
+            </button>
+            <button onclick="exportResponse(this.parentNode.parentNode, 'pdf')" title="Exporter en PDF">
+                <i class="fas fa-file-pdf"></i>
+            </button>
+            <button onclick="shareResponse(this.parentNode.parentNode)" title="Partager">
+                <i class="fas fa-share-alt"></i>
+            </button>
+            <button onclick="pinResponse(this.parentNode.parentNode)" title="Épingler">
+                <i class="fas fa-reply"></i>
+            </button>
+            <button onclick="resubmitRequest(this.parentNode.parentNode)" title="Relancer la demande">
+                <i class="fas fa-redo"></i>
+            </button>
+        `;
+        messageElement.appendChild(actionsElement);
+    } else {
+        // Message utilisateur
+        const textElement = document.createElement('div');
+        textElement.textContent = message;
+        messageElement.appendChild(textElement);
+
+        // Ajouter immédiatement le bouton copier
+        const actionsElement = document.createElement('div');
+        actionsElement.classList.add('message-actions');
+        actionsElement.innerHTML = `
+            <button onclick="copyUserMessage(this.parentNode.parentNode)" title="Copier le message">
+                <i class="fas fa-copy"></i>
+            </button>
+        `;
+        messageElement.appendChild(actionsElement);
+    }
+
+    messageContainer.appendChild(messageElement);
+    messageContainer.scrollTop = messageContainer.scrollHeight;
+    return messageElement;
+}
+
+// Nouvelle fonction de relance automatique
 async function resubmitRequest(aiMessageElement) {
     try {
         // Trouver le message utilisateur correspondant
@@ -2849,22 +3228,30 @@ async function resubmitRequest(aiMessageElement) {
         // Remplacer l'ancienne réponse par l'indicateur de chargement
         aiMessageElement.replaceWith(loadingMessage);
 
-        // Préparation des parts pour le modèle
-        const selectedModel = document.getElementById('modelSelect').value;
-        const parts = [{ text: userMessage }];
+        // Préparer les fichiers et autres éléments nécessaires
+        const files = Array.from(userMessageElement.querySelectorAll('.pinned-file')).map(file => ({
+            name: file.querySelector('.file-name').textContent,
+            type: file.dataset.type
+        }));
 
         // Appeler l'API pour obtenir une nouvelle réponse
-        model = genAI.getGenerativeModel({
-            model: selectedModel,
-            systemInstruction: SYSTEM_INSTRUCTION
-        });
+        const selectedModel = document.getElementById('modelSelect').value;
+        const parts = [{ text: userMessage }];
+        
+        // Ajouter les fichiers s'il y en a
+        if (files.length > 0) {
+            for (const file of files) {
+                parts.push({ text: `[Fichier joint: ${file.name}]` });
+            }
+        }
 
         const result = await model.generateContent(parts);
         const response = await result.response;
         const newResponse = response.text();
 
-        // Animer la nouvelle réponse
-        await animateText(loadingMessage, newResponse);
+        // Créer et afficher le nouveau message
+        const newAiMessage = addMessageToChat('ai', newResponse);
+        loadingMessage.replaceWith(newAiMessage);
 
         // Mettre à jour l'historique de la conversation
         currentConversation.push({ sender: "ai", content: newResponse });
@@ -2882,73 +3269,6 @@ async function resubmitRequest(aiMessageElement) {
         }
     }
 }
-
-// Fonction pour copier le message utilisateur
-function copyUserMessage(messageElement) {
-    // Récupérer uniquement le contenu textuel du message, en excluant les boutons d'action
-    const textContent = messageElement.querySelector('div:first-child').textContent;
-    
-    // Utiliser l'API Clipboard pour copier le texte
-    navigator.clipboard.writeText(textContent)
-        .then(() => {
-            showNotification('Message copié dans le presse-papiers', 'success');
-        })
-        .catch(err => {
-            console.error('Erreur lors de la copie:', err);
-            showNotification('Erreur lors de la copie du message', 'error');
-        });
-}
-
-// Fonction pour ajouter un message utilisateur au chat avec bouton de copie
-function addMessageToChat(sender, message) {
-    const messageContainer = document.getElementById('messageContainer');
-    const messageElement = document.createElement('div');
-    messageElement.classList.add('message', sender === 'user' ? 'user-message' : 'ai-message');
-
-    // Créer le conteneur de texte
-    const textElement = document.createElement('div');
-    textElement.textContent = message;
-    messageElement.appendChild(textElement);
-
-    // Ajouter les actions appropriées selon le type de message
-    const actionsElement = document.createElement('div');
-    actionsElement.classList.add('message-actions');
-
-    if (sender === 'user') {
-        // Actions pour les messages utilisateur
-        actionsElement.innerHTML = `
-            <button onclick="copyUserMessage(this.parentNode.parentNode)" title="Copier le message">
-                <i class="fas fa-copy"></i>
-            </button>
-        `;
-    } else {
-        // Actions pour les messages AI
-        actionsElement.innerHTML = `
-            <button onclick="copyResponse(this.parentNode.parentNode)" title="Copier">
-                <i class="fas fa-copy"></i>
-            </button>
-            <button onclick="exportResponse(this.parentNode.parentNode, 'pdf')" title="Exporter en PDF">
-                <i class="fas fa-file-pdf"></i>
-            </button>
-            <button onclick="shareResponse(this.parentNode.parentNode)" title="Partager">
-                <i class="fas fa-share-alt"></i>
-            </button>
-            <button onclick="pinResponse(this.parentNode.parentNode)" title="Épingler">
-                <i class="fas fa-reply"></i>
-            </button>
-            <button onclick="resubmitRequest(this.parentNode.parentNode)" title="Relancer la demande">
-                <i class="fas fa-redo"></i>
-            </button>
-        `;
-    }
-
-    messageElement.appendChild(actionsElement);
-    messageContainer.appendChild(messageElement);
-    messageContainer.scrollTop = messageContainer.scrollHeight;
-
-    return messageElement;
-}
-
 
 
 
@@ -3131,7 +3451,8 @@ function updateUI() {
     }
 }
 
-
+// Initialiser le gestionnaire d'API au chargement de la page
+const apiManager = new GeminiApiManager();
 
 document.addEventListener('click', function(event) {
     const sidebar = document.querySelector('.sidebar');
