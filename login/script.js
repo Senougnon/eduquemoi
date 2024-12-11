@@ -2555,12 +2555,13 @@ function loadPromptCategories() {
 function loadPromptsForCategory(category) {
     const promptList = document.getElementById('promptList');
     promptList.innerHTML = '';
-    
+
     Object.entries(prompts).forEach(([id, prompt]) => {
         if (prompt.category === category) {
             const li = document.createElement('li');
+            // Corrected onclick handler:
             li.innerHTML = `
-                <div class="prompt-item" onclick="selectPrompt('${id}', ${JSON.stringify(prompt).replace(/"/g, '"')})">
+                <div class="prompt-item" onclick="selectPrompt('${id}', this)" data-prompt='${JSON.stringify(prompt)}'>
                     <span class="prompt-title">${prompt.title}</span>
                     <span class="prompt-select-icon"><i class="fas fa-plus-circle"></i></span>
                 </div>
@@ -2570,17 +2571,19 @@ function loadPromptsForCategory(category) {
     });
 }
 
-function selectPrompt(id, prompt) {
+function selectPrompt(id, element) {
+    const prompt = JSON.parse(element.dataset.prompt); // Parse the JSON from the data-prompt attribute
+
     pinnedPrompt = { id, ...prompt };
     updatePinnedPrompt();
     closePromptModal();
     showNotification('Prompt sélectionné', 'success');
-  
+
     // Insérer le texte indicatif dans la zone de saisie en tant que placeholder
     const userInput = document.getElementById('userInput');
     userInput.placeholder = pinnedPrompt.indicativeText || 'Tapez votre texte ici...';
     adjustTextareaHeight();
-  }
+}
 
 function closePromptModal() {
     document.getElementById('promptListModal').style.display = 'none';
@@ -2602,8 +2605,8 @@ function updatePinnedPrompt() {
         const item = document.createElement('div');
         item.className = 'pinned-item';
         item.setAttribute('data-type', 'prompt');
-        item.innerHTML =`
-            <span class="icon">💬</span>
+        item.innerHTML = `
+            <span class="icon">🤖</span>
             <span class="name" title="${pinnedPrompt.title}">${pinnedPrompt.title}</span>
             <span class="remove" onclick="removePinnedPrompt()">❌</span>
         `;
