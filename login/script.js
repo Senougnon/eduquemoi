@@ -80,7 +80,6 @@ let genAI;
 const API_KEY_LIST_REF = db.ref('API');
 let apiKeyList = [];
 
-
 class GeminiApiManager {
     constructor() {
         this.db = firebase.database();
@@ -377,7 +376,6 @@ function initializeGeminiAPI() {
     }
 }
 
-
 // Classe pour gérer les erreurs d'API
 class ApiError extends Error {
     constructor(message, status) {
@@ -463,7 +461,6 @@ async function executeWithRetry(requestFunction) {
     // Si toutes les tentatives ont échoué
     throw new Error(`Échec après ${attempts} tentatives. Dernière erreur: ${lastError.message}`);
 }
-
 
 // Fonction utilitaire pour vérifier si une erreur justifie un retry
 function shouldRetry(error) {
@@ -1021,7 +1018,6 @@ async function checkModelAccess() {
     }
 }
 
-
 // Fonction pour gérer l'importation de fichiers (docx, doc)
 async function handleFileUpload(event) {
     const files = event.target.files;
@@ -1228,94 +1224,92 @@ async function sendMessage() {
             : `${pinnedPrompt.content}\n\n${userInput}`;
     }
 
-    // Traitement des modèles de génération d'image
-    if (isImageGenerationModel(selectedModel)) {
-        try {
-            const generationStatus = await canGenerateImage();
-            if (!generationStatus.canGenerate) {
-                showPaymentNotification(generationStatus.message);
-                return;
-            }
-
-            const loadingMessage = document.createElement('div');
-            loadingMessage.className = 'message ai-message';
-            loadingMessage.innerHTML = `
-                ${createModelHeader(selectedModel)}
-                <div class="typing-indicator">
-                    <span></span><span></span><span></span>
-                </div>
-            `;
-            document.getElementById('messageContainer').appendChild(loadingMessage);
-            
-            const imageSize = document.getElementById('imageSizeSelect').value;
-            const style = getRecraftStyle(selectedModel);
-            
-            const response = await fetch('https://api.recraft.ai/api/v2/generate', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${RECRAFT_API_KEY}`
-                },
-                body: JSON.stringify({
-                    prompt: finalPrompt,
-                    style: style,
-                    size: imageSize
-                })
-            });
-
-            if (!response.ok) throw new Error('Erreur lors de la génération de l\'image');
-
-            const data = await response.json();
-            const imageUrl = data.data[0].url;
-
-            loadingMessage.innerHTML = `
-                ${createModelHeader(selectedModel)}
-                <img src="${imageUrl}" alt="Image générée" style="max-width: 100%; border-radius: 5px;">
-                <p>Image générée à partir du prompt : "${finalPrompt}"</p>
-                <div class="message-metadata">
-                    <span class="generation-info">Style: ${style.replace('_', ' ').toUpperCase()}</span>
-                    <span class="generation-info">Taille: ${imageSize}</span>
-                    <span class="generation-info">
-                        ${generationStatus.useFreeGeneration ? 
-                          'Génération gratuite (abonnement)' : 
-                          'Génération payante (5 crédits)'}
-                    </span>
-                </div>
-                <div class="message-actions">
-                    <button onclick="downloadImage('${imageUrl}', 'image-generee.png')">
-                        <i class="fas fa-download"></i>
-                    </button>
-                    <button onclick="copyImage('${imageUrl}')">
-                        <i class="fas fa-copy"></i>
-                    </button>
-                    <button onclick="shareImage('${imageUrl}')">
-                        <i class="fas fa-share-alt"></i>
-                    </button>
-                </div>
-            `;
-
-            if (generationStatus.useFreeGeneration) {
-                await incrementImageGenerationCount(currentUser.username);
-                const newCount = await getImageGenerationCount(currentUser.username);
-                showNotification(`Image générée avec succès! Il vous reste ${5 - newCount} générations gratuites aujourd'hui.`, 'success');
-            } else {
-                await updateCredits(selectedModel, 5);
-                showNotification('Image générée avec succès! 5 crédits ont été déduits.', 'success');
-            }
-
-        } catch (error) {
-            console.error('Erreur de génération d\'image:', error);
-            showNotification('Erreur lors de la génération de l\'image. Veuillez réessayer.', 'error');
-        } finally {
-            document.getElementById('userInput').value = '';
-            resetTextareaHeight();
-            pinnedPrompt = null;
-            pinnedFiles = [];
-            pinnedResponses = [];
-            updatePinnedItems();
+   // Traitement des modèles de génération d'image
+   if (isImageGenerationModel(selectedModel)) {
+    try {
+        const generationStatus = await canGenerateImage();
+        if (!generationStatus.canGenerate) {
+            showPaymentNotification(generationStatus.message);
+            return;
         }
-        return;
+
+        const loadingMessage = document.createElement('div');
+        loadingMessage.className = 'message ai-message';
+        loadingMessage.innerHTML = `
+            ${createModelHeader(selectedModel)}
+            <div class="typing-indicator">
+                <span></span><span></span><span></span>
+            </div>
+        `;
+        document.getElementById('messageContainer').appendChild(loadingMessage);
+        
+        const imageSize = document.getElementById('imageSizeSelect').value;
+        const style = getRecraftStyle(selectedModel);
+        
+        const response = await fetch('https://api.recraft.ai/api/v2/generate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${RECRAFT_API_KEY}`
+            },
+            body: JSON.stringify({
+                prompt: finalPrompt,
+                style: style,
+                size: imageSize
+            })
+        });
+
+        if (!response.ok) throw new Error('Erreur lors de la génération de l\'image');
+
+        const data = await response.json();
+        const imageUrl = data.data[0].url;
+
+        loadingMessage.innerHTML = `
+            ${createModelHeader(selectedModel)}
+            <img src="${imageUrl}" alt="Image générée" style="max-width: 100%; border-radius: 5px;">
+            <p>Image générée à partir du prompt : "${finalPrompt}"</p>
+            <div class="message-metadata">
+                <span class="generation-info">Style: ${style.replace('_', ' ').toUpperCase()}</span>
+                <span class="generation-info">Taille: ${imageSize}</span>
+                <span class="generation-info">
+                    ${generationStatus.useFreeGeneration ? 
+                      'Génération gratuite (abonnement)' : 
+                      'Génération payante (5 crédits)'}
+                </span>
+            </div>
+            <div class="message-actions">
+                <button onclick="downloadImage('${imageUrl}', 'image-generee.png')">
+                    <i class="fas fa-download"></i>
+                </button>
+                <button onclick="copyImage('${imageUrl}')">
+                    <i class="fas fa-copy"></i>
+                </button>
+                <button onclick="shareImage('${imageUrl}')">
+                    <i class="fas fa-share-alt"></i>
+                </button>
+            </div>
+        `;
+
+        if (generationStatus.useFreeGeneration) {
+            await incrementImageGenerationCount(currentUser.username);
+            const newCount = await getImageGenerationCount(currentUser.username);
+            showNotification(`Image générée avec succès! Il vous reste ${5 - newCount} générations gratuites aujourd'hui.`, 'success');
+        } else {
+            await updateCredits(selectedModel, 5);
+            showNotification('Image générée avec succès! 5 crédits ont été déduits.', 'success');
+        }
+
+    } catch (error) {
+        console.error('Erreur de génération d\'image:', error);
+        showNotification('Erreur lors de la génération de l\'image. Veuillez réessayer.', 'error');
+    } finally {
+        document.getElementById('userInput').value = '';
+        resetTextareaHeight();
+        pinnedPrompt = null;
+        updatePinnedItems();
     }
+    return;
+}
 
     // Traitement des modèles de texte
     let requiredCredits = 1;
@@ -1335,23 +1329,19 @@ async function sendMessage() {
         }
     }
 
-    // Stocker temporairement les fichiers et le texte
-    const tempFiles = [...pinnedFiles];
-    const tempResponses = [...pinnedResponses];
-    const tempPrompt = pinnedPrompt;
-    const tempInput = userInput;
-
-    // Nettoyer l'interface utilisateur
-    document.getElementById('userInput').value = '';
-    resetTextareaHeight();
+    // ** Copie des fichiers, réponses et prompt épinglés avant de les vider **
+    const pinnedFilesToSend = [...pinnedFiles];
+    const pinnedResponsesToSend = [...pinnedResponses];
+    const pinnedPromptToSend = pinnedPrompt;
+    
+    // ** On vide les variables globales MAINTENANT **
     pinnedFiles = [];
     pinnedResponses = [];
     pinnedPrompt = null;
     updatePinnedItems();
 
-    // Ajouter le message utilisateur à l'interface
-    const userMessageElement = createUserMessageElement(tempInput, tempFiles, tempResponses, tempPrompt);
-    document.getElementById('messageContainer').appendChild(userMessageElement);
+    // Ajout du message utilisateur à l'interface
+    const userMessageElement = addMessageToChat("user", userInput, pinnedFilesToSend, pinnedResponsesToSend, pinnedPromptToSend);
 
     // Création de l'indicateur de chargement
     const loadingMessage = document.createElement('div');
@@ -1380,8 +1370,8 @@ async function sendMessage() {
         finalPrompt = conversationContext + "\n" + finalPrompt;
         parts.push({ text: finalPrompt });
 
-        // Ajout des fichiers
-        for (const file of tempFiles) {
+        // ** Ajout des fichiers joints, en utilisant `pinnedFilesToSend` **
+        for (const file of pinnedFilesToSend) {
             if (file.type === 'text/plain') {
                 parts.push({ text: `Analyse ce fichier texte: ${file.content}` });
             } else {
@@ -1452,7 +1442,7 @@ async function sendMessage() {
         await animateText(loadingMessage, aiResponse);
         
         // Mise à jour de la conversation et des crédits
-        currentConversation.push({ sender: "user", content: tempInput });
+        currentConversation.push({ sender: "user", content: userInput });
         currentConversation.push({ sender: "ai", content: aiResponse });
         await updateCredits(selectedModel, requiredCredits);
         saveConversation();
@@ -1462,6 +1452,10 @@ async function sendMessage() {
         loadingMessage.remove();
         showNotification(`Erreur : ${error.message}. Veuillez réessayer.`, "error");
     } finally {
+        // Nettoyage
+        document.getElementById("userInput").value = "";
+        resetTextareaHeight();
+        
         // Réinitialisation du scroll
         resetScrollState();
     }
@@ -1648,82 +1642,30 @@ async function handleImageGeneration(userInput, selectedModel, generationStatus)
     }
 }
 
-
-
-// Fonction améliorée pour créer l'élément de message utilisateur
-function createUserMessageElement(displayMessage, files, responses, prompt) {
+function createUserMessageElement(displayMessage, pinnedFiles, pinnedResponses, pinnedPrompt) {
     const messageElement = document.createElement("div");
     messageElement.className = "message user-message";
 
-    // Ajouter les fichiers s'il y en a
-    if (files.length > 0) {
-        const filesContainer = document.createElement("div");
-        filesContainer.className = "pinned-files-message";
-        files.forEach(file => {
-            const fileElement = document.createElement("div");
-            fileElement.className = "pinned-file";
-            
-            if (file.type.startsWith('image/')) {
-                const img = document.createElement("img");
-                img.src = URL.createObjectURL(file);
-                img.className = "pinned-image";
-                img.alt = file.name;
-                fileElement.appendChild(img);
-            } else {
-                const icon = document.createElement("span");
-                icon.className = "file-icon";
-                icon.textContent = file.type.startsWith('application/pdf') ? '📄' : '📎';
-                fileElement.appendChild(icon);
-            }
-
-            const fileName = document.createElement("span");
-            fileName.className = "file-name";
-            fileName.textContent = file.name;
-            fileElement.appendChild(fileName);
-            filesContainer.appendChild(fileElement);
-        });
-        messageElement.appendChild(filesContainer);
+    if (pinnedFiles.length > 0) {
+        messageElement.appendChild(createPinnedFilesElement(pinnedFiles));
     }
 
-    // Ajouter les réponses épinglées s'il y en a
-    if (responses.length > 0) {
-        const responsesContainer = document.createElement("div");
-        responsesContainer.className = "pinned-responses-message";
-        responses.forEach(response => {
-            const responseElement = document.createElement("div");
-            responseElement.className = "pinned-response";
-            responseElement.innerHTML = `
-                <span class="response-icon">💬</span>
-                <span class="response-text">${response.displayText}</span>
-            `;
-            responsesContainer.appendChild(responseElement);
-        });
-        messageElement.appendChild(responsesContainer);
+    if (pinnedResponses.length > 0) {
+        messageElement.appendChild(createPinnedResponsesElement(pinnedResponses));
     }
 
-    // Ajouter le prompt épinglé s'il existe
-    if (prompt) {
-        const promptContainer = document.createElement("div");
-        promptContainer.className = "pinned-prompt-message";
-        promptContainer.innerHTML = `
-            <div class="pinned-prompt">
-                <span class="prompt-icon">🤖</span>
-                <span class="prompt-title">${prompt.title}</span>
-            </div>
-        `;
-        messageElement.appendChild(promptContainer);
+    if (pinnedPrompt) {
+        messageElement.appendChild(createPinnedPromptElement(pinnedPrompt));
     }
 
-    // Ajouter le message texte s'il existe
     if (displayMessage) {
-        const textElement = document.createElement("div");
+        const textElement = document.createElement("p");
         textElement.textContent = displayMessage;
         messageElement.appendChild(textElement);
     }
 
     return messageElement;
 }
-
 
 // Fonctions utilitaires pour la manipulation des images générées
 function addLoadingMessage(text) {
@@ -1845,8 +1787,6 @@ function removePinnedItem(type, index) {
     }
     updatePinnedItems();
 }
-
-
 
 // Fonction pour répondre à un message spécifique
 function replyToMessage(messageElement) {
@@ -1982,8 +1922,6 @@ async function addCreditsToUser(amount) {
   currentUser.paidCredits = (await userRef.child('paidCredits').once('value')).val();
   document.getElementById('paidCredits').textContent = currentUser.paidCredits;
 }
-
-
 
 function copyResponse(messageElement) {
     const responseText = messageElement.querySelector('div:first-child').textContent;
@@ -2208,8 +2146,6 @@ async function checkFirstPurchaseAndRewardReferrer(username, amount) {
     }
 }
 
-
-
 function getShareMessage(referralLink) {
     return encodeURIComponent(`🚀 Découvrez le secret pour booster votre apprentissage ! 🧠✨
 
@@ -2224,7 +2160,7 @@ PS : En utilisant mon lien, vous me donnez un petit coup de pouce. Mais chut, c'
 function shareOnFacebook() {
     const url = document.getElementById('referralLink').value;
     const message = getShareMessage(url);
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${message}`, '_blank');
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}"e=${message}`, '_blank');
 }
 
 function shareOnTwitter() {
@@ -2524,6 +2460,42 @@ function showUpgradeButton(messageElement) {
     messageElement.appendChild(upgradeButton);
 }
 
+function copyUserMessage(messageElement) {
+    let messageText = '';
+
+    // Parcourir tous les éléments enfants du message
+    for (const child of messageElement.children) {
+        // Si l'élément est un paragraphe, ajouter son texte au message
+        if (child.tagName === 'P') {
+            messageText += child.textContent + '\n';
+        }
+        // Si l'élément est un div avec la classe 'pinned-files-message', ajouter les noms de fichiers
+        else if (child.classList.contains('pinned-files-message')) {
+            const fileNames = Array.from(child.querySelectorAll('.file-name'))
+                                   .map(fileElement => fileElement.textContent)
+                                   .join(', ');
+            messageText += `Fichiers joints: ${fileNames}\n`;
+        }
+        // Si l'élément est un div avec la classe 'pinned-responses-message', ajouter les textes des réponses
+        else if (child.classList.contains('pinned-responses-message')) {
+            const responseTexts = Array.from(child.querySelectorAll('.response-text'))
+                                       .map(responseElement => responseElement.textContent)
+                                       .join('\n');
+            messageText += `Réponses épinglées:\n${responseTexts}\n`;
+        }
+        // Si l'élément est un div avec la classe 'pinned-prompt-message', ajouter le titre du prompt
+        else if (child.classList.contains('pinned-prompt-message')) {
+            const promptTitle = child.querySelector('.prompt-title').textContent;
+            messageText += `Prompt épinglé: ${promptTitle}\n`;
+        }
+    }
+
+    // Copier le texte du message dans le presse-papiers
+    navigator.clipboard.writeText(messageText.trim()).then(() => {
+        showNotification('Message copié dans le presse-papiers', 'success');
+    });
+}
+
 function animateResponse(element, text) {
     let index = 0;
     element.textContent = '';
@@ -2571,7 +2543,7 @@ function loadPromptsForCategory(category) {
         if (prompt.category === category) {
             const li = document.createElement('li');
             li.innerHTML = `
-                <div class="prompt-item" onclick="selectPrompt('${id}', ${JSON.stringify(prompt).replace(/"/g, '&quot;')})">
+                <div class="prompt-item" onclick="selectPrompt('${id}', ${JSON.stringify(prompt).replace(/"/g, '"')})">
                     <span class="prompt-title">${prompt.title}</span>
                     <span class="prompt-select-icon"><i class="fas fa-plus-circle"></i></span>
                 </div>
@@ -2691,7 +2663,6 @@ async function getOrCreateReferralCode() {
     }
 }
 
-
 // Fonction pour mettre à jour les statistiques de parrainage
 async function updateReferralStats(referrerUsername) {
     const userRef = db.ref(`users/${referrerUsername}`);
@@ -2718,7 +2689,6 @@ async function updateReferralStats(referrerUsername) {
 
 window.onload = async function() {
     await attemptAutoLogin();
-
 
     if (currentUser) {
         if (currentUser.freeCredits === undefined) currentUser.freeCredits = 0;
@@ -3130,10 +3100,7 @@ function processMessageContent(content) {
     });
 }
 
-
-
-// Fonction mise à jour pour ajouter un message au chat
-function addMessageToChat(sender, message) {
+function addMessageToChat(sender, message, pinnedFiles = [], pinnedResponses = [], pinnedPrompt = null) {
     const messageContainer = document.getElementById('messageContainer');
     const messageElement = document.createElement('div');
     messageElement.classList.add('message', sender === 'user' ? 'user-message' : 'ai-message');
@@ -3163,7 +3130,7 @@ function addMessageToChat(sender, message) {
                 <i class="fas fa-share-alt"></i>
             </button>
             <button onclick="pinResponse(this.parentNode.parentNode)" title="Épingler">
-                <i class="fas fa-reply"></i>
+                <i class="fas fa-thumbtack"></i>
             </button>
             <button onclick="resubmitRequest(this.parentNode.parentNode)" title="Relancer la demande">
                 <i class="fas fa-redo"></i>
@@ -3172,6 +3139,22 @@ function addMessageToChat(sender, message) {
         messageElement.appendChild(actionsElement);
     } else {
         // Message utilisateur
+
+        // ** Afficher les fichiers joints s'il y en a **
+        if (pinnedFiles.length > 0) {
+            messageElement.appendChild(createPinnedFilesElement(pinnedFiles));
+        }
+
+        // ** Afficher les réponses épinglées s'il y en a **
+        if (pinnedResponses.length > 0) {
+            messageElement.appendChild(createPinnedResponsesElement(pinnedResponses));
+        }
+
+        // ** Afficher le prompt épinglé s'il y en a **
+        if (pinnedPrompt) {
+            messageElement.appendChild(createPinnedPromptElement(pinnedPrompt));
+        }
+
         const textElement = document.createElement('div');
         textElement.textContent = message;
         messageElement.appendChild(textElement);
@@ -3192,14 +3175,22 @@ function addMessageToChat(sender, message) {
     return messageElement;
 }
 
-// Nouvelle fonction de relance automatique
+// Nouvelle fonction de relance de la demande avec consommation de crédit
 async function resubmitRequest(aiMessageElement) {
+    const selectedModel = document.getElementById('modelSelect').value;
+
+    // Vérifier si l'utilisateur a assez de crédits pour une actualisation
+    if (!hasValidSubscription() && !currentUser.paidCredits && (selectedModel !== 'gemini-1.5-flash' && selectedModel !== 'gemini-1.0-pro' || !currentUser.freeCredits)) {
+        showPaymentNotification('Crédits insuffisants pour actualiser la réponse.');
+        return;
+    }
+
     try {
         // Trouver le message utilisateur correspondant
         const messages = document.querySelectorAll('.message');
         let userMessageElement = null;
         let userMessage = '';
-        
+
         // Rechercher le message utilisateur associé
         for (let i = Array.from(messages).indexOf(aiMessageElement) - 1; i >= 0; i--) {
             if (messages[i].classList.contains('user-message')) {
@@ -3217,7 +3208,7 @@ async function resubmitRequest(aiMessageElement) {
         const loadingMessage = document.createElement('div');
         loadingMessage.className = 'message ai-message';
         loadingMessage.innerHTML = `
-            ${createModelHeader(document.getElementById('modelSelect').value)}
+            ${createModelHeader(selectedModel)}
             <div class="typing-indicator">
                 <span></span>
                 <span></span>
@@ -3235,9 +3226,8 @@ async function resubmitRequest(aiMessageElement) {
         }));
 
         // Appeler l'API pour obtenir une nouvelle réponse
-        const selectedModel = document.getElementById('modelSelect').value;
         const parts = [{ text: userMessage }];
-        
+
         // Ajouter les fichiers s'il y en a
         if (files.length > 0) {
             for (const file of files) {
@@ -3249,30 +3239,28 @@ async function resubmitRequest(aiMessageElement) {
         const response = await result.response;
         const newResponse = response.text();
 
-        // Créer et afficher le nouveau message
-        const newAiMessage = addMessageToChat('ai', newResponse);
-        loadingMessage.replaceWith(newAiMessage);
+        // Animer la nouvelle réponse
+        await animateText(loadingMessage, newResponse);
 
         // Mettre à jour l'historique de la conversation
         currentConversation.push({ sender: "ai", content: newResponse });
         saveConversation();
 
-        showNotification('Demande relancée avec succès', 'success');
+        // Mettre à jour les crédits de l'utilisateur
+        await updateCredits(selectedModel, 1); // Déduire les crédits pour l'actualisation
+
+        showNotification('Réponse actualisée avec succès', 'success');
 
     } catch (error) {
         console.error('Erreur lors de la relance:', error);
         showNotification('Erreur lors de la relance de la demande', 'error');
-        
+
         // Restaurer l'ancien message en cas d'erreur
         if (loadingMessage && aiMessageElement) {
             loadingMessage.replaceWith(aiMessageElement);
         }
     }
 }
-
-
-
-
 
 // Fonction pour créer un message de chargement
 function createLoadingMessage() {
@@ -3439,9 +3427,6 @@ function formatMarkdownTable(text) {
     });
 }
 
-
-
-
 // Fonction pour mettre à jour régulièrement l'interface utilisateur
 function updateUI() {
     if (currentUser) {
@@ -3464,7 +3449,6 @@ document.addEventListener('click', function(event) {
     }
 });
 
-
 window.onpopstate = function(event) {
     const sidebar = document.querySelector('.sidebar');
     if (sidebar.classList.contains('visible')) {
@@ -3476,7 +3460,6 @@ window.onpopstate = function(event) {
 
     }
 };
-
 
 // Modifier l'input de fichier pour accepter les fichiers docx et doc
 document.getElementById('fileInput').accept = '.pdf,.jpg,.jpeg,.png,.docx,.doc';
