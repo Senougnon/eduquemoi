@@ -1200,6 +1200,7 @@ function createModelHeader(modelName) {
     `;
 }
 
+// Fonction sendMessage (modifiée)
 async function sendMessage() {
     // Vérification de la connexion utilisateur
     if (!currentUser) {
@@ -1219,7 +1220,7 @@ async function sendMessage() {
     // Construction du prompt final
     let finalPrompt = userInput;
     if (pinnedPrompt) {
-        finalPrompt = pinnedPrompt.type === 'image' 
+        finalPrompt = pinnedPrompt.type === 'image'
             ? `${pinnedPrompt.content}\nDétails spécifiques: ${userInput}`
             : `${pinnedPrompt.content}\n\n${userInput}`;
     }
@@ -1242,10 +1243,10 @@ async function sendMessage() {
             </div>
         `;
         document.getElementById('messageContainer').appendChild(loadingMessage);
-        
+
         const imageSize = document.getElementById('imageSizeSelect').value;
         const style = getRecraftStyle(selectedModel);
-        
+
         const response = await fetch('https://api.recraft.ai/api/v2/generate', {
             method: 'POST',
             headers: {
@@ -1272,8 +1273,8 @@ async function sendMessage() {
                 <span class="generation-info">Style: ${style.replace('_', ' ').toUpperCase()}</span>
                 <span class="generation-info">Taille: ${imageSize}</span>
                 <span class="generation-info">
-                    ${generationStatus.useFreeGeneration ? 
-                      'Génération gratuite (abonnement)' : 
+                    ${generationStatus.useFreeGeneration ?
+                      'Génération gratuite (abonnement)' :
                       'Génération payante (5 crédits)'}
                 </span>
             </div>
@@ -1333,7 +1334,7 @@ async function sendMessage() {
     const pinnedFilesToSend = [...pinnedFiles];
     const pinnedResponsesToSend = [...pinnedResponses];
     const pinnedPromptToSend = pinnedPrompt;
-    
+
     // ** On vide les variables globales MAINTENANT **
     pinnedFiles = [];
     pinnedResponses = [];
@@ -1359,38 +1360,38 @@ async function sendMessage() {
     try {
         // Préparation du contexte et des fichiers
         const parts = [];
-        let conversationContext = "";
-        
-        // Ajout du contexte récent
-        const recentMessages = currentConversation.slice(-5);
-        recentMessages.forEach((message) => {
-            conversationContext += `${message.sender === "user" ? "user" : "model"}: ${message.content}\n`;
+
+        // Ajout du contexte récent (en utilisant la fonction modifiée)
+        let conversationContext = buildConversationContext();
+
+        // Ajout des fichiers joints en utilisant pinnedFilesToSend (copie de pinnedFiles)
+        await addFilesToParts(parts, pinnedFilesToSend);
+
+        // Ajout des réponses épinglées en utilisant pinnedResponsesToSend (copie de pinnedResponses)
+        pinnedResponsesToSend.forEach(response => {
+            conversationContext += `[Réponse épinglée: ${response.displayText}]\n`;
         });
 
-        finalPrompt = conversationContext + "\n" + finalPrompt;
-        parts.push({ text: finalPrompt });
-
-        // ** Ajout des fichiers joints, en utilisant `pinnedFilesToSend` **
-        for (const file of pinnedFilesToSend) {
-            if (file.type === 'text/plain') {
-                parts.push({ text: `Analyse ce fichier texte: ${file.content}` });
+        // Ajout du prompt épinglé en utilisant pinnedPromptToSend (copie de pinnedPrompt)
+        if (pinnedPromptToSend) {
+            conversationContext += `[Prompt épinglé: ${pinnedPromptToSend.title}]\n`;
+            if (pinnedPromptToSend.type === 'image') {
+                conversationContext += `Détails spécifiques: ${userInput}\n`;
             } else {
-                const fileData = await readFileAsBase64(file);
-                parts.push({
-                    inlineData: {
-                        data: fileData,
-                        mimeType: file.type,
-                    }
-                });
-                parts.push({ text: `Analyse le fichier ${file.name} (${file.type}) que je viens de t'envoyer.` });
+                conversationContext += `${pinnedPromptToSend.content}\n\n${userInput}\n`;
             }
+        } else {
+            conversationContext += `${userInput}\n`;
         }
+
+        finalPrompt = conversationContext;
+        parts.push({ text: finalPrompt });
 
         // Obtention d'une clé API valide et initialisation du modèle
         let response;
         let attempts = 0;
         const maxAttempts = 3;
-        
+
         while (attempts < maxAttempts) {
             try {
                 // Obtenir une nouvelle clé API
@@ -1428,7 +1429,7 @@ async function sendMessage() {
         let aiResponse = response.text();
 
         // Vérification des limites pour les modèles gratuits
-        if (selectedModel === "gemini-1.0-pro" || 
+        if (selectedModel === "gemini-1.0-pro" ||
             (selectedModel === "gemini-1.5-flash" && currentUser.paidCredits < requiredCredits)) {
             const words = aiResponse.split(/\s+/);
             if (words.length > FREE_MODEL_MAX_RESPONSE) {
@@ -1440,9 +1441,9 @@ async function sendMessage() {
 
         // Animation de la réponse
         await animateText(loadingMessage, aiResponse);
-        
+
         // Mise à jour de la conversation et des crédits
-        currentConversation.push({ sender: "user", content: userInput });
+        // La mise à jour de currentConversation pour les messages de l'utilisateur est faite dans addMessageToChat
         currentConversation.push({ sender: "ai", content: aiResponse });
         await updateCredits(selectedModel, requiredCredits);
         saveConversation();
@@ -1455,7 +1456,7 @@ async function sendMessage() {
         // Nettoyage
         document.getElementById("userInput").value = "";
         resetTextareaHeight();
-        
+
         // Réinitialisation du scroll
         resetScrollState();
     }
@@ -1473,15 +1474,31 @@ function resetPinnedItems() {
     updatePinnedItems();
 }
 
+
+// Fonction pour construire le contexte de la conversation (modifiée)
 function buildConversationContext() {
     let context = "";
-    const recentMessages = currentConversation.slice(-5);
+    const recentMessages = currentConversation.slice(-5); // Augmenter la limite pour plus de contexte
     recentMessages.forEach((message) => {
         context += `${message.sender === "user" ? "user" : "model"}: ${message.content}\n`;
+        if (message.files) {
+            message.files.forEach(file => {
+                context += `[Fichier joint: ${file.name}]\n`;
+            });
+        }
+        if (message.responses) {
+            message.responses.forEach(response => {
+                context += `[Réponse épinglée: ${response.displayText}]\n`;
+            });
+        }
+        if (message.prompt) {
+            context += `[Prompt épinglé: ${message.prompt.title}]\n`;
+        }
     });
     return context;
 }
 
+// Fonction pour ajouter des fichiers aux parties de la requête (modifiée)
 async function addFilesToParts(parts, files) {
     for (const file of files) {
         if (file.type === 'text/plain') {
@@ -1494,7 +1511,7 @@ async function addFilesToParts(parts, files) {
                     mimeType: file.type,
                 }
             });
-            parts.push({ text: `Analyse le fichier ${file.name} (${file.type}).` });
+            parts.push({ text: `Analyse le fichier ${file.name} (${file.type}) que je viens de t'envoyer.` });
         }
     }
 }
@@ -3100,6 +3117,7 @@ function processMessageContent(content) {
     });
 }
 
+// Fonction addMessageToChat (modifiée)
 function addMessageToChat(sender, message, pinnedFiles = [], pinnedResponses = [], pinnedPrompt = null) {
     const messageContainer = document.getElementById('messageContainer');
     const messageElement = document.createElement('div');
@@ -3137,6 +3155,8 @@ function addMessageToChat(sender, message, pinnedFiles = [], pinnedResponses = [
             </button>
         `;
         messageElement.appendChild(actionsElement);
+
+        currentConversation.push({ sender: "ai", content: message });
     } else {
         // Message utilisateur
 
@@ -3168,6 +3188,15 @@ function addMessageToChat(sender, message, pinnedFiles = [], pinnedResponses = [
             </button>
         `;
         messageElement.appendChild(actionsElement);
+
+        // Stocker les informations des éléments épinglés dans l'objet message
+        currentConversation.push({
+            sender: "user",
+            content: message,
+            files: pinnedFiles,
+            responses: pinnedResponses,
+            prompt: pinnedPrompt
+        });
     }
 
     messageContainer.appendChild(messageElement);
