@@ -162,37 +162,14 @@ class GeminiApiManager {
         keyErrors.count++;
         keyErrors.lastError = Date.now();
 
-        // Si trop d'erreurs, désactiver temporairement la clé
-        if (keyErrors.count >= 5) {
-            this.disableKey(keyIndex);
-        }
     }
 
-    // Désactiver temporairement une clé problématique
-    async disableKey(keyIndex) {
-        const key = this.apiKeyList[keyIndex];
-        console.warn(`Désactivation temporaire de la clé API: ${key.substring(0, 8)}...`);
-        
-        // Marquer la clé comme désactivée dans Firebase
-        try {
-            await this.db.ref(`API/${keyIndex}/disabled`).set({
-                timestamp: Date.now(),
-                reason: 'Trop d\'erreurs consécutives'
-            });
-        } catch (error) {
-            console.error('Erreur lors de la désactivation de la clé:', error);
-        }
 
-        // Planifier la réactivation après 1 heure
-        setTimeout(() => {
-            this.reactivateKey(keyIndex);
-        }, 3600000);
-    }
 
     // Réactiver une clé désactivée
     async reactivateKey(keyIndex) {
         try {
-            await this.db.ref(`API/${keyIndex}/disabled`).remove();
+        //    await this.db.ref(`API/${keyIndex}/disabled`).remove();
             this.errorTracker.delete(this.apiKeyList[keyIndex]);
             console.log(`Clé API réactivée: ${this.apiKeyList[keyIndex].substring(0, 8)}...`);
         } catch (error) {
