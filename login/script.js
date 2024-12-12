@@ -17,8 +17,8 @@ const FREE_MODEL_MAX_RESPONSE = 2000;
 
 // Configuration du système de retry
 const RETRY_CONFIG = {
-    maxAttempts: 3,  // Nombre maximum de tentatives avec différentes clés
-    retryDelay: 1000 // Délai entre les tentatives en millisecondes
+    maxAttempts: 50,  // Nombre maximum de tentatives avec différentes clés
+    retryDelay: 10000 // Délai entre les tentatives en millisecondes
 };
 
 // Message système à définir
@@ -1006,15 +1006,15 @@ async function checkModelAccess() {
     if (isImageGenerationModel(selectedModel)) {
         if (!hasValidSubscription() && currentUser.paidCredits < 5 && currentUser.freeCredits < 5) {
             showPaymentNotification('La génération d\'images nécessite 5 crédits.');
-            document.getElementById('modelSelect').value = 'gemini-1.5-flash';
+            document.getElementById('modelSelect').value = 'gemini-exp-1206';
             imageSizeSelect.style.display = 'none';
             return;
         }
-    } else if (!['gemini-1.5-flash', 'gemini-1.0-pro'].includes(selectedModel) && 
+    } else if (!['gemini-exp-1206', 'gemini-1.0-pro'].includes(selectedModel) && 
                !hasValidSubscription() && 
                currentUser.paidCredits <= 0) {
         showPaymentNotification('Ce modèle nécessite un abonnement ou des crédits payants.');
-        document.getElementById('modelSelect').value = 'gemini-1.5-flash';
+        document.getElementById('modelSelect').value = 'gemini-exp-1206';
     }
 }
 
@@ -1319,7 +1319,7 @@ async function sendMessage() {
 
     // Vérification des crédits
     if (!hasValidSubscription()) {
-        if (selectedModel === "gemini-1.5-flash") {
+        if (selectedModel === "gemini-exp-1206") {
             if (currentUser.paidCredits < requiredCredits && currentUser.freeCredits < requiredCredits) {
                 showPaymentNotification("Vous n'avez pas assez de crédits pour envoyer ce message.");
                 return;
@@ -1430,7 +1430,7 @@ async function sendMessage() {
 
         // Vérification des limites pour les modèles gratuits
         if (selectedModel === "gemini-1.0-pro" ||
-            (selectedModel === "gemini-1.5-flash" && currentUser.paidCredits < requiredCredits)) {
+            (selectedModel === "gemini-exp-1206" && currentUser.paidCredits < requiredCredits)) {
             const words = aiResponse.split(/\s+/);
             if (words.length > FREE_MODEL_MAX_RESPONSE) {
                 aiResponse = words.slice(0, FREE_MODEL_MAX_RESPONSE).join(" ") +
@@ -1517,7 +1517,7 @@ async function addFilesToParts(parts, files) {
 }
 
 async function validateCreditsAndModel(selectedModel, requiredCredits) {
-    if (selectedModel === "gemini-1.5-flash") {
+    if (selectedModel === "gemini-exp-1206") {
         if (currentUser.paidCredits >= requiredCredits) {
             showNotification("Utilisation de crédits payants pour Gemini 1.5 Flash.", "info");
             return true;
@@ -1542,7 +1542,7 @@ async function validateCreditsAndModel(selectedModel, requiredCredits) {
 async function processAndDisplayAIResponse(aiResponse, selectedModel, requiredCredits) {
     let aiMessageElement;
     if (selectedModel === "gemini-1.0-pro" || 
-        (selectedModel === "gemini-1.5-flash" && currentUser.paidCredits < requiredCredits)) {
+        (selectedModel === "gemini-exp-1206" && currentUser.paidCredits < requiredCredits)) {
         
         const words = aiResponse.split(/\s+/);
         if (words.length > FREE_MODEL_MAX_RESPONSE) {
@@ -1832,7 +1832,7 @@ function readFileAsBase64(file) {
 function hasEnoughCredits(model, fileCount) {
     const requiredCredits = fileCount > 0 ? fileCount : 1;
     
-    if (model === 'gemini-1.5-flash' || model === 'gemini-1.0-pro') {
+    if (model === 'gemini-exp-1206' || model === 'gemini-1.0-pro') {
         // Modèles gratuits
         return currentUser.freeCredits >= requiredCredits || currentUser.paidCredits >= requiredCredits || hasValidSubscription();
     } else {
@@ -1872,7 +1872,7 @@ async function updateCredits(model, requiredCredits) {
                 } else {
                     // Logique pour les modèles de texte
                     if (!hasValidSubscription()) {  // Seulement pour les non-abonnés
-                        if (model === 'gemini-1.5-flash') {
+                        if (model === 'gemini-exp-1206') {
                             // Utiliser d'abord les crédits payants
                             if (userData.paidCredits >= requiredCredits) {
                                 userData.paidCredits -= requiredCredits;
@@ -2774,7 +2774,7 @@ window.onload = async function() {
     // Mise à jour de la sélection du modèle par défaut
     const modelSelect = document.getElementById('modelSelect');
     if (!modelSelect.value) {
-        modelSelect.value = 'gemini-1.5-flash';
+        modelSelect.value = 'gemini-exp-1206';
     }
 
 };
@@ -3212,7 +3212,7 @@ async function resubmitRequest(aiMessageElement) {
     const selectedModel = document.getElementById('modelSelect').value;
 
     // Vérifier si l'utilisateur a assez de crédits pour une actualisation
-    if (!hasValidSubscription() && !currentUser.paidCredits && (selectedModel !== 'gemini-1.5-flash' && selectedModel !== 'gemini-1.0-pro' || !currentUser.freeCredits)) {
+    if (!hasValidSubscription() && !currentUser.paidCredits && (selectedModel !== 'gemini-exp-1206' && selectedModel !== 'gemini-1.0-pro' || !currentUser.freeCredits)) {
         showPaymentNotification('Crédits insuffisants pour actualiser la réponse.');
         return;
     }
