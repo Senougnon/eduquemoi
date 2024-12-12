@@ -72,7 +72,7 @@
 
             <select id="modelSelect" onchange="checkModelAccess()">
                 <optgroup label="Modèles gratuits">
-                    <option value="gemini-1.5-flash-002" selected>Gemini 1.5 Flash</option>
+                    <option value="gemini-exp-1206">Gemini Exp 1206</option>
                 </optgroup>
                 <optgroup label="Modèles avancés">
                     <option value="gemini-1.5-flash-002">Gemini 1.5 Flash</option>
@@ -148,8 +148,7 @@
                 <div class="input-container">
                     <textarea id="userInput" placeholder="Tapez votre message ici..." rows="1"></textarea>
                     <div class="input-actions">
-                        <input type="file" id="fileInput" class="file-input" accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileUpload(event)" multiple>
-                        <label for="fileInput" class="file-label"><i class="fas fa-paperclip"></i></label>
+                        <input type="file" id="fileInput" class="file-input" accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.mp3,.wav,.ogg,.flac,.aac,.m4a,.mp4,.mpeg,.mov,.avi,.flv,.mpg,.webm,.wmv,.3gp" onchange="handleFileUpload(event)" multiple>                        <label for="fileInput" class="file-label"><i class="fas fa-paperclip"></i></label>
                         <button id="promptListButton" onclick="togglePromptList()"><i class="fas fa-list"></i></button>
                         <button onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
                     </div>
