@@ -1353,7 +1353,7 @@ async function sendMessage() {
 
             let response;
             let attempts = 0;
-            const maxAttempts = 3;
+            const maxAttempts = 50;
 
             while (attempts < maxAttempts) {
                 try {
