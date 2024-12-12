@@ -2165,3 +2165,11 @@ button:hover {
     }
 }
 
+/* Styles pour les icônes des fichiers audio et vidéo */
+.pinned-item .icon[data-type="audio"] {
+    content: '🎵';
+}
+
+.pinned-item .icon[data-type="video"] {
+    content: '📹';
+}

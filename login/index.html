@@ -148,7 +148,8 @@
                 <div class="input-container">
                     <textarea id="userInput" placeholder="Tapez votre message ici..." rows="1"></textarea>
                     <div class="input-actions">
-                        <input type="file" id="fileInput" class="file-input" accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.mp3,.wav,.ogg,.flac,.aac,.m4a,.mp4,.mpeg,.mov,.avi,.flv,.mpg,.webm,.wmv,.3gp" onchange="handleFileUpload(event)" multiple>                        <label for="fileInput" class="file-label"><i class="fas fa-paperclip"></i></label>
+                        <input type="file" id="fileInput" class="file-input" accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileUpload(event)" multiple>
+                        <label for="fileInput" class="file-label"><i class="fas fa-paperclip"></i></label>
                         <button id="promptListButton" onclick="togglePromptList()"><i class="fas fa-list"></i></button>
                         <button onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
                     </div>
