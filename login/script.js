@@ -995,44 +995,37 @@ async function checkModelAccess() {
     }
 }
 
-// Fonction pour gérer l'importation de fichiers (docx, doc)
 async function handleFileUpload(event) {
     const files = event.target.files;
 
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
 
-        if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.type === 'application/msword') {
-
+        if (file.type.startsWith('image/') || file.type === 'application/pdf') {
+            // Gestion des fichiers image et PDF comme avant
+            pinnedFiles.push(file);
+        } else if (file.type.startsWith('audio/') || file.type.startsWith('video/')) {
+            // Gestion des fichiers audio et vidéo
+            pinnedFiles.push(file);
+        } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.type === 'application/msword') {
             try {
                 const textContent = await convertWordToText(file);
-                
+
                 // Ajouter le contenu texte aux fichiers épinglés
                 pinnedFiles.push({
-                    name: file.name.replace(/\.[^/.]+$/, "") + '.txt', // Remplace l'extension par .txt
+                    name: file.name.replace(/\.[^/.]+$/, "") + '.txt',
                     type: 'text/plain',
                     content: textContent
-                });
-                updatePinnedFiles();
-                
-                // Incrémenter le compteur de fichiers importés et mettre à jour la base de données
-                importedFilesCount++;
-                await db.ref('users/' + currentUser.username).update({
-                    importedFilesCount: importedFilesCount
                 });
 
             } catch (error) {
                 console.error('Erreur lors de la conversion du fichier Word :', error);
                 showNotification('Erreur lors de la conversion du fichier Word.', 'error');
             }
-        } else if (file.type.startsWith('image/') || file.type === 'application/pdf') {
-            // Gestion des fichiers image et PDF comme avant
-            pinnedFiles.push(file);
-            updatePinnedFiles();
         }
+        updatePinnedFiles();
     }
 }
-
 // Fonction pour convertir un fichier Word en texte
 function convertWordToText(file) {
     return new Promise((resolve, reject) => {
@@ -1090,7 +1083,15 @@ function createPinnedFilesElement(files) {
         } else {
             const iconElement = document.createElement('span');
             iconElement.className = 'file-icon';
-            iconElement.textContent = file.type.startsWith('application/pdf') ? '📄' : '📎';
+            if (file.type.startsWith('application/pdf')) {
+                iconElement.textContent = '📄';
+            } else if (file.type.startsWith('audio/')) {
+                iconElement.textContent = '🎵';
+            } else if (file.type.startsWith('video/')) {
+                iconElement.textContent = '🎬';
+            } else {
+                iconElement.textContent = '📎';
+            }
             fileElement.appendChild(iconElement);
         }
 
@@ -1177,7 +1178,6 @@ function createModelHeader(modelName) {
     `;
 }
 
-// Fonction sendMessage (modifiée)
 async function sendMessage() {
     // Vérification de la connexion utilisateur
     if (!currentUser) {
@@ -1342,7 +1342,7 @@ async function sendMessage() {
         let conversationContext = buildConversationContext();
 
         // Ajout des fichiers joints en utilisant pinnedFilesToSend (copie de pinnedFiles)
-        await addFilesToParts(parts, pinnedFilesToSend);
+        // await addFilesToParts(parts, pinnedFilesToSend); // Remplacer par la logique ci-dessous
 
         // Ajout des réponses épinglées en utilisant pinnedResponsesToSend (copie de pinnedResponses)
         pinnedResponsesToSend.forEach(response => {
@@ -1363,6 +1363,39 @@ async function sendMessage() {
 
         finalPrompt = conversationContext;
         parts.push({ text: finalPrompt });
+
+        // Ajout des fichiers joints en utilisant pinnedFilesToSend (copie de pinnedFiles)
+        for (const file of pinnedFilesToSend) {
+            if (file.type === 'text/plain') {
+                parts.push({ text: `Analyse ce fichier texte: ${file.content}` });
+            } else {
+                if (file.type.startsWith('audio/') || file.type.startsWith('video/')) {
+                    // Utiliser l'API File pour les fichiers audio et vidéo
+                    const fileManager = new GoogleAIFileManager(getNextApiKey());
+                    const uploadResult = await fileManager.uploadFile(file, {
+                        mimeType: file.type,
+                        displayName: file.name,
+                    });
+                    parts.push({
+                        fileData: {
+                            fileUri: uploadResult.file.uri,
+                            mimeType: file.type,
+                        },
+                    });
+                    parts.push({ text: `Analyse le fichier ${file.name} (${file.type}) que je viens de t'envoyer.` });
+                } else {
+                    // Gestion des images et PDF
+                    const fileData = await readFileAsBase64(file);
+                    parts.push({
+                        inlineData: {
+                            data: fileData,
+                            mimeType: file.type,
+                        },
+                    });
+                    parts.push({ text: `Analyse le fichier ${file.name} (${file.type}) que je viens de t'envoyer.` });
+                }
+            }
+        }
 
         // Obtention d'une clé API valide et initialisation du modèle
         let response;
@@ -1796,11 +1829,13 @@ function replyToMessage(messageElement) {
     userInput.setSelectionRange(userInput.value.length, userInput.value.length);
 }
 
-// Fonction pour lire un fichier en base64
 function readFileAsBase64(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onload = () => {
+            const base64String = reader.result.split(',')[1];
+            resolve(base64String);
+        };
         reader.onerror = reject;
         reader.readAsDataURL(file);
     });
@@ -3472,7 +3507,7 @@ window.onpopstate = function(event) {
 };
 
 // Modifier l'input de fichier pour accepter les fichiers docx et doc
-document.getElementById('fileInput').accept = '.pdf,.jpg,.jpeg,.png,.docx,.doc';
+document.getElementById('fileInput').accept = '.pdf,.jpg,.jpeg,.png,.docx,.doc,.mp3,.wav,.ogg,.flac,.aac,.m4a,.mp4,.mpeg,.mov,.avi,.flv,.mpg,.webm,.wmv,.3gp';
 
 // Appel de updateUI toutes les 5 minutes
 setInterval(updateUI, 300000);
