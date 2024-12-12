@@ -1353,7 +1353,7 @@ async function sendMessage() {
 
             let response;
             let attempts = 0;
-            const maxAttempts = 50;
+            const maxAttempts = 3;
 
             while (attempts < maxAttempts) {
                 try {
@@ -2270,8 +2270,18 @@ function toggleSidebar() {
 function saveConversation() {
     if (!currentUser) return;
     const conversationId = currentConversation.id || Date.now().toString();
-    conversations[conversationId] = currentConversation;
-    currentConversation.id = conversationId;
+
+    // Créer une copie de la conversation sans les fichiers audio et vidéo
+    const conversationToSave = currentConversation.map(message => {
+        if (message.sender === 'user' && message.files) {
+            const filteredFiles = message.files.filter(file => !file.type.startsWith('audio/') && !file.type.startsWith('video/'));
+            return { ...message, files: filteredFiles };
+        }
+        return message;
+    });
+
+    conversations[conversationId] = conversationToSave;
+    conversationToSave.id = conversationId; // Assurer que l'ID est conservé
     localStorage.setItem(`conversations_${currentUser.username}`, JSON.stringify(conversations));
     updateConversationHistory();
 }
