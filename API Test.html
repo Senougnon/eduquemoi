@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test de l'API Gemini avec Vision, PDF, Audio, Vidéo et Commande Vocale (Mise à jour v12)</title>
+    <script type="importmap">
+        {
+            "imports": {
+                "@google/generative-ai": "https://esm.run/@google/generative-ai@latest"
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        textarea, input[type="text"] {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        textarea {
+            height: 100px;
+        }
+        #response, #error {
+            white-space: pre-wrap;
+            padding: 10px;
+            margin-top: 20px;
+        }
+        #response {
+            background-color: #e6f3ff;
+        }
+        #error {
+            background-color: #ffe6e6;
+            display: none;
+        }
+        #imagePreview, #pdfPreview, #audioPreview, #videoPreview {
+            max-width: 100%;
+            margin-top: 10px;
+        }
+        #voiceCommandButton {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test de l'API Gemini avec Vision, PDF, Audio, Vidéo et Commande Vocale (Mise à jour v12)</h1>
+    <p>Entrez votre clé API Gemini :</p>
+    <input type="text" id="apiKey" placeholder="Votre clé API">
+    <p>Choisissez le modèle d'API :</p>
+    <input type="text" id="modelName" value="gemini-1.5-pro" placeholder="Nom du modèle">
+    <p>Téléchargez une image (optionnel) :</p>
+    <input type="file" id="imageUpload" accept="image/*">
+    <img id="imagePreview" style="display: none;">
+    <p>Téléchargez un PDF (optionnel) :</p>
+    <input type="file" id="pdfUpload" accept="application/pdf">
+    <div id="pdfPreview"></div>
+    <p>Téléchargez un fichier audio (optionnel) :</p>
+    <input type="file" id="audioUpload" accept="audio/*">
+    <audio id="audioPreview" controls style="display: none;"></audio>
+    <p>Téléchargez un fichier vidéo (optionnel) :</p>
+    <input type="file" id="videoUpload" accept="video/mp4,video/mpeg,video/mov,video/avi,video/x-flv,video/mpg,video/webm,video/wmv,video/3gpp">
+    <video id="videoPreview" controls style="display: none;"></video>
+    <p>Entrez votre prompt :</p>
+    <textarea id="prompt" placeholder="Écrivez votre prompt ici..."></textarea>
+    <br>
+    <button id="voiceCommandButton">Commande Vocale</button>
+    <br>
+    <button onclick="runGemini()">Générer</button>
+    <div id="response"></div>
+    <div id="error"></div>
+
+    <script type="module">
+        import { GoogleGenerativeAI } from "@google/generative-ai";
+
+        let selectedImage = null;
+        let selectedPdf = null;
+        let selectedAudio = null;
+        let videoFile = null;
+
+        document.getElementById('imageUpload').addEventListener('change', handleFileUpload);
+        document.getElementById('pdfUpload').addEventListener('change', handleFileUpload);
+        document.getElementById('audioUpload').addEventListener('change', handleFileUpload);
+        document.getElementById('videoUpload').addEventListener('change', handleVideoUpload);
+
+        // Ajout de la fonctionnalité de commande vocale
+        const voiceCommandButton = document.getElementById('voiceCommandButton');
+        const promptTextarea = document.getElementById('prompt');
+        let recognition;
+
+        if ('webkitSpeechRecognition' in window) {
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = false;
+            recognition.lang = 'fr-FR';
+
+            recognition.onresult = function(event) {
+                const transcript = event.results[0][0].transcript;
+                promptTextarea.value += transcript;
+            };
+
+            recognition.onerror = function(event) {
+                console.error('Erreur de reconnaissance vocale:', event.error);
+            };
+
+            voiceCommandButton.addEventListener('click', function() {
+                if (recognition.started) {
+                    recognition.stop();
+                    voiceCommandButton.textContent = 'Commande Vocale';
+                } else {
+                    recognition.start();
+                    voiceCommandButton.textContent = 'Arrêter l\'écoute';
+                }
+            });
+        } else {
+            voiceCommandButton.style.display = 'none';
+            console.log('La reconnaissance vocale n\'est pas supportée par ce navigateur.');
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            const fileType = event.target.id;
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    switch(fileType) {
+                        case 'imageUpload':
+                            document.getElementById('imagePreview').src = e.target.result;
+                            document.getElementById('imagePreview').style.display = 'block';
+                            selectedImage = e.target.result;
+                            break;
+                        case 'pdfUpload':
+                            selectedPdf = file;
+                            document.getElementById('pdfPreview').textContent = `PDF chargé : ${file.name}`;
+                            break;
+                        case 'audioUpload':
+                            document.getElementById('audioPreview').src = e.target.result;
+                            document.getElementById('audioPreview').style.display = 'block';
+                            selectedAudio = e.target.result;
+                            break;
+                    }
+                };
+                if (fileType === 'pdfUpload') {
+                    reader.readAsArrayBuffer(file);
+                } else {
+                    reader.readAsDataURL(file);
+                }
+            }
+        }
+
+        function handleVideoUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                document.getElementById('videoPreview').src = URL.createObjectURL(file);
+                document.getElementById('videoPreview').style.display = 'block';
+                videoFile = file;
+            }
+        }
+
+        window.runGemini = async function() {
+            const apiKey = document.getElementById('apiKey').value;
+            const modelName = document.getElementById('modelName').value;
+            const prompt = document.getElementById('prompt').value;
+            const responseElement = document.getElementById('response');
+            const errorElement = document.getElementById('error');
+
+            responseElement.textContent = "";
+            errorElement.style.display = "none";
+
+            if (!apiKey) {
+                showError("Veuillez entrer votre clé API Gemini.");
+                return;
+            }
+
+            if (!modelName) {
+                showError("Veuillez entrer un nom de modèle.");
+                return;
+            }
+
+            if (!prompt && !selectedImage && !selectedPdf && !selectedAudio && !videoFile) {
+                showError("Veuillez entrer un prompt ou sélectionner un fichier (image, PDF, audio ou vidéo).");
+                return;
+            }
+
+            responseElement.textContent = "Génération en cours...";
+
+            try {
+                const genAI = new GoogleGenerativeAI(apiKey);
+                const model = genAI.getGenerativeModel({ model: modelName });
+
+                const parts = [];
+
+                if (prompt) {
+                    parts.push({ text: prompt });
+                }
+
+                if (selectedImage) {
+                    parts.push({
+                        inlineData: {
+                            data: selectedImage.split(',')[1],
+                            mimeType: "image/jpeg"
+                        }
+                    });
+                }
+
+                if (selectedPdf) {
+                    const pdfData = await selectedPdf.arrayBuffer();
+                    const base64Pdf = btoa(new Uint8Array(pdfData).reduce((data, byte) => data + String.fromCharCode(byte), ''));
+                    parts.push({
+                        inlineData: {
+                            data: base64Pdf,
+                            mimeType: "application/pdf"
+                        }
+                    });
+                }
+
+                if (selectedAudio) {
+                    parts.push({
+                        inlineData: {
+                            data: selectedAudio.split(',')[1],
+                            mimeType: "audio/mpeg"
+                        }
+                    });
+                }
+
+                if (videoFile) {
+                    const videoData = await videoFile.arrayBuffer();
+                    const base64Video = btoa(new Uint8Array(videoData).reduce((data, byte) => data + String.fromCharCode(byte), ''));
+                    parts.push({
+                        inlineData: {
+                            data: base64Video,
+                            mimeType: videoFile.type
+                        }
+                    });
+                }
+
+                const result = await model.generateContent(parts);
+                const response = await result.response;
+                const text = response.text();
+
+                responseElement.textContent = text;
+            } catch (error) {
+                showError(`Erreur : ${error.message}`);
+                console.error("Détails de l'erreur:", error);
+            }
+        };
+
+        function showError(message) {
+            const errorElement = document.getElementById('error');
+            errorElement.textContent = message;
+            errorElement.style.display = "block";
+        }
+    </script>
+</body>
+</html>
