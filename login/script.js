@@ -3155,7 +3155,8 @@ function addMessageToChat(sender, message, pinnedFiles = [], pinnedResponses = [
             messageElement.appendChild(createPinnedPromptElement(pinnedPrompt));
         }
 
-        const textElement = document.createElement('div');
+        // ** Création d'un élément <p> pour le texte du message utilisateur **
+        const textElement = document.createElement('p');
         textElement.textContent = message;
         messageElement.appendChild(textElement);
 
