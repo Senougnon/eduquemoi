@@ -1251,6 +1251,14 @@ button {
         display: none;
     }
 
+    /* FIX: Alignement horizontal des actions dans le header mobile */
+    .header-actions-mobile {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 10px; 
+    }
+
     /* 2. Header Mobile Fixe */
     .mobile-header {
         display: flex;
@@ -1321,22 +1329,32 @@ button {
         background: transparent;
     }
 
-    /* 4. Main Content */
+    /* 4. Main Content (FIX: Assurer un bon flex flow) */
     .main-content {
         padding-top: 60px; /* Espace pour le header mobile */
         padding-bottom: 60px; /* Espace pour la barre du bas */
         height: 100%;
         overflow: hidden;
+        display: flex; /* Assurer que c'est une colonne flex */
+        flex-direction: column;
     }
 
+    /* FIX: Défilement de la zone de chat */
     .chat-area {
+        flex-grow: 1; /* Prend l'espace maximal */
         padding: 12px;
-        height: 100%;
+        overflow-y: auto; /* Permet le défilement */
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 120px; /* Espace pour éviter que le composer n'obstrue le dernier message */
     }
     
-    .message {
-        max-width: 95%;
-        font-size: 0.9rem;
+    /* FIX: Ajustement du message de bienvenue */
+    .welcome-message {
+        text-align: center;
+        margin: auto; /* Centrage vertical et horizontal */
+        max-width: 100%;
+        padding: 20px 10px; /* Réduire le padding */
+        box-sizing: border-box;
     }
     
     .welcome-message h1 {
@@ -1344,7 +1362,18 @@ button {
     }
     
     .quick-start {
-        display: none; /* Simplifier l'interface mobile */
+        margin-top: 20px;
+        display: block; /* S'assurer qu'il est visible s'il n'est pas caché ailleurs */
+    }
+    
+    .quick-start > div {
+        flex-wrap: wrap; /* Assurer que les boutons s'ajustent */
+    }
+    
+    /* Les capacités sont déjà configurées avec flex-wrap dans le CSS général, mais on s'assure de l'ajustement */
+    .capabilities span {
+        font-size: 0.75rem;
+        padding: 6px 10px;
     }
 
 
