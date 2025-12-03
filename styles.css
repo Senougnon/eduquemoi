@@ -1259,6 +1259,8 @@ button {
         gap: 10px; 
     }
 
+
+
     /* 2. Header Mobile Fixe */
     .mobile-header {
         display: flex;
@@ -1473,7 +1475,23 @@ button {
         margin-bottom: 0;
     }
 }
+/* --- DANS LA SECTION MOBILE (max-width: 768px) --- */
+    
+    /* Force les actions à être toujours visibles sur mobile */
+    .message-actions {
+        opacity: 1 !important;
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px dashed var(--border);
+        display: flex;
+        gap: 12px;
+    }
 
+    /* Agrandir un peu les zones de clic sur mobile */
+    .message-actions button {
+        padding: 8px 12px; 
+        background: rgba(0,0,0,0.03); /* Fond léger pour les distinguer */
+    }
 /* ============================================================================
    RESPONSIVE PETIT MOBILE
    ============================================================================ */
