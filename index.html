@@ -4,229 +4,496 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="light dark">
-    <title>Eduque moi</title>
+    <meta name="description" content="Eduque Moi Studio - Plateforme IA multimodale pour l'éducation et la créativité">
+    <meta name="theme-color" content="#4f46e5">
+    <title>Eduque Moi - Studio AI</title>
+    
+    <!-- Styles -->
     <link rel="stylesheet" href="styles.css">
-     <!-- ... autres balises head ... -->
-     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shepherd.js@10.0.1/dist/css/shepherd.css"/>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shepherd.js@10.0.1/dist/css/shepherd.css"/>
+
+    <!-- Scripts Externes -->
     <script src="https://cdn.jsdelivr.net/npm/shepherd.js@10.0.1/dist/js/shepherd.min.js"></script>
     <script src="https://cdn.fedapay.com/checkout.js?v=1.1.7"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.worker.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.29.0/docxtemplater.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PizZip/3.0.6/pizzip.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.0/mammoth.browser.min.js"></script>
+
+    <!-- Gemini SDK -->
     <script type="importmap">
-        {
-            "imports": {
-                "@google/generative-ai": "https://esm.run/@google/generative-ai@latest"
-            }
-        }
+        { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai@latest" } }
     </script>
     <script type="module">
         import { GoogleGenerativeAI } from "@google/generative-ai";
         window.GoogleGenerativeAI = GoogleGenerativeAI;
+        console.log("✅ Gemini SDK chargé");
     </script>
-        <script>
-            const RECRAFT_API_KEY = 'aJE0agNtftcETLBX5EBJhoy2CKvMVfA7SSr6bqsAydjrWl7imvzLHG7E90jp7Rjs';
-            </script>
-        <link rel="icon" href="logo.png" type="image/jpg">
 </head>
 <body>
-    <div class="header">
-        <div class="logo-container">
-            <button class="toggle-sidebar" onclick="toggleSidebar()">
+
+    <div class="app-container">
+        
+        <!-- HEADER MOBILE (Visible uniquement sur mobile) -->
+        <div class="mobile-header">
+            <button class="btn-icon" onclick="toggleMobileSidebar()" title="Ouvrir le menu">
                 <i class="fas fa-bars"></i>
             </button>
-            <div class="logo">Eduque moi</div>
-        </div>
-        <div class="auth-buttons">
-            <button id="loginBtn" onclick="showLoginModal()">Se connecter</button>
-            <button id="registerBtn" onclick="showRegisterModal()">S'inscrire</button>
-            <button id="logoutBtn" onclick="logout()" class="hidden">Se déconnecter</button>
-            <button class="theme-toggle" onclick="toggleTheme()">
-                <i class="fas fa-moon"></i>
-            </button>
-        </div>
-    </div>
-
-    <div class="main-container">
-        <div class="sidebar">
-            <div id="userInfo" class="user-info-card">
-                <h3>Informations utilisateur</h3>
-                <div class="user-details">
-                    <p><i class="fas fa-user"></i> <span id="username">Utilisateur</span></p>
-                    <p><i class="fas fa-coins"></i> Crédits offerts: <span id="freeCredits">0</span></p>
-                    <p><i class="fas fa-dollar-sign"></i> Crédits payants: <span id="paidCredits">0</span></p>
-                    <p><i class="fas fa-calendar-alt"></i> Forfait: <span id="subscription">Aucun</span></p>
-                </div>
-            </div>
-
-            <h3>Modèles</h3>
-
-            <select id="modelSelect" onchange="checkModelAccess()">
-                <optgroup label="Modèles gratuits">
-                    <option value="gemini-2.5-flash-preview-05-20">Gemini 2.5 Flash</option>
-                </optgroup>
-                <optgroup label="Modèles avancés">
-                    
-                    <option value="gemini-2.5-flash-preview-05-20">Gemini 2.5 Flash</option>
-                    
-                   <option value="gemini-2.0-flash-lite-preview-02-05">Gemini 2.0 Flash Lite</option>
-
-                 <option value="gemini-2.5-pro-preview-05-06">Gemini 2.5 Pro</option>
-
-                </optgroup>
- <!--               <optgroup label="Modèles de génération d'image">
-                    <option value="recraft-realistic">Image Réaliste</option>
-                    <option value="recraft-digital">Illustration Digitale</option>
-                    <option value="recraft-vector">Illustration Vectorielle</option>
-                </optgroup>-->
-            <!--    <optgroup label="Modèles beta">
-                   <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash Exp</option>
-                    <option value="gemini-2.0-flash-thinking-exp-01-21">Gemini 2.0 Flash Thinking Exp</option>
-
-                </optgroup>-->
-            </select>
-        
-            <!-- Ajouter un sélecteur de taille d'image (initialement caché) 
-            <select id="imageSizeSelect" style="display: none;">
-                <option value="1024x1024">1024x1024</option>
-                <option value="1365x1024">1365x1024</option>
-                <option value="1024x1365">1024x1365</option>
-            </select>-->
-
-            <h3>Forfaits illimités</h3>
-            <select id="subscriptionSelect">
-                <option value="24h" selected>24 heures [500F]</option>
-                <option value="3d">3 jours [1200F]</option>
-                <option value="7d">7 jours [2400F]</option>
-                <option value="30d">30 jours [8000F]</option>
-                <option value="3m">3 mois [20000F]</option>
-            </select>
-            <button onclick="buySubscription()">Acheter le forfait</button>
-        
-            <h3>Acheter des crédits</h3>
-            <select id="creditSelect">
-                <option value="10" selected>10 crédits [200F]</option>
-                <option value="100">100 crédits [1000F]</option>
-                <option value="500">500 crédits [4500F]</option>
-                <option value="1000">1000 crédits [8000F]</option>
-            </select>
-            <button onclick="buyCredits()">Acheter des crédits</button>
-    <!-- Ajout du bouton Bibliothèque -->
-    <button id="libraryBtn" class="full-width-button" onclick="openLibrary()">
-        <i class="fas fa-book"></i> Bibliothèque
-    </button>
-            <button id="referralBtn" class="full-width-button" onclick="showReferralModal()">
-                <i class="fas fa-user-plus"></i> Récompense
-            </button>
-
-            <div id="conversationHistory">
-                <h3>Historique des conversations</h3>
-                <button id="newConversationBtn" class="full-width-button" onclick="createNewConversation()">
-                    <i class="fas fa-plus"></i> Nouvelle discussion
+            <div class="logo">Eduque Moi</div>
+            <div class="header-actions-mobile">
+                <button class="btn-icon" onclick="toggleTheme()" title="Thème">
+                    <i class="fas fa-moon"></i>
                 </button>
-                <div id="historyList">
-                    <!-- Les conversations seront ajoutées ici dynamiquement -->
-                </div>
+                <button class="btn-icon" onclick="newConversation()" title="Nouvelle conversation">
+                    <i class="fas fa-plus"></i>
+                </button>
             </div>
         </div>
 
-        <div class="chat-container">
-            <div id="messageContainer" class="message-container"></div>
-            <div id="fileSupport" class="file-support hidden">
-                <div id="pinnedFile" class="pinned-file"></div>
-                <div id="fileContent" class="file-content"></div>
-                <div id="ocrResult" class="ocr-result hidden"></div>
+        <!-- SIDEBAR DE CONFIGURATION (Devient un tiroir sur mobile) -->
+        <aside class="sidebar" id="appSidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-graduation-cap"></i> Studio
+                </div>
+                <div class="header-actions desktop-only">
+                    <button class="btn-icon" onclick="newConversation()" title="Nouvelle conversation">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                    <button class="btn-icon" onclick="toggleTheme()" title="Changer de thème">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                </div>
+                <!-- Bouton fermer pour mobile -->
+                <button class="btn-icon close-sidebar-btn" onclick="toggleMobileSidebar()" title="Fermer le menu">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
-            <div class="input-area">
-                <div id="pinnedItems" class="pinned-items"></div>
-                <div class="input-container">
-                    <textarea id="userInput" placeholder="Tapez votre message ici..." rows="1"></textarea>
-                    <div class="input-actions">
-                        <input type="file" id="fileInput" class="file-input" accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileUpload(event)" multiple>
-                        <label for="fileInput" class="file-label"><i class="fas fa-paperclip"></i></label>
-                        <button id="promptListButton" onclick="togglePromptList()"><i class="fas fa-list"></i></button>
-                        <button onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+
+            <div class="sidebar-scroll">
+                <!-- User Info Panel -->
+                <div id="userInfoPanel" class="config-panel hidden">
+                    <div class="user-badge">
+                        <i class="fas fa-user-circle"></i>
+                        <span id="usernameDisplay">Invité</span>
+                    </div>
+                    <div class="credits-display">
+                        <div class="credit-pill">
+                            <small>Gratuit</small>
+                            <span id="freeCredits">0</span>
+                        </div>
+                        <div class="credit-pill premium">
+                            <small>Payant</small>
+                            <span id="paidCredits">0</span>
+                        </div>
+                    </div>
+                    <div class="sub-status" id="subscription">Aucun abonnement</div>
+                    <button onclick="logout()" class="btn-full danger" style="margin-top: 10px;">
+                        <i class="fas fa-sign-out-alt"></i> Déconnexion
+                    </button>
+                </div>
+
+                <div id="authButtons" class="config-panel">
+                    <p style="text-align: center; margin-bottom: 10px; color: var(--text-muted);">
+                        Connectez-vous pour commencer
+                    </p>
+                    <button onclick="showLoginModal()" class="btn-full primary">
+                        <i class="fas fa-sign-in-alt"></i> Connexion
+                    </button>
+                    <button onclick="showRegisterModal()" class="btn-full secondary" style="margin-top: 8px;">
+                        <i class="fas fa-user-plus"></i> Inscription
+                    </button>
+                </div>
+
+                <hr class="divider">
+
+                <!-- NAVIGATION MODES (Visible sur Desktop UNIQUEMENT) -->
+                <div class="nav-grid desktop-only">
+                    <div class="nav-item active" onclick="switchMode('chat')" data-mode="chat">
+                        <i class="fas fa-comment-dots"></i> Chat
+                    </div>
+                    <div class="nav-item" onclick="switchMode('image')" data-mode="image">
+                        <i class="fas fa-image"></i> Image
+                    </div>
+                    <div class="nav-item" onclick="switchMode('video')" data-mode="video">
+                        <i class="fas fa-video"></i> Vidéo
+                    </div>
+                    <div class="nav-item" onclick="switchMode('audio')" data-mode="audio">
+                        <i class="fas fa-music"></i> Audio
+                    </div>
+                </div>
+
+                <hr class="divider">
+
+                <!-- CONFIGURATION DYNAMIQUE -->
+                <div id="config-section">
+                    
+                    <!-- Config Global: API Key -->
+                    <div class="control-group">
+                        <label><i class="fas fa-key"></i> Clé API (Optionnel)</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-lock"></i>
+                            <input type="password" id="manualApiKey" placeholder="Votre clé API personnelle...">
+                        </div>
+                        <small style="color: var(--text-muted);">Laissez vide pour utiliser la clé système</small>
+                    </div>
+
+                    <!-- Config Chat -->
+                    <div id="cfg-chat" class="mode-config">
+                        <div class="control-group">
+                            <label><i class="fas fa-brain"></i> Modèle de raisonnement</label>
+                            <select id="chat-model">
+                                <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash (Rapide)</option>
+                                <option value="gemini-2.5-pro">Gemini 2.5 Pro (Avancé)</option>
+                                <option value="gemini-3-pro-preview">Gemini 3 Pro (Premium)</option>
+                            </select>
+                        </div>
+                        <div class="model-info">
+                            <small>
+                                <i class="fas fa-info-circle"></i> 
+                                Flash: réponses rapides • Pro: raisonnement complexe • 3 Pro: dernière génération
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Config Image -->
+                    <div id="cfg-image" class="mode-config hidden">
+                        <div class="control-group">
+                            <label><i class="fas fa-robot"></i> Modèle Image</label>
+                            <select id="img-model">
+                                <option value="gemini-2.5-flash-image" selected>Gemini 2.5 Flash Image</option>
+                                <option value="gemini-3-pro-image-preview">Gemini 3 Pro Image</option>
+                                <option value="imagen-4.0-generate-001">Imagen 4.0</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label><i class="fas fa-crop-alt"></i> Format d'image</label>
+                            <select id="img-ratio">
+                                <option value="1:1">Carré (1:1)</option>
+                                <option value="16:9">Paysage (16:9)</option>
+                                <option value="9:16">Portrait (9:16)</option>
+                                <option value="4:3">Standard (4:3)</option>
+                                <option value="3:4">Portrait Standard (3:4)</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label><i class="fas fa-palette"></i> Style artistique</label>
+                            <select id="img-style">
+                                <option value="" disabled selected>Choisir un style (Optionnel)</option>
+                                <option value="photorealistic">Photoréaliste</option>
+                                <option value="illustration">Illustration</option>
+                                <option value="anime">Anime / Manga</option>
+                                <option value="digital-art">Art Digital</option>
+                            </select>
+                        </div>
+                        <div class="model-info">
+                            <small>
+                                <i class="fas fa-magic"></i> 
+                                Gemini 2.5/3: génération conversationnelle • Imagen: haute fidélité
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Config Video -->
+                    <div id="cfg-video" class="mode-config hidden">
+                        <div class="control-group">
+                            <label><i class="fas fa-film"></i> Modèle Vidéo</label>
+                            <select id="veo-model">
+                                <option value="veo-3.1-generate-preview" selected>Veo 3.1 (Recommandé)</option>
+                                <option value="veo-3.1-fast-generate-preview">Veo 3.1 Fast</option>
+                                <option value="veo-3.0-generate-preview">Veo 3.0</option>
+                            </select>
+                        </div>
+                        <div class="row-inputs">
+                            <div class="control-group">
+                                <label><i class="fas fa-clock"></i> Durée</label>
+                                <select id="veo-duration">
+                                    <option value="4">4 secondes</option>
+                                    <option value="6">6 secondes</option>
+                                    <option value="8" selected>8 secondes</option>
+                                </select>
+                            </div>
+                            <div class="control-group">
+                                <label><i class="fas fa-expand"></i> Qualité</label>
+                                <select id="veo-res">
+                                    <option value="720p" selected>720p HD</option>
+                                    <option value="1080p">1080p Full HD</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="model-info">
+                            <small>
+                                <i class="fas fa-video"></i> 
+                                Veo 3.1 génère des vidéos 8s avec audio natif et réalisme amélioré
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Config Audio -->
+                    <div id="cfg-audio" class="mode-config hidden">
+                        <div class="control-group">
+                            <label><i class="fas fa-robot"></i> Modèle TTS</label>
+                            <select id="tts-model">
+                                <option value="gemini-2.5-flash-preview-tts" selected>Gemini 2.5 Flash TTS</option>
+                                <option value="gemini-2.5-pro-preview-tts">Gemini 2.5 Pro TTS</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label><i class="fas fa-microphone"></i> Voix de synthèse</label>
+                            <select id="tts-voice">
+                                <option value="Puck">🧑 Puck (Homme Neutre)</option>
+                                <option value="Charon">🧔 Charon (Homme Grave)</option>
+                                <option value="Aoede" selected>👩 Aoede (Femme Douce)</option>
+                                <option value="Kore">💃 Kore (Femme Dynamique)</option>
+                                <option value="Fenrir">🐺 Fenrir (Homme Puissant)</option>
+                                <option value="Leda">🌸 Leda (Femme Calme)</option>
+                                <option value="Orus">🎭 Orus (Homme Expressif)</option>
+                                <option value="Zephyr">🌬️ Zephyr (Non-binaire)</option>
+                            </select>
+                        </div>
+                        <div class="model-info">
+                            <small>
+                                <i class="fas fa-volume-up"></i> 
+                                TTS natif Gemini avec voix naturelles multilingues (30+ voix)
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="divider">
+
+                <!-- SHOP & EXTRAS -->
+                <div class="extras-panel">
+                    <button class="btn-outline w-100" onclick="toggleShop()">
+                        <i class="fas fa-shopping-cart"></i> Boutique / Crédits
+                    </button>
+                    <button class="btn-outline w-100" onclick="showReferralModal()" style="margin-top: 8px;">
+                        <i class="fas fa-gift"></i> Parrainage (+5 crédits)
+                    </button>
+                    <button class="btn-outline w-100" onclick="openLibrary()" style="margin-top: 8px;">
+                        <i class="fas fa-book"></i> Ma Bibliothèque
+                    </button>
+                </div>
+                
+<!-- Shop Panel dans le Sidebar -->
+<div id="shopPanel" class="shop-panel hidden">
+    <h5><i class="fas fa-crown"></i> Abonnements (Quota/Jour)</h5>
+    <select id="subscriptionSelect" class="shop-select">
+        <option value="24h">Pass 24h (50 Crédits/j) - 500 FCFA</option>
+        <option value="30d">Mensuel (35 Crédits/j) - 8000 FCFA</option>
+    </select>
+    <button onclick="buySubscription()" class="btn-full primary" style="margin-top: 8px;">
+        <i class="fas fa-check"></i> S'abonner
+    </button>
+    
+    <h5 style="margin-top: 15px;"><i class="fas fa-coins"></i> Recharge Crédits (Stock)</h5>
+    <select id="creditSelect" class="shop-select">
+        <option value="pack_eco">Découverte (20 Crédits) - 300 FCFA</option>
+        <option value="pack_std">Standard (100 Crédits) - 1000 FCFA</option>
+        <option value="pack_pro">Créateur (500 Crédits) - 4500 FCFA</option>
+    </select>
+    <button onclick="buyCredits()" class="btn-full secondary" style="margin-top: 8px;">
+        <i class="fas fa-plus"></i> Acheter Stock
+    </button>
+</div>
+                
+                <!-- HISTORIQUE -->
+                <div id="historyList" class="history-list">
+                    <!-- Historique généré dynamiquement -->
+                </div>
+            </div>
+        </aside>
+
+        <!-- OVERLAY POUR LE TIROIR MOBILE -->
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleMobileSidebar()"></div>
+
+        <!-- MAIN CHAT AREA -->
+        <main class="main-content">
+            <div id="messageContainer" class="chat-area">
+                <div class="welcome-message">
+                    <div class="welcome-icon">
+                        <i class="fas fa-graduation-cap"></i>
+                    </div>
+                    <h1>Bienvenue sur Eduque Moi Studio</h1>
+                    <p>Votre assistant IA multimodal pour l'éducation et la créativité</p>
+                    <div class="capabilities">
+                        <span><i class="fas fa-brain"></i> Raisonnement avancé</span>
+                        <span><i class="fas fa-image"></i> Génération d'images</span>
+                        <span><i class="fas fa-video"></i> Création vidéo Veo 3</span>
+                        <span><i class="fas fa-file-alt"></i> Analyse de documents</span>
+                    </div>
+                    <div class="quick-start" style="margin-top: 20px;">
+                        <p style="color: var(--text-muted); margin-bottom: 10px;">Essayez :</p>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
+                            <button class="btn-outline" onclick="document.getElementById('userInput').value='Explique-moi la relativité comme si j avais 10 ans'; sendMessage();">
+                                💡 Expliquer un concept
+                            </button>
+                            <button class="btn-outline" onclick="switchMode('image'); document.getElementById('userInput').value='Un paysage fantastique avec des montagnes flottantes'; document.getElementById('userInput').focus();">
+                                🎨 Créer une image
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>    
-    </div>
 
-    <div id="promptListModal" class="modal">
-        <div class="modal-content prompt-modal">
-            <span class="close" onclick="closePromptModal()">×</span>
-            <h2>Sélectionnez un Prompt</h2>
-            <div class="prompt-container">
-                <div class="prompt-categories">
-                    <h3>Catégories</h3>
-                    <ul id="promptCategories"></ul>
+            <!-- INPUT AREA -->
+            <div class="composer-area">
+                <!-- Zone de fichiers épinglés -->
+                <div id="pinnedFilesArea" class="pinned-files hidden"></div>
+                
+                <div class="input-bar">
+                    <input type="file" id="fileInput" hidden multiple accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt" onchange="handleFileUpload(event)">
+                    <button class="btn-icon" onclick="document.getElementById('fileInput').click()" title="Joindre un fichier (PDF, images, etc.)">
+                        <i class="fas fa-paperclip"></i>
+                    </button>
+                    
+                    <textarea id="userInput" placeholder="Posez une question, analysez un document..." rows="1"></textarea>
+                    
+                    <button class="btn-icon" onclick="togglePromptList()" title="Bibliothèque de prompts">
+                        <i class="fas fa-magic"></i>
+                    </button>
+                    
+                    <button id="sendBtn" class="btn-send" onclick="sendMessage()">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
                 </div>
-                <div class="prompt-list">
-                    <h3>Prompts</h3>
-                    <ul id="promptList"></ul>
+                <!-- Footer infos affichées sur Desktop, masquées sur Mobile -->
+                <div class="footer-info desktop-only">
+                    <span id="modelIndicator">Gemini 2.5 Flash</span> • <span id="tokenCount">0 tokens</span>
                 </div>
             </div>
-        </div>
+        </main>
+        
+        <!-- BARRE DE NAVIGATION DU BAS (App-like, visible sur mobile) -->
+        <nav class="mobile-bottom-nav">
+            <a href="#" class="nav-item-mobile active" onclick="switchMode('chat')" data-mode="chat" title="Chat">
+                <i class="fas fa-comment-dots"></i>
+                <span>Chat</span>
+            </a>
+            <a href="#" class="nav-item-mobile" onclick="switchMode('image')" data-mode="image" title="Image">
+                <i class="fas fa-image"></i>
+                <span>Image</span>
+            </a>
+            <a href="#" class="nav-item-mobile" onclick="switchMode('video')" data-mode="video" title="Vidéo">
+                <i class="fas fa-video"></i>
+                <span>Vidéo</span>
+            </a>
+            <a href="#" class="nav-item-mobile" onclick="switchMode('audio')" data-mode="audio" title="Audio">
+                <i class="fas fa-music"></i>
+                <span>Audio</span>
+            </a>
+            <!-- Indicateur de crédits déplacé ici pour le mobile -->
+            <div class="footer-credits nav-item-mobile" style="cursor: pointer;" onclick="toggleShop()" title="Crédits restants">
+                <i class="fas fa-coins"></i>
+                <span id="footerCredits">0</span>
+                <span style="font-size: 0.6em; display: block; margin-top: -2px;">Crédits</span>
+            </div>
+        </nav>
     </div>
 
+    <!-- MODALES (Laissées inchangées pour leur contenu) -->
+    
+    <!-- Login Modal -->
     <div id="loginModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeModal('loginModal')">×</span>
-            <h2>Connexion</h2>
-            <input type="text" id="loginUsername" placeholder="Nom d'utilisateur">
-            <input type="password" id="loginPassword" placeholder="Mot de passe">
-            <button onclick="login()">Se connecter</button>
+            <span class="close" onclick="closeModal('loginModal')">&times;</span>
+            <h2><i class="fas fa-sign-in-alt"></i> Connexion</h2>
+            <div class="control-group">
+                <label>Nom d'utilisateur</label>
+                <input type="text" id="loginUsername" placeholder="Votre nom d'utilisateur">
+            </div>
+            <div class="control-group">
+                <label>Mot de passe</label>
+                <input type="password" id="loginPassword" placeholder="Votre mot de passe">
+            </div>
+            <button class="btn-full primary" onclick="login()">
+                <i class="fas fa-check"></i> Se connecter
+            </button>
+            <p style="text-align: center; margin-top: 15px; color: var(--text-muted);">
+                Pas encore de compte ? 
+                <a href="#" onclick="closeModal('loginModal'); showRegisterModal();" style="color: var(--primary);">
+                    Inscrivez-vous
+                </a>
+            </p>
         </div>
     </div>
 
+    <!-- Register Modal -->
     <div id="registerModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeModal('registerModal')">×</span>
-            <h2>Inscription</h2>
-            <input type="text" id="registerUsername" placeholder="Nom d'utilisateur">
-            <input type="password" id="registerPassword" placeholder="Mot de passe">
-            <button onclick="register()">S'inscrire</button>
+            <span class="close" onclick="closeModal('registerModal')">&times;</span>
+            <h2><i class="fas fa-user-plus"></i> Inscription</h2>
+            <div class="control-group">
+                <label>Nom d'utilisateur</label>
+                <input type="text" id="registerUsername" placeholder="Choisissez un nom d'utilisateur">
+            </div>
+            <div class="control-group">
+                <label>Mot de passe</label>
+                <input type="password" id="registerPassword" placeholder="Choisissez un mot de passe">
+            </div>
+            <button class="btn-full secondary" onclick="register()">
+                <i class="fas fa-user-plus"></i> Créer mon compte
+            </button>
+            <p style="text-align: center; margin-top: 10px; color: var(--secondary);">
+                <i class="fas fa-gift"></i> 10 crédits offerts à l'inscription !
+            </p>
         </div>
     </div>
 
-    <div id="referralModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('referralModal')">×</span>
-            <h2>Programme de Récompense Eduque moi</h2>
-            
-            <div class="referral-info">
-                <p>Invitez vos amis et gagnez des récompenses !</p>
-                <ul>
-                    <li><strong>Votre récompense :</strong> 10 crédits gratuits pour chaque ami(e) qui effectue son premier achat</li>
-                    <li><strong>Condition :</strong> La récompense vous est accordée après le premier achat de votre ami(e) (abonnement ou crédits)</li>
-                    <li><strong>Pour votre ami(e) :</strong> 3 crédits offerts dès l'inscription</li>
-                </ul>
-                <p>Partagez votre lien unique et commencez à gagner des crédits dès maintenant !</p>
+    <!-- Prompt Library Modal -->
+    <div id="promptListModal" class="modal">
+        <div class="modal-content large-modal">
+            <span class="close" onclick="closeModal('promptListModal')">&times;</span>
+            <h2><i class="fas fa-magic"></i> Bibliothèque de Prompts</h2>
+            <p style="color: var(--text-muted); margin-bottom: 15px;">
+                Sélectionnez un prompt prédéfini pour commencer rapidement
+            </p>
+            <div class="prompt-grid">
+                <ul id="promptCategories" class="category-list"></ul>
+                <ul id="promptList" class="prompt-items-list"></ul>
             </div>
-    
-            <input type="text" id="referralLink" readonly>
-            <div class="share-buttons">
-                <button onclick="copyReferralLink()" class="copy-share" title="Copier le lien"><i class="fas fa-copy"></i></button>
-                <button onclick="shareOnFacebook()" class="fb-share"><i class="fab fa-facebook-f"></i></button>
-                <button onclick="shareOnTwitter()" class="twitter-share"><i class="fab fa-twitter"></i></button>
-                <button onclick="shareOnLinkedIn()" class="linkedin-share"><i class="fab fa-linkedin-in"></i></button>
-                <button onclick="shareOnWhatsApp()" class="whatsapp-share"><i class="fab fa-whatsapp"></i></button>
-            </div>
-            <h3>Vos statistiques</h3>
-            <p>Total de parrainages : <span id="totalReferrals">0</span></p>
-            <p>Parrainages actifs : <span id="activeReferrals">0</span></p>
         </div>
     </div>
+
+    <!-- Referral Modal -->
+    <div id="referralModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('referralModal')">&times;</span>
+            <h2><i class="fas fa-gift"></i> Programme de Parrainage</h2>
+            <p style="color: var(--text-muted); margin-bottom: 15px;">
+                Invitez vos amis et gagnez <strong style="color: var(--secondary);">5 crédits</strong> par inscription !
+            </p>
+            
+            <div class="control-group">
+                <label>Votre lien de parrainage</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="referralLink" readonly style="flex: 1;">
+                    <button class="btn-icon primary" onclick="copyReferralLink()" title="Copier">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="stats-ref" style="margin-top: 20px; padding: 15px; background: var(--bg-panel); border-radius: 8px; text-align: center;">
+                <div style="font-size: 2rem; color: var(--primary);">
+                    <span id="totalReferrals">0</span>
+                </div>
+                <small style="color: var(--text-muted);">Personnes parrainées</small>
+            </div>
+            
+            <div style="margin-top: 15px; padding: 10px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; border: 1px solid var(--secondary);">
+                <small style="color: var(--secondary);">
+                    <i class="fas fa-info-circle"></i> 
+                    Vos filleuls reçoivent aussi <strong>5 crédits bonus</strong> !
+                </small>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Library Modal (Assurez-vous qu'elle existe dans le DOM même si elle est créée dynamiquement) -->
+    <!-- Une simple div suffit pour que JS la trouve: -->
+    <div id="libraryModal" class="modal"></div>
 
     <script src="script.js"></script>
 </body>
